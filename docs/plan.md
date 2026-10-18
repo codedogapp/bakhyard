@@ -4,7 +4,7 @@ Version 1.3, 2026-10-18. Replaces v1.2: the first attempt was archived and the b
 
 Bakhyard is a self-hosted dashboard for one person. It runs on an always-on home Mac and brings together Obsidian notes, work (Jira todos, Bitbucket pull requests, Tempo hours, reviewer nudges), GitHub, games and a Copilot planner, used from a MacBook and an iPhone. The name is Bakh + backyard: personal, and it lives at home.
 
-This document is the source of truth for scope and the work breakdown. How we work (rules, agent pipeline, quality gates) is canonical in [AGENTS.md](../AGENTS.md). Update the status markers as work lands.
+This document is the source of truth for scope and the work breakdown. How we work (rules, pipeline, quality gates) is canonical in [AGENTS.md](../AGENTS.md). Update the status markers as work lands.
 
 **Contents**
 
@@ -25,24 +25,24 @@ This document is the source of truth for scope and the work breakdown. How we wo
 
 ## 0. Status
 
-**Restarted** on 2026-10-18. The first attempt was written in large batches by background agents and failed the clean-code bar: god packages, long files mixing unrelated concerns, and infrastructure built before anything needed it. It was archived outside the repo. The build restarts in small steps, each going through the agent pipeline in [AGENTS.md](../AGENTS.md) and a PR the user reviews.
+**Restarted** on 2026-10-18. The first attempt was written in large batches by background agents and failed the clean-code bar: god packages, long files mixing unrelated concerns, and infrastructure built before anything needed it. It was archived outside the repo. The build restarts in small steps, each going through the pipeline in [AGENTS.md](../AGENTS.md) and a PR the user reviews.
 
 The v1.2 design in §4 to §6 stays as reference. A piece of it is built only when a step needs it.
 
 | Id | Step | Status |
 | --- | --- | --- |
 | `agents-md` | AGENTS.md, this status, the first attempt archived | Done (#1) |
-| `agents` | A dedicated custom agent for each pipeline role | Done (#3) |
-| `ci-baseline` | CI with mise, Renovate, SonarQube Cloud, jactionlint | In review (#2) |
-| `go-toolchain` | Go module, golangci-lint with the gates, coverage gate, `mise run check` | |
-| `home-service` | The first service: `home`, with demo data and a health endpoint | |
+| `agents` | A dedicated custom agent for each pipeline role | Done (#3), later dropped (decision 38) |
+| `ci-baseline` | CI with mise, Renovate, SonarQube Cloud, jactionlint | Done (#2) |
+| `go-toolchain` | Go module, golangci-lint with the gates, coverage gate, `mise run check`, and the smallest `home` service: `GET /healthz` | In progress |
+| `home-service` | `home` serves the demo data (§4.13) | |
 | `gateway` | The gateway in front of `home` | |
 
 After these: the Home UI, the cockpit, then the product phases (§8.2), each split into steps.
 
 **Deferred until a step needs it**: protobuf contracts, NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked.
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10).
 
 ## 1. Goal and scope
 
@@ -954,6 +954,8 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 34. **Tool versions**: mise tools use `latest` in `mise.toml`, like the user's other repos. Latest means the newest release at least 24 h old: mise and mise-action keep their default supply-chain delay (`minimum_release_age`). CI installs mise and the tools afresh on every run. mise-action's cache is off, because a cache hit would keep old versions for up to 30 days. Tools the OS already ships (curl, jq) aren't listed and run at the OS's version. GitHub Actions stay pinned by commit SHA, and Renovate bumps them.
 35. **Nothing deprecated**: no deprecated tool, API, parameter, field or flag. `sonar-issues` therefore lists issues by their Clean Code impacts, not the legacy severity, and doesn't list security hotspots.
 36. **CI jobs**: `check` and SonarQube Cloud run in parallel; both must pass.
+37. **First Go code**: `go test` and golangci-lint fail on a module with no Go code, so `go-toolchain` also adds the smallest `home` service, which serves only `GET /healthz`. It listens on TCP `127.0.0.1:8081` until unix sockets and the environment config arrive. `home-service` adds the demo data.
+38. **No sub-agents**: running each role in its own sub-agent was slow and hid the work from the user. The main session now plays every role in turn, in the open, and `.github/agents/` is removed. QA and review run once per step; a small fix needs only a green `mise run check`. Replaces 32; the order of roles in 24 stays.
 
 ## 10. Risks
 
@@ -975,6 +977,13 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 - **Security hotspots**: the Sonar way gate still counts `new_security_hotspots_reviewed`, but SonarQube Cloud deprecated the hotspots API on 2026-06-16 in favour of security issues. So `mise run sonar-issues` can't list hotspots; a gate that is red because of a hotspot has to be read in the SonarQube Cloud UI.
 - **Floating tool versions**: mise tools use `latest` with no lockfile, so a new release (for example a new jactionlint rule) can turn CI red with no change in the repo. A local run may also use an older version than CI until `mise upgrade --local`. When CI turns red for no reason, check the tool versions first.
 - **Unix socket paths** are limited to 104 bytes on macOS → keep `BAKHYARD_HOME` short; the cockpit validates.
+- **Gaps in the gates**, all upstream. The user chose review over custom guards: every suppression needs the user's OK and every change to a gate's config is reviewed, so the reviewer catches these.
+  - nolintlint lets `//nolint:ALL`, `//nolint:x,all` and `//nolint:x,nolintlint` through.
+  - revive's `package-naming` can miss a bad package name when an external `_test` package in the same directory is analysed first.
+  - go-test-coverage accepts any text after `coverage-ignore` as a reason, and checks no reason at all in a file where every statement is ignored.
+  - A reason made only of invisible characters, such as a zero-width space, passes both nolintlint and revive's reason check.
+  - `golangci-lint config verify` doesn't check revive rule arguments, and revive ignores unknown keys, so a typo such as `maxx` for `max` silently turns a limit off.
+  - Some tools have their own ignore comments, which need no reason and which nolintlint and revive don't see. `//gocognit:ignore` and `//gocyclo:ignore` in a function's doc comment skip that function, and `//exhaustive:ignore` skips a switch; no golangci-lint option turns them off. `//NOSONAR` hides a Sonar issue, and `# shellcheck disable=` hides a finding in a workflow's `run:` script.
 
 ## 11. Estimate
 

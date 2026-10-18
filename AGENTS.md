@@ -1,6 +1,6 @@
 # AGENTS.md
 
-The canonical rules for everyone who works on Bakhyard: the user, the lead agent and every sub-agent. If anything else disagrees with this file, this file wins. It changes only with the user's approval.
+The canonical rules for everyone who works on Bakhyard: the user and the coding agent. If anything else disagrees with this file, this file wins. It changes only with the user's approval.
 
 - What we build, and in which order: [`docs/plan.md`](docs/plan.md).
 - How we build it: this file.
@@ -15,21 +15,19 @@ The canonical rules for everyone who works on Bakhyard: the user, the lead agent
 
 ## Pipeline
 
-Every step passes through these roles, in order. Each sub-agent role has its own custom agent in [`.github/agents/`](.github/agents/), which holds the role's procedure and report format; this file stays canonical. Every agent starts with a fresh context and gets this file, the step brief and the current diff.
+The main session does all the work itself, in the open, so the user can follow it. No sub-agents. Every step goes through these roles, in order:
 
-| Role | Agent | Does | Never |
-| --- | --- | --- | --- |
-| Lead | the main session | Splits the work into steps; writes each step brief (goal, scope, out of scope, acceptance criteria); runs the roles below; keeps the docs in sync; opens the PR; merges after the user's OK | Writes code, config or tests |
-| Senior Go engineer | `senior-go-engineer` | Implements the step with unit tests; runs every gate until green | Widens the scope; commits or pushes |
-| QA | `qa-engineer` | Checks every acceptance criterion; runs every gate; probes edge cases and failure paths; adds missing tests | Changes production code |
-| Code and architecture reviewer | `code-architecture-reviewer` (read-only tools) | Reviews the diff against this file: separation of concerns, package boundaries, naming, KISS, YAGNI, error handling, test quality, fit with the architecture. Marks each finding blocking or non-blocking | Edits files |
-| User | | Reviews the PR; approves or rejects it | |
+1. **Lead**: writes the step brief (goal, scope, out of scope, acceptance criteria). The brief goes into the PR description.
+2. **Engineer**: implements the step with unit tests and runs every gate until green.
+3. **QA**: checks every acceptance criterion, runs every gate, probes edge cases and failure paths in our code and config, and adds missing tests. It doesn't hunt for ways around the upstream tools.
+4. **Reviewer**: reviews the diff against this file (separation of concerns, package boundaries, naming, KISS, YAGNI, error handling, test quality, fit with the architecture) and marks each finding blocking or non-blocking.
+5. **Lead**: keeps the docs in sync, commits, opens the PR, and merges after the user's OK.
+6. **User**: reviews the PR and approves or rejects it.
 
-- QA defects and blocking findings go back to the engineer, then through QA and review again. After three rounds, the lead stops and asks the user.
-- One agent at a time, in the foreground. No parallel or background agents writing code.
-- Reports are short and factual: files touched, commands run and their results, open issues.
-- Another language gets its own engineer role and agent when it arrives (for example, a senior Svelte and TypeScript engineer for the web app).
-- The lead runs each role through its custom agent only, never through a generic one, and passes the step brief in the prompt. New or changed agent files load after a CLI restart.
+- QA and review run once per step. Defects and blocking findings go back to the engineer. A small fix (a few lines of config or docs) then needs only a green `mise run check`; a bigger one goes through QA and review again. After three rounds, stop and ask the user.
+- Non-blocking findings go into the PR description, not into another round.
+- Known upstream gaps go into plan §10 without asking the user.
+- Progress notes to the user are short and factual: what changed, the commands run and their results, open issues.
 
 ## Definition of done
 
@@ -78,7 +76,7 @@ Never report a step as done before `mise run check` has passed, and say which ga
 - **Nothing deprecated.** Never use a deprecated tool, API, endpoint, parameter, field or flag; use its replacement. Check the source's deprecation notes before picking one.
 - **Go**: the latest release. Before editing Go code, run the `use-modern-go` skill's `list` for the file and follow its guidelines.
 - **Go lint and format**: golangci-lint, based on the user's labrys config; gofumpt and golines at 100 columns.
-- **Web** (when it arrives): Svelte 5, Vite and TypeScript; Biome configured like the user's reference frontend project (the lead supplies the path); plain CSS custom properties, no Tailwind; visual identity per plan §7.
+- **Web** (when it arrives): Svelte 5, Vite and TypeScript; Biome configured like the user's reference frontend project (ask the user for its path); plain CSS custom properties, no Tailwind; visual identity per plan §7.
 - **Mirror the user's repos** before inventing a convention: labrys (Go lint), jirascrap (CI, Sonar, Renovate) and the reference frontend project (mise monorepo, Biome, hooks).
 
 ## Quality gates
@@ -98,6 +96,8 @@ Measure everything we can with lightweight static tools. Thresholds change only 
 | Security | no findings | `gosec` in golangci-lint |
 | Vulnerabilities | none known | `govulncheck` |
 | Formatting | no diff | gofumpt, golines |
+| Suppressions | every `//nolint` names its linters and every `//revive:disable` its rules, each with a reason; `#nosec` is ignored; every `coverage-ignore` gives a reason | `nolintlint`, revive directives, gosec, go-test-coverage |
+| Package names | no `util`, `common`, `helpers`, `misc` or similar names (`api` is allowed), and no clash with a common standard-library package | revive `package-naming` |
 | GitHub workflows | no findings | jactionlint (with shellcheck for `run:` scripts) |
 | Dependencies | current | Renovate (GitHub App) |
 | New code overall | quality gate passes | SonarQube Cloud |
