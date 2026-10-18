@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/codedogapp/bakhyard/services/home/internal/api"
 	"github.com/codedogapp/bakhyard/services/home/internal/health"
 )
 
@@ -18,6 +19,7 @@ const (
 func main() {
 	mux := http.NewServeMux()
 	health.Register(mux)
+	api.Register(mux, time.Now)
 
 	server := &http.Server{
 		Addr:              listenAddr,
