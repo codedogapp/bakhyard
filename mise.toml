@@ -1,0 +1,24 @@
+[tools]
+actionlint = "1.7.12"
+shellcheck = "0.11.0"
+jq = "1.8.2"
+
+[tasks.check]
+description = "Run the local quality gate"
+run = "actionlint"
+
+[tasks.sonar-issues]
+description = "List unresolved SonarQube Cloud findings"
+run = '''
+set -euo pipefail
+key=$(sed -n 's/^sonar\.projectKey=//p' sonar-project.properties)
+
+if ! curl -sSf "https://sonarcloud.io/api/components/show?component=${key}" >/dev/null 2>&1; then
+  echo "error: SonarQube Cloud project '${key}' not found" >&2
+  exit 1
+fi
+
+curl -sSf "https://sonarcloud.io/api/issues/search?componentKeys=${key}&resolved=false&ps=200" |
+  jq -r '.issues[] | "\(.severity)\t\(.rule)\t\(.component | sub("^[^:]*:"; ""))\tL\(.line // 0)\t\(.message)"' |
+  sort
+'''
