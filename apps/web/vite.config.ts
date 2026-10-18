@@ -2,9 +2,6 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 
-const total = { lines: 80, statements: 80, functions: 80, branches: 80 };
-const perFile = { lines: 70, statements: 70, functions: 70, branches: 70 };
-
 export default defineConfig({
   plugins: [
     svelte({
@@ -26,7 +23,13 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       include: ['src/**/*.{ts,svelte}'],
       exclude: ['src/**/*.test.ts', 'src/test-setup.ts', 'src/main.ts'],
-      thresholds: { ...total, perFile },
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        functions: 80,
+        branches: 80,
+        perFile: { lines: 70, statements: 70, functions: 70, branches: 70 },
+      },
     },
   },
 });
