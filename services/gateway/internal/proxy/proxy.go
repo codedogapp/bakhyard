@@ -14,8 +14,7 @@ import (
 // apiPrefix starts every public API path; the services serve their paths without it.
 const apiPrefix = "/api"
 
-// apiError has the shape of a Connect error, so clients keep their error handling when the
-// contracts arrive.
+// apiError is the JSON body of the gateway's own errors (plan decision 41).
 type apiError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`

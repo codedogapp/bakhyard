@@ -37,11 +37,13 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `go-toolchain` | Go module, golangci-lint with the gates, coverage gate, `mise run check`, and the smallest `home` service: `GET /healthz` | Done (#4) |
 | `home-service` | `home` serves the demo data (§4.13) | Done (#5) |
 | `gateway` | The gateway in front of `home` | Done (#6) |
-| `chi-router` | Route with chi instead of `net/http.ServeMux` (decision 42) | In progress |
+| `chi-router` | Route with chi instead of `net/http.ServeMux` (decision 42) | Done (#7) |
+| `openapi` | Generate the public JSON APIs from OpenAPI specs | Dropped (#8 closed, decision 43) |
+| `code-first` | Record decision 43: the public JSON APIs stay hand-written | In progress |
 
 After these: the Home UI, the cockpit, then the product phases (§8.2), each split into steps.
 
-**Deferred until a step needs it**: protobuf contracts, NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
+**Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
 **Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10).
 
@@ -254,6 +256,8 @@ flowchart LR
 - Later: sign-in (§3 Auth) is enforced here.
 
 ### 4.5 Contracts
+
+> **v1.3:** for service-to-service calls and NATS payloads only (decision 43). The public APIs stay hand-written JSON.
 
 Schema-first protobuf in `proto/`, a buf v2 module (lint STANDARD, breaking FILE).
 
@@ -638,6 +642,8 @@ Web tasks (`//apps/web:`): `run` (alias `dev`), `install`, `gen`, `build`, `chec
 
 ### 6.5 Protobuf
 
+> **v1.3:** for service-to-service calls and NATS payloads only (decision 43).
+
 - `buf.yaml`: v2, module `proto/`, lint STANDARD, breaking FILE.
 - `buf.gen.yaml` generates Go.
 - `apps/web/buf.gen.yaml` generates TypeScript (`local: node_modules/.bin/protoc-gen-es`), run from `apps/web` as `buf generate ../..`.
@@ -958,6 +964,7 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 40. **Time tracking on Jira**: time is logged on the Jira tickets, probably through Clockwork, not in Tempo as §2 first assumed. The user will share a repo that shows how; until then the design of `time-tracking` stays open. The demo data names Jira as the source of the time items.
 41. **Gateway routes until the contracts**: the gateway forwards `/api/<svc>` to the service as `/<svc>`, whatever the method, so `/api/home` reaches home's `GET /home`. Each service is registered by name; every other path gets a 404 until `web` exists, so the services' ops paths stay unreachable. An upstream that can't be reached gets a 503 with a Connect-style JSON error, `{"code":"unavailable","message":"<svc> is unavailable"}`, so clients keep their error handling when the contracts arrive. The client's `Forwarded` and `X-Forwarded-*` headers never reach the services. Security headers, CSRF protection, `X-Request-Id`, new `X-Forwarded-*` headers and upstream timeouts wait for the steps that need them (§4.4).
 42. **Router: chi**: every service routes with `github.com/go-chi/chi/v5`, which the user knows better than `net/http.ServeMux`. The user's choice overrides AGENTS.md's preference for the standard library here. Registration functions take a `chi.Router`, and a service that serves GET adds `middleware.GetHead`, because chi answers HEAD only through it. chi matches the path as sent, so it is stricter than ServeMux: an uncleaned path (`/api//home`) gets a 404 instead of a redirect, and an escaped spelling (`/api/ho%6De`) gets a 404 instead of a match. A 405 lists only the registered methods (`Allow: GET`) and has an empty body. A method chi doesn't know, such as `PURGE`, gets a 405 at the gateway instead of reaching the service. chi still sets `r.PathValue` and `r.Pattern`.
+43. **Code-first APIs**: public clients get JSON, and services will call each other with gRPC. The public JSON APIs stay hand-written in Go, encoded with `encoding/json/v2` (decision 39), with no OpenAPI spec: generating the server from a spec (#8, closed) complicated things more than it helped. Service-to-service calls will use gRPC and protobuf, and NATS payloads stay protobuf; grpc-go or connect-go is chosen with the first such call. So the contracts that decisions 39 and 41 wait for are only the service-to-service ones, and the gateway's 503 body keeps its shape. Live updates (§4.11's `WatchHome`) will need SSE or polling instead of a Connect stream, decided in the step that needs them. Replaces 14 for public APIs.
 
 ## 10. Risks
 
@@ -1016,7 +1023,7 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 
 ## 12. Open questions
 
-- Which connect-go v2 ecosystem modules (OpenTelemetry interceptors, validation) exist at v2?
+- For the first service-to-service call: grpc-go or connect-go, and which connect-go v2 ecosystem modules (OpenTelemetry interceptors, validation) exist (decision 43)?
 - Google's authorized-domain step for `<tailnet>.ts.net` is only indirectly confirmed (spike).
 - Does the Google login stay inside the iPhone Home Screen app (spike)?
 - Can Bitbucket's required approvals be detected automatically, or are they configured per repo by hand?
