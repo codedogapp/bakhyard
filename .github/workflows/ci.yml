@@ -42,7 +42,7 @@ jobs:
         with:
           cache: false
 
-      - run: mise run test
+      - run: 'mise run test ::: //apps/web:test'
 
       - uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
         env:

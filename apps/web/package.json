@@ -1,0 +1,33 @@
+{
+  "name": "bakhyard-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "format": "biome check --write",
+    "lint": "biome ci --error-on-warnings",
+    "typecheck": "rm -rf .svelte-check && svelte-check --tsgo --tsconfig ./tsconfig.app.json --fail-on-warnings && tsc -p tsconfig.node.json",
+    "test": "vitest run --coverage",
+    "unused": "knip"
+  },
+  "dependencies": {
+    "svelte": "5.57.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/svelte": "5.4.2",
+    "@tsconfig/svelte": "5.0.8",
+    "@types/node": "26.6.5",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "@vitest/coverage-v8": "5.0.5",
+    "jsdom": "30.1.3",
+    "knip": "6.41.0",
+    "svelte-check": "4.7.7",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  }
+}
