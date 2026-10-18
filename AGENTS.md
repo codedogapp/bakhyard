@@ -15,21 +15,21 @@ The canonical rules for everyone who works on Bakhyard: the user, the lead agent
 
 ## Pipeline
 
-Every step passes through these roles, in order. Each role is a dedicated agent with a fresh context: it gets this file, the step brief and the current diff.
+Every step passes through these roles, in order. Each sub-agent role has its own custom agent in [`.github/agents/`](.github/agents/), which holds the role's procedure and report format; this file stays canonical. Every agent starts with a fresh context and gets this file, the step brief and the current diff.
 
-| Role | Does | Never |
-| --- | --- | --- |
-| Lead (the main session) | Splits the work into steps; writes each step brief (goal, scope, out of scope, acceptance criteria); runs the roles below; keeps the docs in sync; opens the PR; merges after the user's OK | Writes code, config or tests |
-| Senior Go engineer | Implements the step with unit tests; runs every gate until green | Widens the scope; commits or pushes |
-| QA | Checks every acceptance criterion; runs every gate; probes edge cases and failure paths; adds missing tests | Changes production code |
-| Code and architecture reviewer | Reviews the diff against this file: separation of concerns, package boundaries, naming, KISS, YAGNI, error handling, test quality, fit with the architecture. Marks each finding blocking or non-blocking | Edits files |
-| User | Reviews the PR; approves or rejects it | |
+| Role | Agent | Does | Never |
+| --- | --- | --- | --- |
+| Lead | the main session | Splits the work into steps; writes each step brief (goal, scope, out of scope, acceptance criteria); runs the roles below; keeps the docs in sync; opens the PR; merges after the user's OK | Writes code, config or tests |
+| Senior Go engineer | `senior-go-engineer` | Implements the step with unit tests; runs every gate until green | Widens the scope; commits or pushes |
+| QA | `qa-engineer` | Checks every acceptance criterion; runs every gate; probes edge cases and failure paths; adds missing tests | Changes production code |
+| Code and architecture reviewer | `code-architecture-reviewer` (read-only tools) | Reviews the diff against this file: separation of concerns, package boundaries, naming, KISS, YAGNI, error handling, test quality, fit with the architecture. Marks each finding blocking or non-blocking | Edits files |
+| User | | Reviews the PR; approves or rejects it | |
 
 - QA defects and blocking findings go back to the engineer, then through QA and review again. After three rounds, the lead stops and asks the user.
 - One agent at a time, in the foreground. No parallel or background agents writing code.
 - Reports are short and factual: files touched, commands run and their results, open issues.
-- Another language gets its own engineer role when it arrives (for example, a senior Svelte and TypeScript engineer for the web app).
-- In Copilot CLI, the lead runs each role as a synchronous `general-purpose` task whose prompt names the role and includes the step brief.
+- Another language gets its own engineer role and agent when it arrives (for example, a senior Svelte and TypeScript engineer for the web app).
+- The lead runs each role through its custom agent only, never through a generic one, and passes the step brief in the prompt. New or changed agent files load after a CLI restart.
 
 ## Definition of done
 
