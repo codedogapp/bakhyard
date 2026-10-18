@@ -2,7 +2,7 @@
 
 Version 1.3, 2026-10-18. Replaces v1.2: the first attempt was archived and the build restarted in small, reviewed steps.
 
-Bakhyard is a self-hosted dashboard for one person. It runs on an always-on home Mac and brings together Obsidian notes, work (Jira todos, Bitbucket pull requests, Tempo hours, reviewer nudges), GitHub, games and a Copilot planner, used from a MacBook and an iPhone. The name is Bakh + backyard: personal, and it lives at home.
+Bakhyard is a self-hosted dashboard for one person. It runs on an always-on home Mac and brings together Obsidian notes, work (Jira todos, Bitbucket pull requests, hours logged on Jira, reviewer nudges), GitHub, games and a Copilot planner, used from a MacBook and an iPhone. The name is Bakh + backyard: personal, and it lives at home.
 
 This document is the source of truth for scope and the work breakdown. How we work (rules, pipeline, quality gates) is canonical in [AGENTS.md](../AGENTS.md). Update the status markers as work lands.
 
@@ -34,8 +34,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `agents-md` | AGENTS.md, this status, the first attempt archived | Done (#1) |
 | `agents` | A dedicated custom agent for each pipeline role | Done (#3), later dropped (decision 38) |
 | `ci-baseline` | CI with mise, Renovate, SonarQube Cloud, jactionlint | Done (#2) |
-| `go-toolchain` | Go module, golangci-lint with the gates, coverage gate, `mise run check`, and the smallest `home` service: `GET /healthz` | In progress |
-| `home-service` | `home` serves the demo data (§4.13) | |
+| `go-toolchain` | Go module, golangci-lint with the gates, coverage gate, `mise run check`, and the smallest `home` service: `GET /healthz` | Done (#4) |
+| `home-service` | `home` serves the demo data (§4.13) | In progress |
 | `gateway` | The gateway in front of `home` | |
 
 After these: the Home UI, the cockpit, then the product phases (§8.2), each split into steps.
@@ -51,7 +51,7 @@ One user. The host is an always-on home **Mac** on the LAN. Clients are a **MacB
 Modules:
 
 1. **Notes**: live render and edit of the Obsidian vault. The vault stays in sync on the MacBook and the iPhone.
-2. **Work**: custom todos linked to Jira tickets; Bitbucket PRs (mine and review requests); Tempo time tracking; "nudge reviewers" reminders.
+2. **Work**: custom todos linked to Jira tickets; Bitbucket PRs (mine and review requests); time tracking on the Jira tickets; "nudge reviewers" reminders.
 3. **GitHub**: my open PRs, review requests and assigned issues, across all owners and orgs.
 4. **Games**: Backloggd "currently playing" (plus extras where feasible); Exophase stats.
 5. **Copilot planner**: plan-mode chat with Copilot; the result is saved as a note in the vault.
@@ -60,7 +60,7 @@ Inputs from the user:
 
 - Devices: iPhone and MacBook; the host is a Mac.
 - No paid Obsidian Sync; obsidian-git is used today. Notes must be editable and must render wikilinks, embeds, callouts and LaTeX.
-- Jira Cloud and Bitbucket Cloud are reachable without a VPN. Work tokens on the personal Mac are OK. Time tracking is Tempo.
+- Jira Cloud and Bitbucket Cloud are reachable without a VPN. Work tokens on the personal Mac are OK. Time is logged on the Jira tickets, probably through Clockwork (decision 40).
 - Notifications go to the phone (push), the Mac and the browser.
 - Reminder rule: a PR open for more than 24 h without the required approvals → remind at 10:00 and 15:00 on workdays, with snooze.
 - Copilot Business sits on a separate work GitHub account.
@@ -77,7 +77,7 @@ Verified 2026-10-17 unless marked.
 | Vault sync | ✅ trade-offs | **Chosen: iCloud Drive** (Obsidian's recommended iPhone option; vault in `iCloud Drive/Obsidian/<vault>`; host Mac on the same Apple ID, vault folder set to *Keep Downloaded*) + server-side git snapshots with `--git-dir` outside iCloud. Runner-up: keep git, swap obsidian-git on the iPhone for the GitSync app | iCloud: the same note edited offline on two devices → one silently wins (recoverable via TextEdit "Keep Both"); latency unverified. obsidian-git on iOS: the author calls it "very unstable", with open iOS bugs (Vinzent03/obsidian-git#1012, Vinzent03/obsidian-git#1166). LiveSync: iOS needs trusted HTTPS → clashes with LAN-only. Obsidian Headless Sync: paid + beta data-loss issues → excluded |
 | Jira Cloud | ✅ | Basic `email:api_token`; `GET/POST /rest/api/3/search/jql` (the old `/search` is removed); request `fields` explicitly; `nextPageToken` paging | Token expiry ≤ 365 d → rotate; webhooks are admin-only → poll; an employer IP allowlist would block |
 | Bitbucket Cloud | ✅ | Scoped Atlassian API token (app passwords died 2026-07-28), host `api.bitbucket.org`. Mine: `GET /2.0/workspaces/{ws}/pullrequests/{me}?state=OPEN`. Reviewing: per repo `pullrequests?q=reviewers.uuid="{uuid}" AND state="OPEN"`. Approvals: PR detail `participants[]`; `/activity` for the last reviewer action | No cross-repo "reviewing" endpoint; 1,000 req/h → cache + incremental scan; webhooks need repo admin → poll |
-| Tempo | ✅ | REST v4, regional base (`api.eu.tempo.io` / `api.us.tempo.io`), Bearer token (Tempo → Settings → Data Access → API Integration; scope worklogs *manage*). `POST /4/worklogs` needs a numeric `issueId`, `authorAccountId` (Jira `/rest/api/3/myself`), `startDate`, `timeSpentSeconds` (+ `startTime`, `description`). List: `GET /4/worklogs/user/{accountId}?from=&to=`. `PUT` replaces the whole worklog | **No timer/Tracker API** → the dashboard runs its own timer and posts a worklog on stop. Token default expiry 30 d → rotation reminder. 5 req/s. The instance may require work attributes |
+| Time tracking | ⏳ to verify | Time is logged on the Jira tickets, probably through Clockwork. The user will share a repo that shows how | Replaces Tempo (decision 40); the Tempo research of 2026-10-17 no longer applies |
 | PR reminders | ✅ | Own scheduler + rule engine. "Required approvals" is a per-repo setting | Auto-detection via the branch restrictions API is unverified (may need admin) |
 | Push (iPhone / Mac / browser) | ✅ | (a) Web Push: iOS 16.4+ Home Screen PWA + Safari/Chrome on the MacBook. Needs HTTPS → `tailscale serve` (free, valid cert, no inbound ports). (b) Pushover: $4.99 once per platform (iOS, Desktop), 10k msg/month, `priority=2` repeats until acknowledged, no HTTPS needed | The browser Notification API needs a secure context (LAN `http://192.168…` fails). `osascript`/terminal-notifier only notify the host Mac, not the MacBook. ntfy: self-hosting is Docker-only on macOS and the iPhone shows "New message" off-LAN; public ntfy.sh = topic-as-password, 250 msg/day, iOS app "a little buggy" |
 | GitHub | ✅ | `GET /search/issues`: `is:pr is:open author:@me`, `is:pr is:open review-requested:@me`, `is:issue is:open assignee:@me`; 30 req/min | A fine-grained PAT covers one owner; the Notifications API needs a classic PAT |
@@ -89,7 +89,7 @@ Verified 2026-10-17 unless marked.
 ## 3. Product architecture
 
 ```
-iPhone PWA ─┐                              ┌── Jira / Tempo / Bitbucket / GitHub / Exophase / IGDB (poll)
+iPhone PWA ─┐                              ┌── Jira / Bitbucket / GitHub / Exophase / IGDB (poll)
 MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac (services supervised by the cockpit, §4)
             │                              ├── SQLite per service (todos, timers, caches, push subscriptions, sessions)
             │                              ├── vault dir (iCloud Drive) ◀── iCloud ──▶ Obsidian (MacBook, iPhone)
@@ -136,7 +136,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
      - CSRF protection via Go's `http.CrossOriginProtection`.
   4. **iPhone PWA fallback**: if the Google redirect escapes to Safari (Home Screen apps keep a separate cookie jar), use the Tailscale identity alone on that device, or enroll a passkey later.
 
-**Polling defaults**: Jira 5 min; Bitbucket mine 5 min, review scan 15 min (repo list daily); GitHub 5 min; Tempo 15 min + on demand; Backloggd reviews RSS 2 h; Exophase games hourly, `/earned` daily; IGDB on demand (cached).
+**Polling defaults**: Jira 5 min; Bitbucket mine 5 min, review scan 15 min (repo list daily); GitHub 5 min; logged time 15 min + on demand; Backloggd reviews RSS 2 h; Exophase games hourly, `/earned` daily; IGDB on demand (cached).
 
 **Default reminder rule**: PR `OPEN`, not a draft, age > 24 h, approvals < required (per repo) → notify at 10:00 and 15:00 Mon–Fri (local time zone). Actions: open the PR, snooze (2 h / tomorrow / until the PR is updated), mark as nudged. Skip if snoozed or already sent in this slot.
 
@@ -145,7 +145,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 | Service | Tables (planned) |
 | --- | --- |
 | todos | `todos` (+ `jira_key`) |
-| time | `time_entries` (todo/Jira, start, end, `tempo_worklog_id`, sync state) |
+| time | `time_entries` (todo/Jira, start, end, `worklog_id`, sync state) |
 | pulls | `pr_state` (PR id, first_seen, approvals, required, last_activity, snooze_until, last_reminded_slot), `reminder_rules` |
 | notify | `push_subscriptions` |
 | planner | `copilot_sessions` (id, title, status, note_path) |
@@ -199,7 +199,7 @@ flowchart LR
         end
     end
 
-    apis["Jira, Bitbucket, Tempo, GitHub,<br/>Exophase, IGDB, Backloggd RSS"]
+    apis["Jira, Bitbucket, GitHub,<br/>Exophase, IGDB, Backloggd RSS"]
     vault[("Obsidian vault<br/>iCloud Drive")]
     copilot["copilot CLI"]
 
@@ -227,7 +227,7 @@ flowchart LR
 | notes | Obsidian vault | unix socket | nats | vault-index-watch, vault-render, vault-edit-sync |
 | todos | Todos linked to Jira | unix socket | nats | todos-jira |
 | pulls | Bitbucket pull requests and reviewer nudges | unix socket | nats | bitbucket-prs, pr-reminders |
-| time | Tempo time tracking | unix socket | nats | tempo-timer |
+| time | Time tracking on the Jira tickets | unix socket | nats | time-tracking |
 | github | GitHub pull requests, reviews and issues | unix socket | nats | github-widgets |
 | games | Backloggd and Exophase | unix socket | nats | games-backloggd, games-exophase |
 | planner | Copilot plans saved to the vault | unix socket | nats | copilot-planner |
@@ -487,9 +487,9 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 | App | Item | Source | Due |
 | --- | --- | --- | --- |
 | pulls | Nudge reviewers on PAY-1423 | Bitbucket | 2 h ago (late) |
-| todos | PAY-1398 Settlement report export, detail "Was due yesterday." | Jira | 20 h ago (late) |
-| time | Log today's hours | Tempo | in 3 h |
-| time | Tempo token expires in 5 days | Tempo | in 5 days |
+| todos | PAY-1398 Settlement report export, detail "Was due yesterday." | Jira | 24 h ago (late) |
+| time | Log today's hours | Jira | in 3 h |
+| time | Jira token expires in 5 days | Jira | in 5 days |
 | github | Review requested: dotfiles#14 | GitHub | none |
 | planner | Finish plan: home lab backups | Copilot | none |
 | notes, games | no items | | |
@@ -750,7 +750,7 @@ Mood: calm and warm. An off-white "paper" page, hairline borders, **no shadows**
   - PRs due a nudge
   - review requests
   - Jira tickets due or overdue
-  - Tempo hours missing for today
+  - hours not logged yet today
   - assigned GitHub issues
   - tokens about to expire
 
@@ -766,7 +766,7 @@ Mood: calm and warm. An off-white "paper" page, hairline borders, **no shadows**
 | Games | pink | gamepad-2 |
 | Planner | lime | sparkles |
 
-- The progress block shows "This week: 31.5 h of 40 h logged" (from Tempo), with an "Open Time →" link, in place of the reference's storage meter.
+- The progress block shows "This week: 31.5 h of 40 h logged" (the time logged on Jira), with an "Open Time →" link, in place of the reference's storage meter.
 
 ## 8. Work breakdown
 
@@ -865,12 +865,9 @@ Every item is pending. The service an item lands in is in brackets.
   - Never put tokens in payloads.
 - `pr-reminders` [pulls → notify via JetStream]. Needs `bitbucket-prs`, `notifications`.
   - The §3 reminder rule, with snooze (2 h / tomorrow / until updated), mark as nudged, and dedupe per slot.
-- `tempo-timer` [time]. Needs `todos-jira`.
-  - Tempo has no timer API, so run our own start/stop timer per todo or Jira ticket, stored in SQLite.
-  - On stop, `POST /4/worklogs` to the regional base with a Bearer token. Body: numeric `issueId` (from Jira), `authorAccountId` (Jira `/rest/api/3/myself`), `startDate`, `startTime`, `timeSpentSeconds`, `description`, plus work attributes if the instance requires them.
-  - Totals via `GET /4/worklogs/user/{accountId}?from=&to=`.
-  - Rate limit 5 req/s; `PUT` replaces the whole worklog.
-  - Token expiry reminder (30 d by default).
+- `time-tracking` [time]. Needs `todos-jira`.
+  - A start/stop timer per todo or Jira ticket that logs the time on the ticket, plus the week's totals.
+  - How the time is logged (Clockwork or Jira's own worklogs) is settled from the user's example repo (decision 40).
 
 **Phase 4: GitHub**
 
@@ -901,9 +898,9 @@ Every item is pending. The service an item lands in is in brackets.
 
 **Phase 7: hardening**
 
-- `hardening-docs`. Needs `auth-signin`, `copilot-planner`, `deploy-launchd`, `games-backloggd`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `tempo-timer`.
+- `hardening-docs`. Needs `auth-signin`, `copilot-planner`, `deploy-launchd`, `games-backloggd`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`.
   - Vault snapshots and SQLite backups.
-  - Token-expiry reminders (Jira ≤ 365 d, Tempo 30 d).
+  - Token-expiry reminders (Jira ≤ 365 d).
   - Structured logs and per-widget error states.
   - NATS auth token.
   - README and host setup docs.
@@ -956,6 +953,8 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 36. **CI jobs**: `check` and SonarQube Cloud run in parallel; both must pass.
 37. **First Go code**: `go test` and golangci-lint fail on a module with no Go code, so `go-toolchain` also adds the smallest `home` service, which serves only `GET /healthz`. It listens on TCP `127.0.0.1:8081` until unix sockets and the environment config arrive. `home-service` adds the demo data.
 38. **No sub-agents**: running each role in its own sub-agent was slow and hid the work from the user. The main session now plays every role in turn, in the open, and `.github/agents/` is removed. QA and review run once per step; a small fix needs only a green `mise run check`. Replaces 32; the order of roles in 24 stays.
+39. **Plain JSON until the contracts**: until a step needs the protobuf contracts (§4.5), services speak plain JSON over HTTP, encoded with `encoding/json/v2`. `home` serves its screen on `GET /home`, with the field names the contracts will use.
+40. **Time tracking on Jira**: time is logged on the Jira tickets, probably through Clockwork, not in Tempo as §2 first assumed. The user will share a repo that shows how; until then the design of `time-tracking` stays open. The demo data names Jira as the source of the time items.
 
 ## 10. Risks
 
@@ -963,8 +962,8 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 - **IGDB**: free for non-commercial use only; 4 req/s.
 - **iCloud quirks** (dataless files, duplicate conflict copies) → covered by the spike and the snapshots.
 - **Employer policy**: Copilot org billing, IP allowlists, token handling.
-- **Token expiry**: Jira ≤ 365 d, Tempo 30 d by default, org PAT lifetime policies → expiry tracking and reminders.
-- **Rate limits**: Bitbucket 1,000 req/h; Tempo 5 req/s; GitHub search 30 req/min.
+- **Token expiry**: Jira ≤ 365 d, org PAT lifetime policies → expiry tracking and reminders.
+- **Rate limits**: Bitbucket 1,000 req/h; GitHub search 30 req/min.
 - **Copilot SDK**: some parts are experimental (mode RPCs, `sessionLimits`); employer-managed settings can override the local config.
 - **Sign-in**:
   - Google login inside the iPhone Home Screen app is unverified on iOS 18/26 (conflicting reports). The fallback is the Tailscale identity alone, or a passkey.
@@ -994,7 +993,7 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 | 0 Spikes (HTTPS + push, iCloud vault, Exophase, IGDB) | 1–2 d (+ a few days of passive Exophase polling) |
 | 1 Foundation (repo, backend core, sign-in, design system, Home, launchd) | 3–5 d |
 | 2 Notes (index/watch, render, editor + safe writes) | 3–4 d |
-| 3 Work (Jira todos, Bitbucket PRs, push, reminders, Tempo timer) | 4–5 d |
+| 3 Work (Jira todos, Bitbucket PRs, push, reminders, time tracking) | 4–5 d |
 | 4 GitHub | 0.5 d |
 | 5 Games | 1–2 d |
 | 6 Copilot planner | 1–2 d |
@@ -1010,7 +1009,7 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - how iCloud sync behaves
   - Exophase blocking the polling
   - rounds of visual polish
-  - surprises in the external APIs (Tempo work attributes, Bitbucket required approvals)
+  - surprises in the external APIs (logging time on Jira, Bitbucket required approvals)
 
 ## 12. Open questions
 
@@ -1018,7 +1017,7 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 - Google's authorized-domain step for `<tailnet>.ts.net` is only indirectly confirmed (spike).
 - Does the Google login stay inside the iPhone Home Screen app (spike)?
 - Can Bitbucket's required approvals be detected automatically, or are they configured per repo by hand?
-- Does the Tempo instance require work attributes on worklogs?
+- Is time logged on the Jira tickets through Clockwork or through Jira's own worklogs (the user's example repo)?
 - iCloud sync latency between the host and the devices (spike).
 - Which HTTP client gets Exophase JSON reliably (spike)?
 - Does Copilot plan mode work with the built-in tools restricted (spike)?
@@ -1045,9 +1044,6 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - Tailscale serve: https://tailscale.com/kb/1312/serve
   - ntfy on iOS: https://docs.ntfy.sh/config/#ios-instant-notifications
   - Pushover: https://pushover.net/pricing, https://pushover.net/api
-- Tempo:
-  - API: https://apidocs.tempo.io/tempo-openapi.yaml
-  - Trackers (UI only): https://help.tempo.io/timesheets/latest/logging-time-with-a-tempo-tracker
 - Games:
   - Backloggd reviews RSS (changelog 1.4.3): https://backloggd.com/changelog/
   - Backloggd ToS: https://backloggd.com/about/terms-of-service/
