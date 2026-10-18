@@ -71,8 +71,11 @@ Never report a step as done before `mise run check` has passed, and say which ga
 
 ## Toolchain
 
-- **mise** manages every tool and task. Every task has a description.
-- **Latest versions.** Use the newest release of every tool and dependency, checked against its registry and pinned exactly. Update project tools with `mise upgrade --local`; a plain `mise upgrade` also changes the user's global tools. Renovate keeps everything current after that.
+- **mise** manages every tool and task, except tools that macOS and the CI runners already ship (curl, jq); those run at the OS's version. Every task has a description.
+- **Latest versions.** Everything we install runs on its newest release.
+  - mise tools use `latest` in `mise.toml`. mise skips releases younger than 24 h (its `minimum_release_age` default), and mise-action does the same for mise itself. CI installs mise and the tools afresh on every run, with mise-action's cache off. Update local tools with `mise upgrade --local`; a plain `mise upgrade` also changes the user's global tools.
+  - The rest is pinned exactly at its newest release, checked against its registry: GitHub Actions by commit SHA with a `# vX.Y.Z` comment, Go modules in `go.mod`, npm packages in `package.json`. Renovate keeps these current.
+- **Nothing deprecated.** Never use a deprecated tool, API, endpoint, parameter, field or flag; use its replacement. Check the source's deprecation notes before picking one.
 - **Go**: the latest release. Before editing Go code, run the `use-modern-go` skill's `list` for the file and follow its guidelines.
 - **Go lint and format**: golangci-lint, based on the user's labrys config; gofumpt and golines at 100 columns.
 - **Web** (when it arrives): Svelte 5, Vite and TypeScript; Biome configured like the user's reference frontend project (the lead supplies the path); plain CSS custom properties, no Tailwind; visual identity per plan §7.
@@ -95,18 +98,18 @@ Measure everything we can with lightweight static tools. Thresholds change only 
 | Security | no findings | `gosec` in golangci-lint |
 | Vulnerabilities | none known | `govulncheck` |
 | Formatting | no diff | gofumpt, golines |
-| GitHub workflows | no findings | actionlint |
+| GitHub workflows | no findings | jactionlint (with shellcheck for `run:` scripts) |
 | Dependencies | current | Renovate (GitHub App) |
 | New code overall | quality gate passes | SonarQube Cloud |
 
-The local gates run through `mise run check`. CI runs the same task, then SonarQube Cloud.
+The local gates run through `mise run check`. CI runs the same task and, in a parallel job, SonarQube Cloud.
 
 ### SonarQube Cloud
 
 - It runs only in CI, on every PR and every push to `main`, and fails the build when the quality gate is red (`-Dsonar.qualitygate.wait=true`). Its verdict is final: `mise run check` is necessary but not sufficient.
 - Never run a scanner locally. Scanning an uncommitted tree publishes it as a `main` analysis and corrupts the new-code baseline.
 - Fix a red gate. Never explain it away, and never widen the exclusions in `sonar-project.properties` to turn it green.
-- `mise run sonar-issues` lists the open findings.
+- `mise run sonar-issues [pr]` lists the open issues, on `main` or on a pull request. Security hotspots show only in the SonarQube Cloud UI, because their API is deprecated.
 
 ## Communication
 

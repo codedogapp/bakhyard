@@ -32,8 +32,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | Id | Step | Status |
 | --- | --- | --- |
 | `agents-md` | AGENTS.md, this status, the first attempt archived | Done (#1) |
-| `agents` | A dedicated custom agent for each pipeline role | In review |
-| `ci-baseline` | CI with mise, Renovate, SonarQube Cloud, actionlint | In progress (#2) |
+| `agents` | A dedicated custom agent for each pipeline role | Done (#3) |
+| `ci-baseline` | CI with mise, Renovate, SonarQube Cloud, jactionlint | In review (#2) |
 | `go-toolchain` | Go module, golangci-lint with the gates, coverage gate, `mise run check` | |
 | `home-service` | The first service: `home`, with demo data and a health endpoint | |
 | `gateway` | The gateway in front of `home` | |
@@ -41,6 +41,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 After these: the Home UI, the cockpit, then the product phases (§8.2), each split into steps.
 
 **Deferred until a step needs it**: protobuf contracts, NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
+
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked.
 
 ## 1. Goal and scope
 
@@ -947,6 +949,11 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 29. **Commits**: Conventional Commits, with no AI co-author trailers.
 30. **Dependencies and analysis**: the Renovate and SonarQube Cloud GitHub Apps, set up like jirascrap.
 31. **Privacy**: no personal identifiers, work-project names or third-party material in tracked files. The reference screenshot stays local.
+32. **Pipeline agents**: each sub-agent role has a dedicated custom agent in `.github/agents/`; the reviewer's tools are read-only.
+33. **Workflow linter**: jactionlint rather than actionlint. mise deprecated actionlint in its favour; it is a young fork by the mise author that adds security and policy rules.
+34. **Tool versions**: mise tools use `latest` in `mise.toml`, like the user's other repos. Latest means the newest release at least 24 h old: mise and mise-action keep their default supply-chain delay (`minimum_release_age`). CI installs mise and the tools afresh on every run. mise-action's cache is off, because a cache hit would keep old versions for up to 30 days. Tools the OS already ships (curl, jq) aren't listed and run at the OS's version. GitHub Actions stay pinned by commit SHA, and Renovate bumps them.
+35. **Nothing deprecated**: no deprecated tool, API, parameter, field or flag. `sonar-issues` therefore lists issues by their Clean Code impacts, not the legacy severity, and doesn't list security hotspots.
+36. **CI jobs**: `check` and SonarQube Cloud run in parallel; both must pass.
 
 ## 10. Risks
 
@@ -965,6 +972,8 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
   - TypeScript 7 relies on svelte-check's `--tsgo` mode, which has open issues, and TypeScript 6 must stay installed alongside until svelte-check supports TypeScript 7 directly.
   - connect-go v2 is new; its ecosystem modules (for example OpenTelemetry or validation interceptors for v2) are not verified yet.
 - **pnpm's minimum release age** can hold back a fresh "latest" → pin explicitly and record the exclusion.
+- **Security hotspots**: the Sonar way gate still counts `new_security_hotspots_reviewed`, but SonarQube Cloud deprecated the hotspots API on 2026-06-16 in favour of security issues. So `mise run sonar-issues` can't list hotspots; a gate that is red because of a hotspot has to be read in the SonarQube Cloud UI.
+- **Floating tool versions**: mise tools use `latest` with no lockfile, so a new release (for example a new jactionlint rule) can turn CI red with no change in the repo. A local run may also use an older version than CI until `mise upgrade --local`. When CI turns red for no reason, check the tool versions first.
 - **Unix socket paths** are limited to 104 bytes on macOS → keep `BAKHYARD_HOME` short; the cockpit validates.
 
 ## 11. Estimate
