@@ -1,0 +1,94 @@
+openapi: 3.1.1
+info:
+  title: Bakhyard home
+  version: 0.1.0
+  description: The Home screen, built from the items every app has for the user.
+servers:
+  - url: /api
+    description: The gateway
+paths:
+  /home:
+    get:
+      operationId: getHome
+      summary: Get the Home screen
+      responses:
+        "200":
+          description: The Home screen, most urgent items first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Home"
+        "503":
+          description: The gateway can't reach the home service.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Home:
+      description: Everything the Home screen shows.
+      type: object
+      required: [items, week]
+      properties:
+        items:
+          description: The items that need the user, most urgent first.
+          type: array
+          items:
+            $ref: "#/components/schemas/Item"
+        week:
+          $ref: "#/components/schemas/Week"
+    Item:
+      description: One thing that needs the user.
+      type: object
+      required: [id, app, title, source, late]
+      properties:
+        id:
+          description: Unique across apps, as `<app>/<id>`.
+          type: string
+          examples: [pulls/PAY-1423]
+        app:
+          $ref: "#/components/schemas/App"
+        title:
+          type: string
+        detail:
+          type: string
+        source:
+          $ref: "#/components/schemas/Source"
+        due:
+          description: When the item is due. Absent when it has no due time.
+          type: string
+          format: date-time
+        late:
+          description: Whether the due time has passed.
+          type: boolean
+    App:
+      description: The Bakhyard app an item belongs to.
+      type: string
+      enum: [github, planner, pulls, time, todos]
+    Source:
+      description: The outside service an item comes from.
+      type: string
+      enum: [Bitbucket, Copilot, GitHub, Jira]
+    Week:
+      description: The hours logged this week against the target.
+      type: object
+      required: [loggedHours, targetHours]
+      properties:
+        loggedHours:
+          type: number
+          format: double
+        targetHours:
+          type: number
+          format: double
+    Error:
+      description: Why a request failed.
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          description: The kind of failure, for programs, such as `unavailable`.
+          type: string
+        message:
+          description: The failure, for people.
+          type: string

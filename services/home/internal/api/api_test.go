@@ -14,11 +14,15 @@ import (
 	"github.com/codedogapp/bakhyard/services/home/internal/api"
 )
 
-// item holds the response fields under test. Due is a string, so a missing "due" reads as "".
+// item is an item as clients see it. Due is a string, so a missing "due" reads as "".
 type item struct {
-	ID   string `json:"id"`
-	Due  string `json:"due"`
-	Late bool   `json:"late"`
+	ID     string `json:"id"`
+	App    string `json:"app"`
+	Title  string `json:"title"`
+	Detail string `json:"detail"`
+	Source string `json:"source"`
+	Due    string `json:"due"`
+	Late   bool   `json:"late"`
 }
 
 type week struct {
@@ -49,12 +53,34 @@ func TestHomeGet(t *testing.T) {
 
 	want := home{
 		Items: []item{
-			{ID: "todos/PAY-1398", Due: "2026-10-17T09:00:00Z", Late: true},
-			{ID: "pulls/PAY-1423", Due: "2026-10-18T07:00:00Z", Late: true},
-			{ID: "time/today", Due: "2026-10-18T12:00:00Z"},
-			{ID: "time/token", Due: "2026-10-23T09:00:00Z"},
-			{ID: "planner/home-lab-backups"},
-			{ID: "github/dotfiles-14"},
+			{
+				ID: "todos/PAY-1398", App: "todos", Source: "Jira",
+				Title: "PAY-1398 Settlement report export", Detail: "Was due yesterday.",
+				Due: "2026-10-17T09:00:00Z", Late: true,
+			},
+			{
+				ID: "pulls/PAY-1423", App: "pulls", Source: "Bitbucket",
+				Title: "Nudge reviewers on PAY-1423",
+				Due:   "2026-10-18T07:00:00Z", Late: true,
+			},
+			{
+				ID: "time/today", App: "time", Source: "Jira",
+				Title: "Log today's hours",
+				Due:   "2026-10-18T12:00:00Z",
+			},
+			{
+				ID: "time/token", App: "time", Source: "Jira",
+				Title: "Jira token expires in 5 days",
+				Due:   "2026-10-23T09:00:00Z",
+			},
+			{
+				ID: "planner/home-lab-backups", App: "planner", Source: "Copilot",
+				Title: "Finish plan: home lab backups",
+			},
+			{
+				ID: "github/dotfiles-14", App: "github", Source: "GitHub",
+				Title: "Review requested: dotfiles#14",
+			},
 		},
 		Week: week{LoggedHours: 31.5, TargetHours: 40},
 	}
@@ -65,6 +91,24 @@ func TestHomeGet(t *testing.T) {
 
 	if got.Week != want.Week {
 		t.Errorf("week = %+v, want %+v", got.Week, want.Week)
+	}
+}
+
+// TestHomeEnums checks that the spec allows every app and source the home API returns.
+func TestHomeEnums(t *testing.T) {
+	var got api.Home
+	if err := json.Unmarshal(serve(t, http.MethodGet).Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+
+	for _, item := range got.Items {
+		if !item.App.Valid() {
+			t.Errorf("item %q: app %q is not in the spec", item.ID, item.App)
+		}
+
+		if !item.Source.Valid() {
+			t.Errorf("item %q: source %q is not in the spec", item.ID, item.Source)
+		}
 	}
 }
 

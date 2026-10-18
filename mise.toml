@@ -5,6 +5,19 @@ golangci-lint = "latest"
 "github:vladopajic/go-test-coverage" = "latest"
 jactionlint = "latest"
 shellcheck = "latest"
+# Pinned, so the generated code changes only with the spec or a reviewed bump.
+oapi-codegen = "2.8.0"
+
+[tasks.generate]
+description = "Generate the home API's Go code from its OpenAPI spec (oapi-codegen)"
+dir = "services/home/internal/api"
+run = "oapi-codegen -config oapi-codegen.yaml -o api.gen.go ../../../../api/home.yaml"
+
+[tasks."generate:check"]
+description = "Fail if the generated Go code differs from what the spec generates"
+dir = "services/home/internal/api"
+shell = "bash -c"
+run = "set -o pipefail; oapi-codegen -config oapi-codegen.yaml ../../../../api/home.yaml | diff -u api.gen.go -"
 
 [tasks.fmt]
 description = "Format the Go code (gofumpt, golines)"
@@ -40,7 +53,7 @@ run = "govulncheck ./..."
 
 [tasks.check]
 description = "Run the local quality gate"
-depends = ["fmt:check", "lint", "lint:actions", "cover", "vuln"]
+depends = ["generate:check", "fmt:check", "lint", "lint:actions", "cover", "vuln"]
 
 [tasks.sonar-issues]
 description = "List open SonarQube Cloud issues"

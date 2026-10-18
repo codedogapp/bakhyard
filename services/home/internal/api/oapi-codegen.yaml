@@ -1,0 +1,11 @@
+package: api
+generate:
+  chi-server: true
+  strict-server: true
+  models: true
+output-options:
+  name-normalizer: ToCamelCaseWithInitialisms
+  prefer-skip-optional-pointer: true
+  prefer-skip-optional-pointer-with-omitzero: true
+compatibility:
+  always-prefix-enum-values: true

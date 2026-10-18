@@ -34,25 +34,25 @@ const (
 // Item is one thing that needs the user. Its ID is "<app>/<id>", and a zero Due means no due
 // time.
 type Item struct {
-	ID     string    `json:"id"`
-	App    App       `json:"app"`
-	Title  string    `json:"title"`
-	Detail string    `json:"detail,omitempty"`
-	Source Source    `json:"source"`
-	Due    time.Time `json:"due,omitzero"`
-	Late   bool      `json:"late"`
+	ID     string
+	App    App
+	Title  string
+	Detail string
+	Source Source
+	Due    time.Time
+	Late   bool
 }
 
 // Week is the hours logged this week against the target.
 type Week struct {
-	LoggedHours float64 `json:"loggedHours"`
-	TargetHours float64 `json:"targetHours"`
+	LoggedHours float64
+	TargetHours float64
 }
 
 // Home is everything the Home screen shows.
 type Home struct {
-	Items []Item `json:"items"`
-	Week  Week   `json:"week"`
+	Items []Item
+	Week  Week
 }
 
 // New builds the Home at now. It marks the items past their due time as late and puts the most

@@ -7,5 +7,6 @@ threshold:
 exclude:
   paths:
     - '^services/[^/]+/main\.go$'
+    - '\.gen\.go$'
 
 force-annotation-comment: true
