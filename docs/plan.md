@@ -32,6 +32,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | Id | Step | Status |
 | --- | --- | --- |
 | `agents-md` | AGENTS.md, this status, the first attempt archived | Done (#1) |
+| `agents` | A dedicated custom agent for each pipeline role | Done (#3) |
 | `ci-baseline` | CI with mise, Renovate, SonarQube Cloud, actionlint | In review |
 | `go-toolchain` | Go module, golangci-lint with the gates, coverage gate, `mise run check` | |
 | `home-service` | The first service: `home`, with demo data and a health endpoint | |
