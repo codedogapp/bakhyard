@@ -1,10 +1,10 @@
 # Bakhyard work plan
 
-Version 1.2, 2026-10-18. Replaces v1.1, which predates the microservices architecture.
+Version 1.3, 2026-10-18. Replaces v1.2: the first attempt was archived and the build restarted in small, reviewed steps.
 
 Bakhyard is a self-hosted dashboard for one person. It runs on an always-on home Mac and brings together Obsidian notes, work (Jira todos, Bitbucket pull requests, Tempo hours, reviewer nudges), GitHub, games and a Copilot planner, used from a MacBook and an iPhone. The name is Bakh + backyard: personal, and it lives at home.
 
-This document is the source of truth for scope, decisions and the work breakdown. Update the status markers as work lands.
+This document is the source of truth for scope and the work breakdown. How we work (rules, agent pipeline, quality gates) is canonical in [AGENTS.md](../AGENTS.md). Update the status markers as work lands.
 
 **Contents**
 
@@ -25,39 +25,25 @@ This document is the source of truth for scope, decisions and the work breakdown
 
 ## 0. Status
 
-**Paused** by the user on 2026-10-18 at 02:22, partway through the first slice. Nothing is committed yet.
+**Restarted** on 2026-10-18. The first attempt was written in large batches by background agents and failed the clean-code bar: god packages, long files mixing unrelated concerns, and infrastructure built before anything needed it. It was archived outside the repo. The build restarts in small steps, each going through the agent pipeline in [AGENTS.md](../AGENTS.md) and a PR the user reviews.
 
-The first slice is the Home screen running end to end on the microservices stack (§4): gateway, web, home, seven feature services with demo data, NATS and the cockpit.
+The v1.2 design in §4 to §6 stays as reference. A piece of it is built only when a step needs it.
 
-| Area | State |
-| --- | --- |
-| Research, plan, visual identity, decisions | Done (this document) |
-| Toolchain: mise monorepo, latest versions, lint and format, git hook, tasks | Done |
-| Contracts: `proto/`, buf, generated Go and TypeScript, `libs/go/contracts` | Done; golangci-lint not yet run on the module |
-| `services.toml` manifest | Done |
-| Cockpit (`tools/cockpit`) | Partial, unreviewed, unverified. Written by a background agent that was cancelled at the pause: 16 Go files, about 2,600 lines including tests |
-| Home UI (`apps/web/src`) | Partial, unreviewed, unverified. Written by a background agent that was cancelled at the pause: components, Home page, Connect client. A build exists in the web service's embed directory |
-| `libs/go/kit` | Not started; design in §4.8 |
-| Services | Not started |
-| Root `go.work`, `services/web/internal/site/dist/.gitkeep` | Not created |
-| `docs/architecture.md` | Not written; §4 holds the content for now |
+| Id | Step | Status |
+| --- | --- | --- |
+| `agents-md` | AGENTS.md, this status, the first attempt archived | In review |
+| `ci-baseline` | CI with mise, Renovate, SonarQube Cloud, actionlint | Next |
+| `go-toolchain` | Go module, golangci-lint with the gates, coverage gate, `mise run check` | |
+| `home-service` | The first service: `home`, with demo data and a health endpoint | |
+| `gateway` | The gateway in front of `home` | |
 
-Leftovers from the cancelled agents: `apps/web/.bakhyard-mock/` (a mock API server, now stopped) and an empty `tools/cockpit/c/`. Delete both when resuming.
+After these: the Home UI, the cockpit, then the product phases (§8.2), each split into steps.
 
-**To resume**
-
-1. `mise install`: govulncheck and gosec are declared but not installed yet.
-2. Review the cockpit and Home UI code, then finish or redo them. Delete the leftovers.
-3. Run golangci-lint on `libs/go/contracts`.
-4. Build `libs/go/kit` with tests (§4.8).
-5. Build the services (§4.3). Add a root `go.work` listing every module. Commit `services/web/internal/site/dist/.gitkeep`.
-6. Integrate: `mise run check`, `mise run up`, curl through the gateway, screenshot the UI against the reference, kill and restart a service from the cockpit.
-7. Write `docs/architecture.md` from §4: runtime contract, sharing policy, monitoring, runbook.
-8. Continue with the product phases (§8.2), starting with the Phase 0 spikes.
+**Deferred until a step needs it**: protobuf contracts, NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
 ## 1. Goal and scope
 
-One user. The host is an always-on home **Mac** on the LAN. Clients are a **MacBook** and an **iPhone** (browser and Home Screen PWA). Repo: `Bakhomious/bakhyard`.
+One user. The host is an always-on home **Mac** on the LAN. Clients are a **MacBook** and an **iPhone** (browser and Home Screen PWA). Repo: `codedogapp/bakhyard` (public).
 
 Modules:
 
@@ -165,6 +151,8 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 | every integration service | `integration_cache` (source, key, json, fetched_at), `settings` |
 
 ## 4. System architecture: the microservices experiment
+
+> **v1.3:** the v1.2 design, kept as reference. §0 sets the build order and what is deferred; [AGENTS.md](../AGENTS.md) overrides this section where they differ (for example, one Go module instead of one per service).
 
 ### 4.1 Intent
 
@@ -507,6 +495,8 @@ Week: 31.5 of 40 h. Numbers are named constants (the mnd linter).
 
 ## 5. Repo layout
 
+> **v1.3:** the v1.2 layout, kept as reference. The current layout rules are in [AGENTS.md](../AGENTS.md) (Architecture).
+
 ```
 bakhyard/
 ├── apps/web/                  Svelte 5 SPA: a standalone pnpm project with its own mise.toml
@@ -532,6 +522,8 @@ bakhyard/
 - Runtime state lives under `$BAKHYARD_HOME`: `run/` (sockets, pidfiles, `cockpit.sock`), `logs/` and `data/<service>/`.
 
 ## 6. Toolchain and conventions
+
+> **v1.3:** the v1.2 toolchain, kept as reference. Each tool returns only with the step that needs it. [AGENTS.md](../AGENTS.md) holds the canonical rules and quality gates.
 
 ### 6.1 Versions
 
@@ -779,18 +771,7 @@ Ids match the task tracker used in the Copilot sessions. "Needs" lists the depen
 
 ### 8.1 First slice: Home on the microservices stack
 
-| Id | Task | Needs | Status |
-| --- | --- | --- | --- |
-| `ms-versions` | Upgrade everything to latest; TypeScript 7 setup | | Done |
-| `ms-root-files` | Root tooling: mise, golangci-lint, git hook, scripts, `.gitignore` | `ms-versions` | Done (`go.work` comes with the modules) |
-| `ms-contracts` | Protos, buf, generated Go and TypeScript, contracts module | `ms-root-files` | Done |
-| `ms-manifest-docs` | `services.toml` + `docs/architecture.md` | `ms-root-files` | Paused: manifest done, doc not written |
-| `ms-cockpit` | Supervisor daemon, control API, probes, metrics scrape, Bubble Tea TUI (§4.9) | `ms-manifest-docs` | Paused: partial, unreviewed |
-| `ms-web-ui` | Home UI per §7 with the Connect client (§4.12) | `ms-contracts` | Paused: partial, unreviewed |
-| `ms-kit` | `libs/go/kit` (§4.8) | `ms-root-files` | Paused: not started |
-| `ms-services` | gateway, web, home and the 7 demo feature services | `ms-contracts`, `ms-kit` | Pending |
-| `ms-integrate` | Build, `check`, `up`, curl, UI screenshot, kill/restart demo, TUI capture | `ms-cockpit`, `ms-services`, `ms-web-ui` | Pending |
-| `ms-plan-update` | Plan updated for the microservices architecture | | Done (this document) |
+Superseded by the steps in §0 (v1.3). The v1.2 first-slice tasks went to the archive with their code.
 
 ### 8.2 Product phases
 
@@ -954,6 +935,18 @@ Made on 2026-10-18:
 21. **CSS**: plain CSS custom properties; no Tailwind.
 22. **Comments**: minimal, only where needed.
 
+Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.md](../AGENTS.md):
+
+23. **Restart**: the first attempt is archived; the build restarts in small steps.
+24. **Pipeline**: every step goes lead → senior Go engineer → QA → code and architecture reviewer → user.
+25. **Quality gates**: lightweight static tools locally (`mise run check`), SonarQube Cloud in CI.
+26. **Lean microservices**: the gateway and one service first; the rest of §4 only when a step needs it.
+27. **One Go module** for the whole repo, replacing one module per service.
+28. **Repo**: `codedogapp/bakhyard`, public, replacing `Bakhomious/bakhyard` (decision 10). One PR per step, squash-merged after the user's OK.
+29. **Commits**: Conventional Commits, with no AI co-author trailers.
+30. **Dependencies and analysis**: the Renovate and SonarQube Cloud GitHub Apps, set up like jirascrap.
+31. **Privacy**: no personal identifiers, work-project names or third-party material in tracked files. The reference screenshot stays local.
+
 ## 10. Risks
 
 - **Exophase polling** (accepted by the user): undocumented endpoints behind a Cloudflare bot check may break or get blocked at any time. Mitigations: hourly at most, backoff, last-good cache, "stale" badge, card-image fallback. Backloggd's manual list carries no scraping risk.
@@ -1002,7 +995,6 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 
 ## 12. Open questions
 
-- Does `go get -u ./...` with `replace` directives to the local libraries try to fetch them from the module proxy? If so, the `upgrade` task must skip the replaced modules.
 - Which connect-go v2 ecosystem modules (OpenTelemetry interceptors, validation) exist at v2?
 - Google's authorized-domain step for `<tailnet>.ts.net` is only indirectly confirmed (spike).
 - Does the Google login stay inside the iPhone Home Screen app (spike)?
@@ -1011,7 +1003,6 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 - iCloud sync latency between the host and the devices (spike).
 - Which HTTP client gets Exophase JSON reliably (spike)?
 - Does Copilot plan mode work with the built-in tools restricted (spike)?
-- Keep, finish or redo the cockpit and Home UI code the cancelled agents left behind (§0)?
 
 ## 13. Sources
 
