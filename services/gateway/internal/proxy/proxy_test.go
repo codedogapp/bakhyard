@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/codedogapp/bakhyard/services/gateway/internal/proxy"
 )
 
@@ -74,6 +76,10 @@ func TestRejectsOtherPaths(t *testing.T) {
 		"/api/home/",
 		"/api/home/x",
 		"/api/homes",
+		"/API/home",
+		"/api//home",
+		"/api/home/../healthz",
+		"/api/ho%6De",
 	}
 
 	for _, path := range paths {
@@ -90,6 +96,20 @@ func TestRejectsOtherPaths(t *testing.T) {
 				t.Errorf("upstream got %q, want no request", <-seen)
 			}
 		})
+	}
+}
+
+func TestRejectsNonStandardMethods(t *testing.T) {
+	target, seen := upstream(t)
+
+	rec := serve(t, target, "PURGE", "/api/home")
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
+	}
+
+	if len(seen) != 0 {
+		t.Errorf("upstream got %q, want no request", <-seen)
 	}
 }
 
@@ -186,11 +206,11 @@ func serve(t *testing.T, target *url.URL, method, path string) *httptest.Respons
 
 // forward sends req through a gateway that has home registered at target.
 func forward(target *url.URL, req *http.Request, logger *slog.Logger) *httptest.ResponseRecorder {
-	mux := http.NewServeMux()
-	proxy.Register(mux, "home", target, logger)
+	router := chi.NewRouter()
+	proxy.Register(router, "home", target, logger)
 
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
+	router.ServeHTTP(rec, req)
 
 	return rec
 }

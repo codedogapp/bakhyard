@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
 	"github.com/codedogapp/bakhyard/services/home/internal/api"
 )
 
@@ -94,8 +97,8 @@ func TestHomeOtherMethods(t *testing.T) {
 				t.Errorf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
 			}
 
-			if got := rec.Header().Get("Allow"); got != "GET, HEAD" {
-				t.Errorf("Allow = %q, want %q", got, "GET, HEAD")
+			if got := rec.Header().Values("Allow"); !slices.Equal(got, []string{http.MethodGet}) {
+				t.Errorf("Allow = %q, want %q", got, []string{http.MethodGet})
 			}
 		})
 	}
@@ -109,11 +112,12 @@ func now() time.Time {
 func serve(t *testing.T, method string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	mux := http.NewServeMux()
-	api.Register(mux, now)
+	router := chi.NewRouter()
+	router.Use(middleware.GetHead)
+	api.Register(router, now)
 
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, "/home", nil))
+	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, "/home", nil))
 
 	return rec
 }

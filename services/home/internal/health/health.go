@@ -3,13 +3,15 @@ package health
 import (
 	"io"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
 )
 
 const body = `{"status":"ok"}`
 
-// Register serves GET and HEAD /healthz on mux; other methods get 405.
-func Register(mux *http.ServeMux) {
-	mux.HandleFunc("GET /healthz", healthz)
+// Register serves GET /healthz on router; other methods get 405.
+func Register(router chi.Router) {
+	router.Get("/healthz", healthz)
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {

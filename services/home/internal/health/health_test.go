@@ -3,7 +3,11 @@ package health_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/codedogapp/bakhyard/services/home/internal/health"
 )
@@ -53,8 +57,8 @@ func TestHealthzOtherMethods(t *testing.T) {
 				t.Errorf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
 			}
 
-			if got := rec.Header().Get("Allow"); got != "GET, HEAD" {
-				t.Errorf("Allow = %q, want %q", got, "GET, HEAD")
+			if got := rec.Header().Values("Allow"); !slices.Equal(got, []string{http.MethodGet}) {
+				t.Errorf("Allow = %q, want %q", got, []string{http.MethodGet})
 			}
 		})
 	}
@@ -63,11 +67,12 @@ func TestHealthzOtherMethods(t *testing.T) {
 func serve(t *testing.T, method string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	mux := http.NewServeMux()
-	health.Register(mux)
+	router := chi.NewRouter()
+	router.Use(middleware.GetHead)
+	health.Register(router)
 
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, "/healthz", nil))
+	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, "/healthz", nil))
 
 	return rec
 }
