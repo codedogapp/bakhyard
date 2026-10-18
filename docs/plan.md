@@ -39,9 +39,15 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `gateway` | The gateway in front of `home` | Done (#6) |
 | `chi-router` | Route with chi instead of `net/http.ServeMux` (decision 42) | Done (#7) |
 | `openapi` | Generate the public JSON APIs from OpenAPI specs | Dropped (#8 closed, decision 43) |
-| `code-first` | Record decision 43: the public JSON APIs stay hand-written | In progress |
+| `code-first` | Record decision 43: the public JSON APIs stay hand-written | Done (#9) |
+| `web-scaffold` | The Svelte app in `apps/web`, its toolchain and the web gates (decision 44) | In progress |
+| `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it | Planned |
+| `home-shell` | The Home page's frame per §7: tokens, fonts, sidebar, greeting | Planned |
+| `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
+| `home-apps` | The "Your apps" grid and the weekly hours bar | Planned |
+| `home-phone` | The iPhone layout: bottom tab bar, one column, safe areas | Planned |
 
-After these: the Home UI, the cockpit, then the product phases (§8.2), each split into steps.
+After these: the cockpit, then the product phases (§8.2), each split into steps.
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
@@ -596,7 +602,7 @@ Root tasks:
 | `vuln`, `sec`, `audit` | govulncheck, gosec, plus `pnpm audit` |
 | `install-hooks` | Sets `core.hooksPath` |
 
-Web tasks (`//apps/web:`): `run` (alias `dev`), `install`, `gen`, `build`, `check`, `lint`, `format`, `verify`, `upgrade`, `outdated`, `audit`.
+Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`, `fmt`, `lint`, `typecheck`, `test`, `unused`, `audit`, and `check`, which runs every gate and is part of the root `check`.
 
 ### 6.3 Go
 
@@ -619,8 +625,10 @@ Web tasks (`//apps/web:`): `run` (alias `dev`), `install`, `gen`, `build`, `chec
 - **TypeScript 7 does the type-checking.**
   - svelte-check 4.7.7 accepts only TypeScript ^5 or ^6 as a peer, and TypeScript 7 ships no classic JS API.
   - The official arrangement (sveltejs/language-tools#3063) is `typescript@~6` plus `@typescript/native@npm:typescript@7`, with `svelte-check --tsgo`. `tsc` in `node_modules/.bin` is TypeScript 7.
-  - The `upgrade` task re-pins `typescript@~6`.
+  - A package rule in `renovate.json` keeps `typescript` below 7; the `@typescript/native` alias still moves with each release.
   - Known `--tsgo` issues: sveltejs/language-tools#3145 (tsconfig `files` entries are not checked, so use `include`), sveltejs/language-tools#3120, sveltejs/language-tools#3142.
+  - `--tsgo` writes each component's generated TypeScript to `.svelte-check/` and, without `--incremental`, never removes the output of a deleted component, or of one whose script stops being TypeScript; the stale file keeps being checked. The `typecheck` script therefore deletes `.svelte-check/` first, which costs nothing because every run regenerates all of it anyway.
+- **Runes mode is forced** for our components in `vite.config.ts`, as the official `sv` template does, so Svelte's deprecated legacy syntax (`export let`, `$:`, `on:click`, `<slot>`) fails svelte-check, the build and the tests. Libraries in `node_modules` keep their own mode. Vite, Vitest and svelte-check all read the plugin's options there, so there is no `svelte.config.js`.
 - **Biome**, following the reference frontend project's `biome.json`:
   - Kept:
     - VCS integration with `.gitignore`;
@@ -628,15 +636,15 @@ Web tasks (`//apps/web:`): `run` (alias `dev`), `install`, `gen`, `build`, `chec
     - JS style: single quotes, semicolons, ES5 trailing commas, arrow parentheses, bracket spacing;
     - the recommended preset with `noImportantStyles` and `noNonNullAssertion` off.
   - Adapted:
-    - `files.includes ["src/**", "!src/gen"]`;
-    - the Svelte domain;
-    - full HTML support (formatter + linter);
-    - import groups: svelte → packages → Lucide → paths.
+    - no `files.includes`: the `.gitignore` already keeps out `node_modules`, `dist` and coverage;
+    - full support for `.svelte` and HTML (`html.experimentalFullSupportEnabled`, with the HTML formatter on). Biome has no Svelte linter domain;
+    - import groups: svelte → packages → paths (Lucide joins when it arrives);
+    - the limits from AGENTS.md: cognitive complexity, function and file length, parameters.
   - Dropped: the React domain, the MUI import restrictions, the GritQL plugin, Tailwind directives, `jsxQuoteStyle`.
 - **tsconfig split**, as in the reference frontend project: `tsconfig.base.json`, `tsconfig.app.json` (extends `@tsconfig/svelte` + base), `tsconfig.node.json`, and a `tsconfig.json` with references only.
 - **pnpm 12**:
   - Saves exact versions.
-  - Its minimum release age (about a day) can hold back a brand-new latest. Install with an explicit `pkg@x.y.z`, which records a `minimumReleaseAgeExclude` entry (currently `@lucide/svelte@1.59.0`).
+  - Refuses releases younger than its minimum release age (about a day), even in a lockfile it is asked to install. We keep that default, as with mise (decision 44): a release younger than a day waits.
 - **CSS**: plain CSS custom properties from §7. Tailwind is not used (the user left it optional).
 - **Icons**: Lucide per-icon imports (`@lucide/svelte/icons/<name>`). Lucide has no brand icons, so there is no GitHub logo.
 
@@ -965,6 +973,7 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 41. **Gateway routes until the contracts**: the gateway forwards `/api/<svc>` to the service as `/<svc>`, whatever the method, so `/api/home` reaches home's `GET /home`. Each service is registered by name; every other path gets a 404 until `web` exists, so the services' ops paths stay unreachable. An upstream that can't be reached gets a 503 with a Connect-style JSON error, `{"code":"unavailable","message":"<svc> is unavailable"}`, so clients keep their error handling when the contracts arrive. The client's `Forwarded` and `X-Forwarded-*` headers never reach the services. Security headers, CSRF protection, `X-Request-Id`, new `X-Forwarded-*` headers and upstream timeouts wait for the steps that need them (§4.4).
 42. **Router: chi**: every service routes with `github.com/go-chi/chi/v5`, which the user knows better than `net/http.ServeMux`. The user's choice overrides AGENTS.md's preference for the standard library here. Registration functions take a `chi.Router`, and a service that serves GET adds `middleware.GetHead`, because chi answers HEAD only through it. chi matches the path as sent, so it is stricter than ServeMux: an uncleaned path (`/api//home`) gets a 404 instead of a redirect, and an escaped spelling (`/api/ho%6De`) gets a 404 instead of a match. A 405 lists only the registered methods (`Allow: GET`) and has an empty body. A method chi doesn't know, such as `PURGE`, gets a 405 at the gateway instead of reaching the service. chi still sets `r.PathValue` and `r.Pattern`.
 43. **Code-first APIs**: public clients get JSON, and services will call each other with gRPC. The public JSON APIs stay hand-written in Go, encoded with `encoding/json/v2` (decision 39), with no OpenAPI spec: generating the server from a spec (#8, closed) complicated things more than it helped. Service-to-service calls will use gRPC and protobuf, and NATS payloads stay protobuf; grpc-go or connect-go is chosen with the first such call. So the contracts that decisions 39 and 41 wait for are only the service-to-service ones, and the gateway's 503 body keeps its shape. Live updates (§4.11's `WatchHome`) will need SSE or polling instead of a Connect stream, decided in the step that needs them. Replaces 14 for public APIs.
+44. **Web toolchain and gates**: the Svelte app lives in `apps/web`, a standalone pnpm project in mise's monorepo mode, with node and pnpm at `latest` among the root tools and the go.mod `ignore` directive keeping the Go tools out of it. TypeScript 7 does the type-checking through svelte-check's `--tsgo`, with TypeScript 6 beside it for svelte-check itself. The gates (AGENTS.md) mirror the Go ones where a web tool can measure them: Biome (formatting, the recommended rules, and the cognitive complexity, function length, file length and parameter limits), svelte-check with warnings failing, Vitest coverage (≥ 80% total, ≥ 70% per file), knip for unused code and `pnpm audit`. Nothing measures cyclomatic complexity, nesting or duplication in `.svelte` files, and SonarQube Cloud can't read them, so logic goes into `.ts` files and components stay thin. Runes mode is forced, so Svelte's deprecated legacy syntax fails (decision 35). pnpm's 24 h minimum release age stays on, like mise's (decision 34), so a release younger than a day waits rather than being let through with `minimumReleaseAgeExclude`.
 
 ## 10. Risks
 
@@ -982,7 +991,8 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 - **Bleeding-edge toolchain**:
   - TypeScript 7 relies on svelte-check's `--tsgo` mode, which has open issues, and TypeScript 6 must stay installed alongside until svelte-check supports TypeScript 7 directly.
   - connect-go v2 is new; its ecosystem modules (for example OpenTelemetry or validation interceptors for v2) are not verified yet.
-- **pnpm's minimum release age** can hold back a fresh "latest" → pin explicitly and record the exclusion.
+  - Biome's support for `.svelte` files is experimental (`html.experimentalFullSupportEnabled`), so a Biome release may change how they are formatted or linted.
+- **pnpm's minimum release age**: pnpm refuses npm releases younger than a day, and Renovate's `config:recommended` doesn't wait. A Renovate update to a release that new fails until the release is a day old, then passes on Renovate's next run.
 - **Security hotspots**: the Sonar way gate still counts `new_security_hotspots_reviewed`, but SonarQube Cloud deprecated the hotspots API on 2026-06-16 in favour of security issues. So `mise run sonar-issues` can't list hotspots; a gate that is red because of a hotspot has to be read in the SonarQube Cloud UI.
 - **Floating tool versions**: mise tools use `latest` with no lockfile, so a new release (for example a new jactionlint rule) can turn CI red with no change in the repo. A local run may also use an older version than CI until `mise upgrade --local`. When CI turns red for no reason, check the tool versions first.
 - **Unix socket paths** are limited to 104 bytes on macOS → keep `BAKHYARD_HOME` short; the cockpit validates.
@@ -993,6 +1003,7 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
   - A reason made only of invisible characters, such as a zero-width space, passes both nolintlint and revive's reason check.
   - `golangci-lint config verify` doesn't check revive rule arguments, and revive ignores unknown keys, so a typo such as `maxx` for `max` silently turns a limit off.
   - Some tools have their own ignore comments, which need no reason and which nolintlint and revive don't see. `//gocognit:ignore` and `//gocyclo:ignore` in a function's doc comment skip that function, and `//exhaustive:ignore` skips a switch; no golangci-lint option turns them off. `//NOSONAR` hides a Sonar issue, and `# shellcheck disable=` hides a finding in a workflow's `run:` script.
+  - On the web side, `biome-ignore` takes any non-empty reason, and these need none: `<!-- svelte-ignore -->` for a Svelte warning, `@ts-expect-error` for a type error, `/* v8 ignore */` for coverage, and knip's `@public` tag for an unused export. Biome's file-length limit counts comments, where revive's skips them, and it measures a `.svelte` file's script and markup separately, so a component can reach about 400 lines.
 
 ## 11. Estimate
 

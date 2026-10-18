@@ -73,15 +73,17 @@ Never report a step as done before `mise run check` has passed, and say which ga
 - **Latest versions.** Everything we install runs on its newest release.
   - mise tools use `latest` in `mise.toml`. mise skips releases younger than 24 h (its `minimum_release_age` default), and mise-action does the same for mise itself. CI installs mise and the tools afresh on every run, with mise-action's cache off. Update local tools with `mise upgrade --local`; a plain `mise upgrade` also changes the user's global tools.
   - The rest is pinned exactly at its newest release, checked against its registry: GitHub Actions by commit SHA with a `# vX.Y.Z` comment, Go modules in `go.mod`, npm packages in `package.json`. Renovate keeps these current.
+  - pnpm also refuses releases younger than 24 h (its `minimumReleaseAge` default), so the newest npm release we pin is the newest one at least a day old. Never override this with `minimumReleaseAgeExclude`.
 - **Nothing deprecated.** Never use a deprecated tool, API, endpoint, parameter, field or flag; use its replacement. Check the source's deprecation notes before picking one.
 - **Go**: the latest release. Before editing Go code, run the `use-modern-go` skill's `list` for the file and follow its guidelines.
 - **Go lint and format**: golangci-lint, based on the user's labrys config; gofumpt and golines at 100 columns.
-- **Web** (when it arrives): Svelte 5, Vite and TypeScript; Biome configured like the user's reference frontend project (ask the user for its path); plain CSS custom properties, no Tailwind; visual identity per plan §7.
+- **Web**: Svelte 5, Vite and TypeScript in `apps/web`, a standalone pnpm project with its own `mise.toml` (tasks `//apps/web:<task>`). Type-checking runs on TypeScript 7 through svelte-check's `--tsgo`, with TypeScript 6 installed beside it until svelte-check supports 7 directly. Biome is configured like the user's reference frontend project (ask the user for its path). Plain CSS custom properties, no Tailwind; visual identity per plan §7.
+- **Web logic lives in `.ts` files**; Svelte components stay thin. SonarQube Cloud can't read `.svelte` files, and no web tool measures cyclomatic complexity, nesting or duplication in them.
 - **Mirror the user's repos** before inventing a convention: labrys (Go lint), jirascrap (CI, Sonar, Renovate) and the reference frontend project (mise monorepo, Biome, hooks).
 
 ## Quality gates
 
-Measure everything we can with lightweight static tools. Thresholds change only with the user's OK. Every suppression (`//nolint`, a Sonar "won't fix") needs a reason next to it and the user's OK.
+Measure everything we can with lightweight static tools. Thresholds change only with the user's OK. Every suppression (`//nolint`, `biome-ignore`, `svelte-ignore`, `@ts-expect-error`, a Sonar "won't fix") needs a reason next to it and the user's OK.
 
 | Measure | Limit | Tool |
 | --- | --- | --- |
@@ -102,7 +104,25 @@ Measure everything we can with lightweight static tools. Thresholds change only 
 | Dependencies | current | Renovate (GitHub App) |
 | New code overall | quality gate passes | SonarQube Cloud |
 
-The local gates run through `mise run check`. CI runs the same task and, in a parallel job, SonarQube Cloud.
+The local gates run through `mise run check`, which includes the web gates below. CI runs the same task and, in a parallel job, SonarQube Cloud.
+
+### Web
+
+`mise run //apps/web:check` runs the gates of the web app in `apps/web`:
+
+| Measure | Limit | Tool |
+| --- | --- | --- |
+| File length | ≤ 200 lines, not counting blank lines | Biome `noExcessiveLinesPerFile` |
+| Function length | ≤ 50 lines, not counting blank lines; tests exempt | Biome `noExcessiveLinesPerFunction` |
+| Cognitive complexity | ≤ 15 per function | Biome `noExcessiveCognitiveComplexity` |
+| Parameters | ≤ 4 | Biome `useMaxParams` |
+| Lint | Biome's recommended rules; a warning fails too | Biome |
+| Formatting | no diff, imports sorted | Biome |
+| Types | no error or warning in `.ts` and `.svelte` files, Svelte compiler warnings included; runes mode is forced, so Svelte's deprecated legacy syntax fails | svelte-check, `tsc` |
+| Test coverage | ≥ 80% total and ≥ 70% per file, for lines, statements, functions and branches; `main.ts` wiring excluded | Vitest |
+| Unused code | no unused file, export or dependency | knip |
+| Vulnerabilities | none known | `pnpm audit` |
+| Suppressions | every `biome-ignore` gives a reason | Biome |
 
 ### SonarQube Cloud
 

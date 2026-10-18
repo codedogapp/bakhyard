@@ -1,6 +1,13 @@
+monorepo_root = true
+
+[monorepo]
+config_roots = ["apps/web"]
+
 [tools]
 go = "latest"
 golangci-lint = "latest"
+node = "latest"
+pnpm = "latest"
 "go:golang.org/x/vuln/cmd/govulncheck" = "latest"
 "github:vladopajic/go-test-coverage" = "latest"
 jactionlint = "latest"
@@ -40,7 +47,7 @@ run = "govulncheck ./..."
 
 [tasks.check]
 description = "Run the local quality gate"
-depends = ["fmt:check", "lint", "lint:actions", "cover", "vuln"]
+depends = ["fmt:check", "lint", "lint:actions", "cover", "vuln", "//apps/web:check"]
 
 [tasks.sonar-issues]
 description = "List open SonarQube Cloud issues"

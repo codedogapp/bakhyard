@@ -1,0 +1,46 @@
+[tasks.install]
+description = "Install the web dependencies from the lockfile"
+run = "pnpm install --frozen-lockfile"
+
+[tasks.dev]
+description = "Serve the web app with Vite, proxying /api to the gateway"
+depends = [":install"]
+run = "pnpm run dev"
+
+[tasks.build]
+description = "Build the web app into dist"
+depends = [":install"]
+run = "pnpm run build"
+
+[tasks.fmt]
+description = "Format the web code and sort its imports (Biome)"
+depends = [":install"]
+run = "pnpm run format"
+
+[tasks.lint]
+description = "Fail on unformatted code, unsorted imports or lint findings (Biome)"
+depends = [":install"]
+run = "pnpm run lint"
+
+[tasks.typecheck]
+description = "Type-check the web code (svelte-check with TypeScript 7)"
+depends = [":install"]
+run = "pnpm run typecheck"
+
+[tasks.test]
+description = "Run the web tests and fail below the coverage thresholds (Vitest)"
+depends = [":install"]
+run = "pnpm run test"
+
+[tasks.unused]
+description = "Fail on unused files, exports or dependencies (knip)"
+depends = [":install"]
+run = "pnpm run unused"
+
+[tasks.audit]
+description = "Fail on dependencies with known vulnerabilities (pnpm audit)"
+run = "pnpm audit"
+
+[tasks.check]
+description = "Run the web quality gate"
+depends = [":lint", ":typecheck", ":test", ":unused", ":audit"]
