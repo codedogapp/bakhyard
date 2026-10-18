@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // apiPrefix starts every public API path; the services serve their paths without it.
@@ -19,16 +21,16 @@ type apiError struct {
 	Message string `json:"message"`
 }
 
-// Register forwards /api/<name> on mux to target as /<name>, whatever the method; target
-// answers for its own methods. When target can't be reached, the client gets a 503 with a
-// JSON error and logger gets the cause.
-func Register(mux *http.ServeMux, name string, target *url.URL, logger *slog.Logger) {
+// Register forwards /api/<name> on router to target as /<name>, for every standard method;
+// target answers for its own methods. When target can't be reached, the client gets a 503
+// with a JSON error and logger gets the cause.
+func Register(router chi.Router, name string, target *url.URL, logger *slog.Logger) {
 	forward := &httputil.ReverseProxy{
 		Rewrite:      func(pr *httputil.ProxyRequest) { pr.SetURL(target) },
 		ErrorHandler: unavailable(name, logger),
 	}
 
-	mux.Handle(apiPrefix+"/"+name, http.StripPrefix(apiPrefix, forward))
+	router.Handle(apiPrefix+"/"+name, http.StripPrefix(apiPrefix, forward))
 }
 
 func unavailable(name string, logger *slog.Logger) func(http.ResponseWriter, *http.Request, error) {

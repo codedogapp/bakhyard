@@ -36,7 +36,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `ci-baseline` | CI with mise, Renovate, SonarQube Cloud, jactionlint | Done (#2) |
 | `go-toolchain` | Go module, golangci-lint with the gates, coverage gate, `mise run check`, and the smallest `home` service: `GET /healthz` | Done (#4) |
 | `home-service` | `home` serves the demo data (§4.13) | Done (#5) |
-| `gateway` | The gateway in front of `home` | In progress |
+| `gateway` | The gateway in front of `home` | Done (#6) |
+| `chi-router` | Route with chi instead of `net/http.ServeMux` (decision 42) | In progress |
 
 After these: the Home UI, the cockpit, then the product phases (§8.2), each split into steps.
 
@@ -598,7 +599,7 @@ Web tasks (`//apps/web:`): `run` (alias `dev`), `install`, `gen`, `build`, `chec
 - Go 1.27, written to the `/use-modern-go` guidelines: run the tool's `list` before editing Go code, and `explain` for any guideline that may apply. Examples:
   - `encoding/json/v2`; the stdlib `uuid` package (`uuid.NewV7`);
   - `wg.Go`, `errors.AsType`, `new(expr)`, `t.Context()`, `omitzero`, `cmp.Or`;
-  - `slices`/`maps` iterators, ServeMux method patterns + `PathValue`;
+  - `slices`/`maps` iterators, `r.PathValue` (chi sets it; decision 42);
   - `context.AfterFunc`, `context.WithTimeoutCause`, typed atomics;
   - promoted-field literals, `strings.CutLast`.
 - Lint config: the labrys `.golangci.yml`, copied verbatim.
@@ -956,6 +957,7 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 39. **Plain JSON until the contracts**: until a step needs the protobuf contracts (§4.5), services speak plain JSON over HTTP, encoded with `encoding/json/v2`. `home` serves its screen on `GET /home`, with the field names the contracts will use.
 40. **Time tracking on Jira**: time is logged on the Jira tickets, probably through Clockwork, not in Tempo as §2 first assumed. The user will share a repo that shows how; until then the design of `time-tracking` stays open. The demo data names Jira as the source of the time items.
 41. **Gateway routes until the contracts**: the gateway forwards `/api/<svc>` to the service as `/<svc>`, whatever the method, so `/api/home` reaches home's `GET /home`. Each service is registered by name; every other path gets a 404 until `web` exists, so the services' ops paths stay unreachable. An upstream that can't be reached gets a 503 with a Connect-style JSON error, `{"code":"unavailable","message":"<svc> is unavailable"}`, so clients keep their error handling when the contracts arrive. The client's `Forwarded` and `X-Forwarded-*` headers never reach the services. Security headers, CSRF protection, `X-Request-Id`, new `X-Forwarded-*` headers and upstream timeouts wait for the steps that need them (§4.4).
+42. **Router: chi**: every service routes with `github.com/go-chi/chi/v5`, which the user knows better than `net/http.ServeMux`. The user's choice overrides AGENTS.md's preference for the standard library here. Registration functions take a `chi.Router`, and a service that serves GET adds `middleware.GetHead`, because chi answers HEAD only through it. chi matches the path as sent, so it is stricter than ServeMux: an uncleaned path (`/api//home`) gets a 404 instead of a redirect, and an escaped spelling (`/api/ho%6De`) gets a 404 instead of a match. A 405 lists only the registered methods (`Allow: GET`) and has an empty body. A method chi doesn't know, such as `PURGE`, gets a 405 at the gateway instead of reaching the service. chi still sets `r.PathValue` and `r.Pattern`.
 
 ## 10. Risks
 

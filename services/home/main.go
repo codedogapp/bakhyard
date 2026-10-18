@@ -6,6 +6,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
 	"github.com/codedogapp/bakhyard/services/home/internal/api"
 	"github.com/codedogapp/bakhyard/services/home/internal/health"
 )
@@ -17,13 +20,15 @@ const (
 )
 
 func main() {
-	mux := http.NewServeMux()
-	health.Register(mux)
-	api.Register(mux, time.Now)
+	router := chi.NewRouter()
+	// Answer HEAD wherever GET is served.
+	router.Use(middleware.GetHead)
+	health.Register(router)
+	api.Register(router, time.Now)
 
 	server := &http.Server{
 		Addr:              listenAddr,
-		Handler:           mux,
+		Handler:           router,
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 

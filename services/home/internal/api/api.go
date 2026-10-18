@@ -6,14 +6,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/codedogapp/bakhyard/services/home/internal/demo"
 	"github.com/codedogapp/bakhyard/services/home/internal/screen"
 )
 
-// Register serves GET and HEAD /home on mux; other methods get 405. Due times are relative to
-// now().
-func Register(mux *http.ServeMux, now func() time.Time) {
-	mux.HandleFunc("GET /home", func(w http.ResponseWriter, _ *http.Request) {
+// Register serves GET /home on router; other methods get 405. Due times are relative to now().
+func Register(router chi.Router, now func() time.Time) {
+	router.Get("/home", func(w http.ResponseWriter, _ *http.Request) {
 		at := now()
 		home := screen.New(demo.Items(at), demo.Week(), at)
 

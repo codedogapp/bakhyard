@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/codedogapp/bakhyard/services/gateway/internal/proxy"
 )
 
@@ -21,12 +23,12 @@ const (
 func main() {
 	logger := slog.Default()
 
-	mux := http.NewServeMux()
-	proxy.Register(mux, "home", &url.URL{Scheme: "http", Host: homeAddr}, logger)
+	router := chi.NewRouter()
+	proxy.Register(router, "home", &url.URL{Scheme: "http", Host: homeAddr}, logger)
 
 	server := &http.Server{
 		Addr:              listenAddr,
-		Handler:           mux,
+		Handler:           router,
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
