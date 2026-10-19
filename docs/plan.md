@@ -40,12 +40,13 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `chi-router` | Route with chi instead of `net/http.ServeMux` (decision 42) | Done (#7) |
 | `openapi` | Generate the public JSON APIs from OpenAPI specs | Dropped (#8 closed, decision 43) |
 | `code-first` | Record decision 43: the public JSON APIs stay hand-written | Done (#9) |
-| `web-scaffold` | The Svelte app in `apps/web`, its toolchain and the web gates (decision 44) | In progress |
+| `web-scaffold` | The Svelte app in `apps/web`, its toolchain and the web gates (decision 44) | Done (#10) |
+| `visual-identity` | Replace §7 with the new visual identity (decision 45) | In progress |
 | `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it | Planned |
-| `home-shell` | The Home page's frame per §7: tokens, fonts, sidebar, greeting | Planned |
+| `home-shell` | The Home page's frame per §7: tokens for both themes, fonts, grain, top bar, header and hero | Planned |
 | `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
 | `home-apps` | The "Your apps" grid and the weekly hours bar | Planned |
-| `home-phone` | The iPhone layout: bottom tab bar, one column, safe areas | Planned |
+| `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas | Planned |
 
 After these: the cockpit, then the product phases (§8.2), each split into steps.
 
@@ -445,7 +446,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 - Columns: name, state dot, PID, uptime, restarts, ready, CPU, MEM, req/s, err %, p95.
 - A details pane and a logs viewport.
 - Keys: `s` start, `x` stop, `K` kill (with confirm), `r` restart, `a` start all, `Z` stop all, `l`/enter logs, `q` quit. Optional: `b` rebuild and restart.
-- Bakhyard palette, with each service's tile colour.
+- The monochrome §7 palette.
 
 **Paths**: `BAKHYARD_HOME` defaults to `~/Library/Application Support/Bakhyard`; in dev, mise sets it to `<repo>/.bakhyard` (gitignored). It holds `run/`, `logs/` and `data/`. `BAKHYARD_MANIFEST` points at `services.toml`.
 
@@ -561,8 +562,7 @@ Verified on 2026-10-18:
 | `@biomejs/biome` | 2.5.15 |
 | `@connectrpc/connect`, `@connectrpc/connect-web` | 2.2.0 |
 | `@bufbuild/protobuf`, `@bufbuild/protoc-gen-es` | 2.16.0 |
-| `@lucide/svelte` | 1.59.0 |
-| `@fontsource-variable/dm-sans`, `@fontsource-variable/caveat` | 5.3.0 |
+| `@fontsource-variable/space-grotesk`, `@fontsource/instrument-serif`, `@fontsource-variable/jetbrains-mono` | 5.3.0 (verified on 2026-10-20) |
 | `@tsconfig/svelte`, `@types/node` | 5.0.8, 26.6.5 |
 
 Go libraries for the kit and the cockpit, added with `@latest` (latest on 2026-10-18):
@@ -638,7 +638,7 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
   - Adapted:
     - no `files.includes`: the `.gitignore` already keeps out `node_modules`, `dist` and coverage;
     - full support for `.svelte` and HTML (`html.experimentalFullSupportEnabled`, with the HTML formatter on). Biome has no Svelte linter domain;
-    - import groups: svelte → packages → paths (Lucide joins when it arrives);
+    - import groups: svelte → packages → paths;
     - the limits from AGENTS.md: cognitive complexity, function and file length, parameters.
   - Dropped: the React domain, the MUI import restrictions, the GritQL plugin, Tailwind directives, `jsxQuoteStyle`.
 - **tsconfig split**, as in the reference frontend project: `tsconfig.base.json`, `tsconfig.app.json` (extends `@tsconfig/svelte` + base), `tsconfig.node.json`, and a `tsconfig.json` with references only.
@@ -646,7 +646,7 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
   - Saves exact versions.
   - Refuses releases younger than its minimum release age (about a day), even in a lockfile it is asked to install. We keep that default, as with mise (decision 44): a release younger than a day waits.
 - **CSS**: plain CSS custom properties from §7. Tailwind is not used (the user left it optional).
-- **Icons**: Lucide per-icon imports (`@lucide/svelte/icons/<name>`). Lucide has no brand icons, so there is no GitHub logo.
+- **Icons**: no icon library. The few icons are inline SVGs of our own (§7).
 
 ### 6.5 Protobuf
 
@@ -679,109 +679,171 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
 
 ## 7. Visual identity
 
-Measured on 2026-10-18 from a reference screenshot of a third-party dashboard. The screenshot stays out of git (`docs/visual-identity-reference.png` is gitignored); only the values derived from it are recorded here.
+Chosen on 2026-10-20 (decision 45). The user picked three third-party sites as references. Their screenshots and stylesheets stay out of git; only values derived from them are recorded here. A value marked **(ref)** comes from a reference's stylesheet. Every other value is our own choice, to be tuned by eye when the Home steps build it.
 
-How the values were measured:
+**Style**: soft neo-brutalism with editorial type.
 
-- **Colours** are pixel samples. A text colour is the most common colour among the darkest 25% of glyph pixels.
-- **Fonts** were identified by pixel correlation against rendered candidates, plus a visual check of the glyphs.
-- **Sizes** are in CSS px, **assuming the screenshot is 1.5 device px per CSS px**. At that scale hairlines come out at 1 px, and tiles, radii, gaps and the bar height at round numbers. One image can't prove the absolute scale, so tune by eye against the reference.
-
-Mood: calm and warm. An off-white "paper" page, hairline borders, **no shadows**, near-black text, pastel icon tiles, one muted ink-blue accent and handwritten side notes.
+- **Neo-brutalism, toned down**: square corners, visible 1 px borders, everything in cards, flat fills, and hard offset shadows with no blur. The loud original has thick borders and bright colours ([NN/g](https://www.nngroup.com/articles/neobrutalism/)); ours keeps thin borders and greys.
+- **Editorial type**: a grotesk for text, a serif for the odd accent word, and a mono for small uppercase labels.
+- **Paper grain**: a faint noise texture on the page, behind the cards.
+- **Monochrome**: ink on paper. Emphasis comes from size, weight, the serif and ink fills, never from colour.
+- **Light and dark** themes from the start.
 
 **Type**
 
-- UI: **DM Sans** variable (`@fontsource-variable/dm-sans` 5.3.0, OFL-1.1, self-hosted). Use `@fontsource-variable/dm-sans/opsz.css` (weight + optical-size axes; family `DM Sans Variable`). It won over Inter, Figtree, Work Sans, Public Sans, Hanken, Instrument Sans, Schibsted and others; the spur-less G and the slanted t-top match.
-- Accent: **Caveat** variable at weight 700 (`@fontsource-variable/caveat` 5.3.0, OFL-1.1; family `Caveat Variable`). About 26 px in `--ink`, rotated about −4°, next to section headings ("every app, one list", "all in one backyard").
-- Scale (px / weight):
-  - greeting H1: 32 / 700, letter-spacing ≈ −0.02em
-  - section heading: 20 / 600
-  - card title: 18 / 700
-  - list title and body: 16 / 400–500
-  - subtitle and secondary text: 16 or 14 / 400, muted
-  - nav: 15 / 400 (active 600)
-  - link: 15 / 500–600
-  - source label: 13 / 400
+All three fonts are OFL-1.1 and self-hosted from Fontsource 5.3.0 (verified on 2026-10-20).
 
-**Colour tokens**
+| Role | Font | Package | CSS family |
+| --- | --- | --- | --- |
+| Text, headings, big numbers | Space Grotesk, weights 300–700 | `@fontsource-variable/space-grotesk` | `Space Grotesk Variable` |
+| Accent words | Instrument Serif, 400 italic (`400-italic.css` only) | `@fontsource/instrument-serif` | `Instrument Serif` |
+| Labels, nav, chips, buttons, times | JetBrains Mono, weights 100–800 | `@fontsource-variable/jetbrains-mono` | `JetBrains Mono Variable` |
+
+None of the subsets Fontsource ships for these fonts has → (U+2192) or ↗ (U+2197), and only JetBrains Mono's Cyrillic subset has № (U+2116). So arrows are inline SVGs (see Icons), and numbers read "01", not "№ 01".
+
+Scale, in px / weight / letter-spacing:
+
+- Greeting: `clamp(38px, 4.5vw, 74px)` / 500 / −0.045em, line-height 1.04 (ref).
+- Section title and big numbers (item counts, hours): 28 / 500 / −0.03em; 24 on phones.
+- Card title: 19 / 500 / −0.025em; 16 on phones (ref).
+- Body: 16 / 400, line-height 1.5. Summaries: 16, line-height 1.65 (ref).
+- Secondary text: 14 / 400. Card descriptions: 13, line-height 1.6 (ref).
+- Mono label: 11, uppercase, 0.045em, line-height 1.6 (ref). The top bar: 10 (ref). Chips: 10. Mono text is always uppercase.
+- Nav: mono 11.5, uppercase, 0.035em (ref).
+- Wordmark: "bakhyard" in Space Grotesk, 25 / 600 / −0.07em; 17 on phones (ref).
+- Accent: Instrument Serif italic at the size of the heading around it, letter-spacing 0. At most one word per heading.
+
+**Tokens**
 
 ```css
 :root {
-  --bg: #F9F8F3;            /* page + sidebar */
-  --surface: #FFFEFA;       /* cards */
-  --border: #DAD9D4;        /* 1px card borders, row dividers, sidebar divider */
-  --text: #25252A;
-  --text-muted: #606060;
-  --text-subtle: #6A6A6A;   /* right-aligned source labels */
-  --ink: #476583;           /* links + handwritten notes */
-  --ink-strong: #436A93;    /* progress fill */
-  --track: #EFEEE9;         /* progress track */
-  --nav-active-bg: #E2EFF5;
-  --nav-active-text: #1C252C;
-  --swoosh: #9FCFE6;        /* hand-drawn underline under the name */
-  --warn-text: #5F512A;     /* "A day late." */
-  --tile-teal: #B3D8D1;     --tile-teal-fg: #142829;
-  --tile-yellow: #F0D06B;   --tile-yellow-fg: #302000;
-  --tile-pink: #E9B6BF;     --tile-pink-fg: #281A1E;
-  --tile-lavender: #DCD3F0; --tile-lavender-fg: #211E32;
-  --tile-peach: #F0CDAD;    --tile-peach-fg: #2E1B0F;
-  --tile-lime: #DAE4A8;     --tile-lime-fg: #232619;
-  --tile-sky: #A0CFE3;      --tile-sky-fg: #0C2938;
+  color-scheme: light dark;
+
+  --paper: #FAFAF8;          /* page, under the grain */
+  --surface: #FFFFFF;        /* cards, the bottom tab bar */
+  --fill: #F2F2F0;           /* bar tracks, row hover (ref #F1F1EF to #F4F4F2) */
+  --ink: #111111;            /* text, ink fills, hover borders (ref) */
+  --ink-muted: #5C5C5C;      /* secondary text and labels (ref #555555 to #707070) */
+  --rule: #D9D9D6;           /* 1 px card borders and dividers (ref) */
+  --shadow: #EBEBE8;         /* resting offset shadow (ref #F0F0F0) */
+  --shadow-strong: #CCCCC9;  /* hover offset shadow (ref #CCCCCC) */
+
+  --font-sans: "Space Grotesk Variable", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  --max: 1440px;             /* content width (ref) */
+  --gutter: 40px;            /* 30px on tablets, 20px on phones (ref) */
+  --offset: 6px;             /* resting shadow offset (ref) */
+  --offset-hover: 8px;       /* (ref) */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #131312;
+    --surface: #1B1B1A;
+    --fill: #252523;
+    --ink: #EDEDEA;
+    --ink-muted: #A3A3A0;
+    --rule: #343432;
+    --shadow: #262624;       /* lighter than the page, so the offset shows */
+    --shadow-strong: #3A3A38;
+  }
 }
 ```
 
-**Layout and components**
+- Text on an ink fill (chips, the primary button, the current tab) uses `--paper`.
+- `--ink` and `--ink-muted` reach at least 5.9:1 on `--paper`, `--surface` and `--fill` in both themes; WCAG AA asks for 4.5:1.
+- Corners are square everywhere, so there is no radius token.
 
-- **Shell**:
-  - Left sidebar about 228 px wide, in the page's `--bg`, with a 1 px right border.
-  - Top group: Home, Notifications, Settings, with 20 px line icons.
-  - Then a muted "Your apps" label and the module rows, with 26 px tiles.
-  - Active row: a `--nav-active-bg` pill, 40 px tall, radius about 12.
-  - Main column: 40 px left padding, max width about 1040 px.
-- **Greeting**:
-  - "Good evening, Bakh." with a hand-drawn SVG swoosh in `--swoosh` (rounded caps) under the name.
-  - Greeting by hour: before 05:00 evening, before 12:00 morning, before 18:00 afternoon, otherwise evening.
-  - Below it: "Saturday, 18 October. 1:11 am in <city>.", 16 px muted. Built with `Intl` (en-GB), with the city taken from the time zone.
-- **Section header**: a title plus an optional Caveat note.
-- **"Needs you today" card**:
-  - `--surface` background, 1 px `--border`, radius 16, padding about 20.
-  - Rows about 72 px tall: a 32 px tile (radius about 8), a title and a subline. The subline is muted, or `--warn-text` when overdue.
-  - The module label is right-aligned. Dividers are 1 px, inset to the card padding.
-- **"Your apps" grid**:
-  - 4 columns on desktop, 2 on tablet, 1 on phone; gap 16.
-  - Card radius 16, padding about 20, with a 40 px tile (radius about 12).
-  - A title, a one-line muted description, then an "Open X →" link in `--ink` at the bottom.
-- **Progress block**: heading, a link on the right, and an 8 px fully rounded bar (`--ink-strong` on `--track`).
-- **Icons**: Lucide (`@lucide/svelte` 1.59.0, ISC). The reference icons look like Lucide's house, sliders-horizontal, credit-card, sparkle, circle-help, layout-grid, image, calendar, receipt, mic, mail, file-text and play.
-- **iPhone PWA**:
-  - The sidebar becomes a bottom tab bar: Home, Notes, Todos, PRs, More. This replaced the earlier Home, Notes, Work, Games, More once each module became its own app.
-  - The grid drops to 1 column.
-  - Safe-area insets are respected.
-- **Themes**: light only at first; the tokens make a dark theme possible later.
+**Grain**: a tiled SVG fractal-noise texture (`feTurbulence`) as the page's background image, under all content. Black specks at about 8% opacity in light, white specks at about 5% in dark. Cards are solid `--surface`, so they sit on the grain like paper on a desk. These values are ours: no reference's live page has a CSS grain.
+
+**Page frame**
+
+- Content up to `--max` wide, centred, with `--gutter` on both sides.
+- Breakpoints (ref): a tablet layout at `max-width: 1100px` and a phone layout at `max-width: 700px`. At `max-width: 980px` the header nav gives way to the bottom tab bar (ref).
+- Every page has the top bar and the header. Home then shows, from top to bottom: the hero, "Needs you today", "Your apps" and "This week".
+
+**Top bar**: full width, an `--ink` background with `--paper` text in mono 10 px, padding 8 px by the gutter, and one item at each end (ref).
+
+- Left: whether the data is current: "Online", or "Offline · as of 01:10" when `/api/home` can't be reached. Once home reports its `sources` (§4.5), it also says when some are down: "2 sources unavailable".
+- Right: the time and city, "01:12 · <city>". Built with `Intl` (en-GB), with the city taken from the time zone.
+
+**Header**: a `1fr auto 1fr` grid with padding 24 px by the gutter (ref), and a 1 px `--rule` bottom border.
+
+- Left: the wordmark.
+- Centre: the app nav in mono: Home, Notes, Todos, PRs, Time, GitHub, Games, Planner. The current page's item has a 1 px `--ink` underline; on the others it grows from the left on hover (ref).
+- Right: kept free for notifications (§8.2 `notifications`).
+
+**Hero**: two columns, 1.4fr and 1fr with a 10% gap, aligned to the bottom, with 58 px of padding above and 50 px below (ref). One column on phones (ref).
+
+- Left: the date as a mono eyebrow in `--ink-muted` ("Monday 20 October"), then the greeting, "Good evening, *Bakh*.", with the name (`name`, §4.11) in Instrument Serif italic.
+- The greeting follows the hour: before 05:00 evening, before 12:00 morning, before 18:00 afternoon, otherwise evening.
+- Right: a summary in `--ink-muted`, at most 390 px wide (ref): "6 things need you today. 2 are late." With no items: "All clear today."
+
+**Section head**: a 1 px `--ink` rule on top with 13 px of space under it (ref), then the title on the left and a mono note or a text link on the right, aligned to the bottom, with 30 px below (24 on phones) (ref).
+
+- One word of the title is the serif accent: "Needs you *today*", "Your *apps*", "This *week*".
+- **Text link**: 14 px, with a 1 px `--ink-muted` underline 5 px below the text (ref) that turns `--ink` on hover, and an arrow after it.
+
+**Card**: `--surface`, a 1 px `--rule` border, 20 px of padding, and a hard shadow: `box-shadow: var(--offset) var(--offset) 0 var(--shadow)` (ref).
+
+- A card that is a link, on hover: the border turns `--ink`, and the shadow grows to `--offset-hover` in `--shadow-strong` while the card lifts 2 px (ref).
+- Pressed: the card moves 2 px down and to the right, and its shadow shrinks by the same, like a key going down.
+- Transitions: 150 ms on transform, shadow and border colour, and none under `prefers-reduced-motion` (ref). On touch screens (`hover: none`) cards don't lift.
+
+**"Needs you today"**: the section head's note reads "6 items · most urgent first". Below it, one card with no padding holds a row per item, split by 1 px `--rule` lines.
+
+- A row, about 64 px tall: a mono source label ("Bitbucket") in a fixed left column; the title (16 / 500) over the detail (14, `--ink-muted`); the due time on the right, in mono, relative and built with `Intl.RelativeTimeFormat` (en-GB): "in 3 hours", "2 hours ago". A late item also gets a Late chip. On phones the source label sits above the title.
+- The whole row links to the item; on hover it fills with `--fill`.
+- With no items: "Nothing needs you today." in `--ink-muted`.
+
+**Chip**: mono 10 px uppercase, padding 3 by 6 px, a 1 px `--ink` border. Late is an ink fill with `--paper` text. Colour is never used.
+
+**"Your apps"**: a grid of 4 columns on desktop, 3 on tablets and 2 on phones (ref), with a 24 px gap (12 px on phones).
+
+- Each app is one card, all of it a link. A mono number ("01") at the top left and an arrow at the top right. Then how many of the app's items are in "Needs you today", as a big number with a mono "items" label; a zero shows in `--ink-muted`. Then the name as a card title, and a one-line description in `--ink-muted`.
+
+**"This week"**: a card with the logged hours as a big number ("31.5 / 40 h"), a mono "Logged on Jira" label, and a bar 8 px tall with square ends: an `--ink` fill on an `--fill` track. The section head links to Time. Without a week (the time service is down, §4.11), the card says "Hours unavailable" in `--ink-muted`.
+
+**Button**: mono 12 px with padding 14 by 22 px (ref), at least 44 px tall, and a 1 px `--ink` border. Primary: an ink fill with `--paper` text, inverted on hover. Secondary: `--surface` with `--ink` text, `--fill` on hover.
+
+**Focus**: every focusable element gets a 2 px `--ink` outline, 3 px outside it (ref: 2 px wide, 5 px out).
+
+**Icons**: no icon library. The few icons (arrows, menu, close) are inline SVGs of our own, with 1.5 px strokes and square caps, in `currentColor`. Apps have no icons; their number and name identify them.
+
+**Phone and tablet** (`max-width: 980px`):
+
+- The header nav gives way to a bottom tab bar: Home, Notes, Todos, PRs, More. More opens a page with the other apps. It's a `--surface` bar with a 1 px `--ink` top border, five cells split by 1 px `--rule` lines, and mono 10 px labels with no icons. The current page's cell is an ink fill with `--paper` text. It's 49 px tall, plus the bottom safe area.
+- Safe-area insets are respected (`viewport-fit=cover`, `env(safe-area-inset-*)`).
+- The header keeps the wordmark and its right slot.
+
+**Themes**: the OS setting picks light or dark (`prefers-color-scheme`). `color-scheme: light dark` makes the browser draw its own controls and scrollbars to match, and the PWA sets a `theme-color` for each scheme. A manual override can come with the settings page (§8.2 `frontend-shell`).
 
 **Mapping to our modules**
 
-- "Needs you today" pulls from:
-  - PRs due a nudge
-  - review requests
-  - Jira tickets due or overdue
-  - hours not logged yet today
-  - assigned GitHub issues
-  - tokens about to expire
+"Needs you today" pulls from:
 
-"Your apps" tiles:
+- PRs due a nudge
+- review requests
+- Jira tickets due or overdue
+- hours not logged yet today
+- assigned GitHub issues
+- tokens about to expire
 
-| App | Tile | Lucide icon |
+"Your apps", in this order:
+
+| No. | App | Description |
 | --- | --- | --- |
-| Notes | teal | notebook-pen |
-| Todos | peach | list-todo |
-| Pull requests | sky | git-pull-request |
-| Time | yellow | timer |
-| GitHub | lavender | circle-dot |
-| Games | pink | gamepad-2 |
-| Planner | lime | sparkles |
+| 01 | Notes | The Obsidian vault, rendered and editable |
+| 02 | Todos | Todos linked to Jira tickets |
+| 03 | Pull requests | Bitbucket PRs and reviewer nudges |
+| 04 | Time | Hours logged on the Jira tickets |
+| 05 | GitHub | PRs, reviews and issues across owners |
+| 06 | Games | Backloggd and Exophase |
+| 07 | Planner | Copilot plans saved to the vault |
 
-- The progress block shows "This week: 31.5 h of 40 h logged" (the time logged on Jira), with an "Open Time →" link, in place of the reference's storage meter.
+"This week" shows the time logged on Jira against the weekly target: 31.5 of 40 h in the demo data.
 
 ## 8. Work breakdown
 
@@ -834,11 +896,11 @@ Every item is pending. The service an item lands in is in brackets.
   - Setup notes for the Google Cloud OAuth client (External, Testing).
   - The iPhone PWA fallback.
 - `frontend-shell` [web]. Needs `scaffold-repo`.
-  - SPA shell per §7: tokens, self-hosted fonts, Lucide.
-  - Components: sidebar, greeting with swoosh, section header with Caveat note, list card rows, app card grid, progress bar.
-  - Responsive: iPhone bottom tab bar, safe areas.
-  - PWA manifest and service worker, live-update client, settings page.
-  - Compare against the reference image. Partly done in `ms-web-ui`.
+  - SPA shell per §7: tokens for both themes, self-hosted fonts, the paper grain, our own inline SVG icons.
+  - Components: top bar, header nav, hero, section head, card, list rows, chips, app cards, hours bar, buttons.
+  - Responsive: bottom tab bar below the nav breakpoint, safe areas.
+  - PWA manifest (a `theme-color` per scheme) and service worker, live-update client, settings page with a manual theme override.
+  - Check against §7 in both themes. The Home steps in §0 build the first part.
 - `home-feed` [home]. Needs `auth-signin`, `backend-foundation`, `frontend-shell`.
   - Attention providers (`AttentionService` in each feature service) aggregated by home and sorted by urgency, with live updates.
   - Home page per §7.
@@ -975,6 +1037,10 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 43. **Code-first APIs**: public clients get JSON, and services will call each other with gRPC. The public JSON APIs stay hand-written in Go, encoded with `encoding/json/v2` (decision 39), with no OpenAPI spec: generating the server from a spec (#8, closed) complicated things more than it helped. Service-to-service calls will use gRPC and protobuf, and NATS payloads stay protobuf; grpc-go or connect-go is chosen with the first such call. So the contracts that decisions 39 and 41 wait for are only the service-to-service ones, and the gateway's 503 body keeps its shape. Live updates (§4.11's `WatchHome`) will need SSE or polling instead of a Connect stream, decided in the step that needs them. Replaces 14 for public APIs.
 44. **Web toolchain and gates**: the Svelte app lives in `apps/web`, a standalone pnpm project in mise's monorepo mode, with node and pnpm at `latest` among the root tools and the go.mod `ignore` directive keeping the Go tools out of it. TypeScript 7 does the type-checking through svelte-check's `--tsgo`, with TypeScript 6 beside it for svelte-check itself. The gates (AGENTS.md) mirror the Go ones where a web tool can measure them: Biome (formatting, the recommended rules, and the cognitive complexity, function length, file length and parameter limits), svelte-check with warnings failing, Vitest coverage (≥ 80% total, ≥ 70% per file), knip for unused code and `pnpm audit`. Nothing measures cyclomatic complexity, nesting or duplication in `.svelte` files, and SonarQube Cloud can't read them, so logic goes into `.ts` files and components stay thin. Runes mode is forced, so Svelte's deprecated legacy syntax fails (decision 35). pnpm's 24 h minimum release age stays on, like mise's (decision 34), so a release younger than a day waits rather than being let through with `minimumReleaseAgeExclude`.
 
+Made on 2026-10-20:
+
+45. **Visual identity**: §7 replaces the first look, which was measured from a screenshot of a third-party dashboard. The user picked three other third-party sites as references, and the style is now soft neo-brutalism with editorial type: square cards with 1 px borders and hard offset shadows; Space Grotesk, Instrument Serif and JetBrains Mono; a paper grain; monochrome ink with no accent colour; and light and dark themes from the start, following the OS. The first look's fonts and icon library are dropped, and the few icons are our own inline SVGs. Plain CSS custom properties stay (decision 21).
+
 ## 10. Risks
 
 - **Exophase polling** (accepted by the user): undocumented endpoints behind a Cloudflare bot check may break or get blocked at any time. Mitigations: hourly at most, backoff, last-good cache, "stale" badge, card-image fallback. Backloggd's manual list carries no scraping risk.
@@ -1085,3 +1151,6 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - TypeScript 7 with svelte-check: https://github.com/sveltejs/language-tools/issues/3063
   - Known `--tsgo` issues: https://github.com/sveltejs/language-tools/issues/3145, https://github.com/sveltejs/language-tools/issues/3120, https://github.com/sveltejs/language-tools/issues/3142
   - connect-go v2 guide: `docs/v2-guide.md` in the `connectrpc.com/connect/v2` v2.0.1 module
+- Design:
+  - Neobrutalism (NN/g): https://www.nngroup.com/articles/neobrutalism/
+  - Font metadata, subsets and Unicode ranges (Fontsource API): `https://api.fontsource.org/v1/fonts/{id}`, with the ids `space-grotesk`, `instrument-serif` and `jetbrains-mono`
