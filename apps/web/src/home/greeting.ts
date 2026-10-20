@@ -34,5 +34,6 @@ export function summary(items: readonly Item[]): string {
   if (late === 0) {
     return needs;
   }
-  return `${needs} ${late === 1 ? '1 is' : `${late} are`} late.`;
+  const areLate = late === 1 ? '1 is late.' : `${late} are late.`;
+  return `${needs} ${areLate}`;
 }
