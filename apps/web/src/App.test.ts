@@ -32,18 +32,21 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('shows the frame, then the hero, the feed and the status once the Home loads', async () => {
+test('shows the frame and the apps, then the hero, the feed, the counts and the status once the Home loads', async () => {
   render(App);
 
   expect(screen.getByText(/ · Tokyo$/)).toBeInTheDocument();
   expect(screen.getByRole('banner')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Home', current: 'page' })).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { level: 2, name: 'Needs you today' })).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 2, name: 'Your apps' })).toBeInTheDocument();
+  expect(screen.queryByText(/^items?$/)).not.toBeInTheDocument();
   expect(await screen.findByRole('heading', { level: 1, name: /^Good \w+, Ada\.$/ })).toBeInTheDocument();
   expect(screen.getByText('2 things need you today. 1 is late.')).toBeInTheDocument();
   expect(screen.getByRole('heading', { level: 2, name: 'Needs you today' })).toBeInTheDocument();
   expect(screen.getByText('Nudge reviewers')).toBeInTheDocument();
   expect(screen.getByText("Log today's hours")).toBeInTheDocument();
+  expect(screen.getAllByText('item')).toHaveLength(2);
   expect(screen.getByRole('status')).toHaveTextContent('Online');
 });
 

@@ -1,3 +1,4 @@
+import { type AppId, appHref } from '../shell/apps';
 import type { Item } from './api';
 
 const MINUTE_MS = 60_000;
@@ -30,15 +31,25 @@ export function dueLabel(due: string, now: Date): string {
   return relativeTime.format(nearest(ms, DAY_MS), 'day');
 }
 
+/** "item" or "items", to follow a count. */
+export function itemNoun(count: number): string {
+  return count === 1 ? 'item' : 'items';
+}
+
 /** The feed's note, such as "6 items · most urgent first"; none with no items. */
 export function countNote(count: number): string | undefined {
   if (count === 0) {
     return undefined;
   }
-  return `${count} ${count === 1 ? 'item' : 'items'} · most urgent first`;
+  return `${count} ${itemNoun(count)} · most urgent first`;
+}
+
+/** How many of the items belong to the app. */
+export function itemCount(items: readonly Pick<Item, 'app'>[], app: AppId): number {
+  return items.filter((item) => item.app === app).length;
 }
 
 /** Where an item's row links to: its app's page, until items carry their own url (decision 50). */
 export function itemHref(item: Pick<Item, 'app'>): string {
-  return `/${item.app}`;
+  return appHref(item.app);
 }

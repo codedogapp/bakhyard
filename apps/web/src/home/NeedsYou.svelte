@@ -1,13 +1,12 @@
 <script lang="ts">
 import type { Item } from './api';
 import { countNote, dueLabel, itemHref } from './items';
-import SectionHead from './SectionHead.svelte';
+import Section from './Section.svelte';
 
 let { items, now }: { items: readonly Item[]; now: Date } = $props();
 </script>
 
-<section class="needs-you">
-  <SectionHead title="Needs you" accent="today" note={countNote(items.length)} />
+<Section title="Needs you" accent="today" note={countNote(items.length)}>
   <div class="card">
     {#if items.length > 0}
       <ul>
@@ -37,13 +36,9 @@ let { items, now }: { items: readonly Item[]; now: Date } = $props();
       <p class="empty">Nothing needs you today.</p>
     {/if}
   </div>
-</section>
+</Section>
 
 <style>
-.needs-you {
-  padding: 0 var(--page-padding) 64px;
-}
-
 .card {
   border: 1px solid var(--rule);
   background: var(--surface);
@@ -129,10 +124,6 @@ a:hover {
 }
 
 @media (max-width: 700px) {
-  .needs-you {
-    padding-bottom: 48px;
-  }
-
   a {
     grid-template-areas:
       "source when"
