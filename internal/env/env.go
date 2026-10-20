@@ -1,5 +1,5 @@
-// Package env is the environment the cockpit gives each service (docs/plan.md §4.7): the
-// address the service listens on, and the addresses of the services it calls, its peers.
+// Package env reads a service's environment (docs/plan.md §4.7): the address the service listens
+// on, and the addresses of the services it calls, its peers.
 package env
 
 import (
@@ -14,22 +14,6 @@ const (
 	peersVar  = "BAKHYARD_PEERS"
 	tcpScheme = "tcp://"
 )
-
-// Peer is a service that another one calls, and its listen address.
-type Peer struct {
-	Name   string
-	Listen string
-}
-
-// Vars returns the variables that tell a service its listen address, and its peers'.
-func Vars(listen string, peers []Peer) []string {
-	entries := make([]string, 0, len(peers))
-	for _, peer := range peers {
-		entries = append(entries, peer.Name+"="+peer.Listen)
-	}
-
-	return []string{listenVar + "=" + listen, peersVar + "=" + strings.Join(entries, ",")}
-}
 
 // ListenAddress returns the host and port to listen on, from BAKHYARD_LISTEN.
 func ListenAddress(getenv func(string) string) (string, error) {

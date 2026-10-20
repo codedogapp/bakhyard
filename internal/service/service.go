@@ -1,4 +1,4 @@
-// Package service runs a service on the address the cockpit gives it, until the process gets
+// Package service runs a service on the address in its environment, until the process gets
 // SIGINT or SIGTERM.
 package service
 
