@@ -134,17 +134,50 @@ func TestStopKillsAProcessThatIgnoresSIGTERM(t *testing.T) {
 	}
 }
 
-func TestStopAfterTheProcessExited(t *testing.T) {
-	proc, err := process.Start([]string{"true"}, nil, io.Discard)
+func TestKillSendsNoSIGTERM(t *testing.T) {
+	out := newRecorder()
+
+	proc, err := process.Start([]string{"sh", "-c", stoppable}, nil, out)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	<-proc.Done()
+	out.waitFor("ready")
 
-	err = proc.Stop(time.Minute)
+	err = proc.Kill()
 	if err != nil {
-		t.Errorf("got %v, want nil", err)
+		t.Fatal(err)
+	}
+
+	if strings.Contains(out.String(), "stopped\n") {
+		t.Errorf("the process got SIGTERM; output %q", out.String())
+	}
+
+	if proc.Err() == nil || proc.Err().Error() != "signal: killed" {
+		t.Errorf("got %v, want SIGKILL", proc.Err())
+	}
+}
+
+func TestStopAndKillAfterTheProcessExited(t *testing.T) {
+	actions := map[string]func(*process.Process) error{
+		"Stop": func(proc *process.Process) error { return proc.Stop(time.Minute) },
+		"Kill": (*process.Process).Kill,
+	}
+
+	for name, action := range actions {
+		t.Run(name, func(t *testing.T) {
+			proc, err := process.Start([]string{"true"}, nil, io.Discard)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			<-proc.Done()
+
+			err = action(proc)
+			if err != nil {
+				t.Errorf("got %v, want nil", err)
+			}
+		})
 	}
 }
 
