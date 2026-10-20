@@ -8,6 +8,11 @@
       "description": ["svelte-check needs TypeScript 6 beside TypeScript 7 until it supports 7 directly (docs/plan.md §6.4)"],
       "matchDepNames": ["typescript"],
       "allowedVersions": "<7"
+    },
+    {
+      "description": ["pnpm refuses npm releases younger than a day, so Renovate waits as long (docs/plan.md §6.4)"],
+      "matchDatasources": ["npm"],
+      "minimumReleaseAge": "1 day"
     }
   ]
 }

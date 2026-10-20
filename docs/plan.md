@@ -42,7 +42,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `code-first` | Record decision 43: the public JSON APIs stay hand-written | Done (#9) |
 | `web-scaffold` | The Svelte app in `apps/web`, its toolchain and the web gates (decision 44) | Done (#10) |
 | `visual-identity` | Replace §7 with the new visual identity (decision 45) | Done (#11) |
-| `time-worklogs` | Record how time is logged on Jira and what the Time module does (decision 46) | In progress |
+| `time-worklogs` | Record how time is logged on Jira and what the Time module does (decision 46) | Done (#15) |
+| `renovate-age` | Renovate waits a day for npm releases, as pnpm does (decision 47) | In progress |
 | `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it | Planned |
 | `home-shell` | The Home page's frame per §7: tokens for both themes, fonts, grain, top bar, header and hero | Planned |
 | `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
@@ -645,7 +646,7 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
 - **tsconfig split**, as in the reference frontend project: `tsconfig.base.json`, `tsconfig.app.json` (extends `@tsconfig/svelte` + base), `tsconfig.node.json`, and a `tsconfig.json` with references only.
 - **pnpm 12**:
   - Saves exact versions.
-  - Refuses releases younger than its minimum release age (about a day), even in a lockfile it is asked to install. We keep that default, as with mise (decision 44): a release younger than a day waits.
+  - Refuses releases younger than its minimum release age (1,440 minutes, a day, by default), even in a lockfile it is asked to install. We keep that default, as with mise (decision 44): a release younger than a day waits. Renovate waits as long before it proposes an npm update (decision 47).
 - **CSS**: plain CSS custom properties from §7. Tailwind is not used (the user left it optional).
 - **Icons**: no icon library. The few icons are inline SVGs of our own (§7).
 
@@ -1044,6 +1045,7 @@ Made on 2026-10-20:
 
 45. **Visual identity**: §7 replaces the first look, which was measured from a screenshot of a third-party dashboard. The user picked three other third-party sites as references, and the style is now soft neo-brutalism with editorial type: square cards with 1 px borders and hard offset shadows; Space Grotesk, Instrument Serif and JetBrains Mono; a paper grain; monochrome ink with no accent colour; and light and dark themes from the start, following the OS. The first look's fonts and icon library are dropped, and the few icons are our own inline SVGs. Plain CSS custom properties stay (decision 21).
 46. **Time tracking with Jira worklogs**: time is logged as standard Jira worklogs, through Jira's REST API v3 (§2), as the user's own tool does. Clockwork writes standard worklogs too, so Bakhyard and Clockwork see the same hours. The Time module shows a day report and fills missing days after a preview, as the user's tool does. It has no timers, which Clockwork already provides. The `time` service keeps no table of its own, because the worklogs stay in Jira. Settles the open part of 40.
+47. **Renovate waits for npm releases**: a package rule gives the npm datasource a `minimumReleaseAge` of 1 day, the same as pnpm's default of 1,440 minutes (decision 44). With Renovate's default `internalChecksFilter` of `strict`, a release younger than that gets no PR and shows as pending on the Dependency Dashboard, so CI no longer fails on an update pnpm would refuse. Go modules and GitHub Actions still update at once: their tools have no such gate.
 
 ## 10. Risks
 
@@ -1062,7 +1064,7 @@ Made on 2026-10-20:
   - TypeScript 7 relies on svelte-check's `--tsgo` mode, which has open issues, and TypeScript 6 must stay installed alongside until svelte-check supports TypeScript 7 directly.
   - connect-go v2 is new; its ecosystem modules (for example OpenTelemetry or validation interceptors for v2) are not verified yet.
   - Biome's support for `.svelte` files is experimental (`html.experimentalFullSupportEnabled`), so a Biome release may change how they are formatted or linted.
-- **pnpm's minimum release age**: pnpm refuses npm releases younger than a day, and Renovate's `config:recommended` doesn't wait. A Renovate update to a release that new fails until the release is a day old, then passes on Renovate's next run.
+- **pnpm's minimum release age**: pnpm refuses npm releases younger than a day, so Renovate waits as long before it proposes one (decision 47). Renovate's wait covers only the package it updates; any transitive dependency that pnpm adds to the lockfile is left to pnpm's own check. Renovate never re-runs a failed check: it rebases a branch only when the branch conflicts, because `main` doesn't require branches to be up to date. So a Renovate PR that fails on a release's age needs its checks re-run by hand once the release is a day old.
 - **Security hotspots**: the Sonar way gate still counts `new_security_hotspots_reviewed`, but SonarQube Cloud deprecated the hotspots API on 2026-06-16 in favour of security issues. So `mise run sonar-issues` can't list hotspots; a gate that is red because of a hotspot has to be read in the SonarQube Cloud UI.
 - **Floating tool versions**: mise tools use `latest` with no lockfile, so a new release (for example a new jactionlint rule) can turn CI red with no change in the repo. A local run may also use an older version than CI until `mise upgrade --local`. When CI turns red for no reason, check the tool versions first.
 - **Unix socket paths** are limited to 104 bytes on macOS → keep `BAKHYARD_HOME` short; the cockpit validates.
@@ -1158,6 +1160,7 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - Login hand-off to Safari (open issue): https://github.com/bulwarkmail/webmail/issues/1267
 - Toolchain:
   - TypeScript 7 with svelte-check: https://github.com/sveltejs/language-tools/issues/3063
+  - Minimum release age: Renovate's https://docs.renovatebot.com/key-concepts/minimum-release-age/ and its options `minimumReleaseAge`, `internalChecksFilter` and `rebaseWhen` at https://docs.renovatebot.com/configuration-options/; pnpm's default at https://pnpm.io/supply-chain-security
   - Known `--tsgo` issues: https://github.com/sveltejs/language-tools/issues/3145, https://github.com/sveltejs/language-tools/issues/3120, https://github.com/sveltejs/language-tools/issues/3142
   - connect-go v2 guide: `docs/v2-guide.md` in the `connectrpc.com/connect/v2` v2.0.1 module
 - Design:
