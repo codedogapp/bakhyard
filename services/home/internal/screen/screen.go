@@ -1,12 +1,17 @@
-// Package screen builds what the Home screen shows: the items that need the user, most urgent
-// first, and the hours logged this week.
+// Package screen builds what the Home screen shows: who it greets, the items that need the user,
+// most urgent first, and the hours logged this week.
 package screen
 
 import (
 	"cmp"
 	"slices"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
+
+// defaultName stands in for a blank name, as in "Good evening, there."
+const defaultName = "there"
 
 // App is the Bakhyard app an item belongs to.
 type App string
@@ -51,13 +56,14 @@ type Week struct {
 
 // Home is everything the Home screen shows.
 type Home struct {
+	Name  string `json:"name"`
 	Items []Item `json:"items"`
 	Week  Week   `json:"week"`
 }
 
-// New builds the Home at now. It marks the items past their due time as late and puts the most
-// urgent first. The caller's items are left as they are.
-func New(items []Item, week Week, now time.Time) Home {
+// New builds the Home at now for the user called name (see cleanName). It marks the items past
+// their due time as late and puts the most urgent first. The caller's items are left as they are.
+func New(name string, items []Item, week Week, now time.Time) Home {
 	sorted := slices.Clone(items)
 	for i := range sorted {
 		sorted[i].Late = !sorted[i].Due.IsZero() && sorted[i].Due.Before(now)
@@ -65,7 +71,15 @@ func New(items []Item, week Week, now time.Time) Home {
 
 	slices.SortFunc(sorted, byUrgency)
 
-	return Home{Items: sorted, Week: week}
+	return Home{Name: cleanName(name), Items: sorted, Week: week}
+}
+
+// cleanName drops the whitespace around name and replaces invalid UTF-8, which JSON can't encode,
+// with U+FFFD. A name left empty becomes "there".
+func cleanName(name string) string {
+	valid := strings.ToValidUTF8(name, string(utf8.RuneError))
+
+	return cmp.Or(strings.TrimSpace(valid), defaultName)
 }
 
 // byUrgency orders by due time, then title, then ID. Late items come first because their due

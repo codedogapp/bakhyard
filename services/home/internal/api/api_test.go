@@ -27,9 +27,13 @@ type week struct {
 }
 
 type home struct {
+	Name  string `json:"name"`
 	Items []item `json:"items"`
 	Week  week   `json:"week"`
 }
+
+// userName is who the tests serve the Home for.
+const userName = "Ada"
 
 func TestHomeGet(t *testing.T) {
 	rec := serve(t, http.MethodGet)
@@ -48,6 +52,7 @@ func TestHomeGet(t *testing.T) {
 	}
 
 	want := home{
+		Name: userName,
 		Items: []item{
 			{ID: "todos/PAY-1398", Due: "2026-10-17T09:00:00Z", Late: true},
 			{ID: "pulls/PAY-1423", Due: "2026-10-18T07:00:00Z", Late: true},
@@ -57,6 +62,10 @@ func TestHomeGet(t *testing.T) {
 			{ID: "github/dotfiles-14"},
 		},
 		Week: week{LoggedHours: 31.5, TargetHours: 40},
+	}
+
+	if got.Name != want.Name {
+		t.Errorf("name = %q, want %q", got.Name, want.Name)
 	}
 
 	if !slices.Equal(got.Items, want.Items) {
@@ -114,7 +123,7 @@ func serve(t *testing.T, method string) *httptest.ResponseRecorder {
 
 	router := chi.NewRouter()
 	router.Use(middleware.GetHead)
-	api.Register(router, now)
+	api.Register(router, userName, now)
 
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, "/home", nil))
