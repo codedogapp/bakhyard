@@ -25,7 +25,7 @@ export function greeting(now: Date): string {
 }
 
 /** The hero's summary, such as "6 things need you today. 2 are late." */
-export function summary(items: readonly Item[]): string {
+export function summary(items: readonly Pick<Item, 'late'>[]): string {
   if (items.length === 0) {
     return 'All clear today.';
   }

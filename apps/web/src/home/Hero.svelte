@@ -1,17 +1,8 @@
 <script lang="ts">
-import { startClock } from '../shell/clock';
 import type { Home } from './api';
 import { dateLabel, greeting, summary } from './greeting';
 
-let { home }: { home?: Home } = $props();
-
-let now = $state(new Date());
-
-$effect(() =>
-  startClock((date) => {
-    now = date;
-  })
-);
+let { now, home }: { now: Date; home?: Home } = $props();
 </script>
 
 <section class="hero">

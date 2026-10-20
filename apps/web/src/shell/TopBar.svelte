@@ -1,17 +1,9 @@
 <script lang="ts">
 import type { Connection } from '../home/poll';
-import { clockLabel, startClock } from './clock';
+import { clockLabel } from './clock';
 import { statusLabel } from './status';
 
-let { connection, asOf }: { connection: Connection; asOf?: Date } = $props();
-
-let now = $state(new Date());
-
-$effect(() =>
-  startClock((date) => {
-    now = date;
-  })
-);
+let { now, connection, asOf }: { now: Date; connection: Connection; asOf?: Date } = $props();
 </script>
 
 <div class="top-bar">
