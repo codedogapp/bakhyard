@@ -10,6 +10,7 @@ const home: Home = {
     { id: 'pulls/1', app: 'pulls', title: 'Nudge reviewers', source: 'Bitbucket', late: true },
     { id: 'github/1', app: 'github', title: 'Review requested', source: 'GitHub', late: false },
   ],
+  week: { loggedHours: 31.5, targetHours: 40 },
 };
 // 11:59 on Tuesday 20 October in Tokyo, the tests' time zone.
 const now = new Date('2026-10-20T02:59:00Z');

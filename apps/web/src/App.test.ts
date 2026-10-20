@@ -18,6 +18,7 @@ const home: Home = {
     // 30 seconds after 11:59:59 in Tokyo, the tests' time zone: "in 1 minute" then, and "now" at 12:00.
     { id: 'time/1', app: 'time', title: "Log today's hours", source: 'Jira', due: '2026-10-20T03:00:29Z', late: false },
   ],
+  week: { loggedHours: 31.5, targetHours: 40 },
 };
 
 beforeEach(() => {
@@ -32,7 +33,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('shows the frame and the apps, then the hero, the feed, the counts and the status once the Home loads', async () => {
+test('shows the frame and the apps, then the hero, the feed, the counts, the week and the status once the Home loads', async () => {
   render(App);
 
   expect(screen.getByText(/ · Tokyo$/)).toBeInTheDocument();
@@ -41,12 +42,15 @@ test('shows the frame and the apps, then the hero, the feed, the counts and the 
   expect(screen.queryByRole('heading', { level: 2, name: 'Needs you today' })).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { level: 2, name: 'Your apps' })).toBeInTheDocument();
   expect(screen.queryByText(/^items?$/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { level: 2, name: 'This week' })).not.toBeInTheDocument();
   expect(await screen.findByRole('heading', { level: 1, name: /^Good \w+, Ada\.$/ })).toBeInTheDocument();
   expect(screen.getByText('2 things need you today. 1 is late.')).toBeInTheDocument();
   expect(screen.getByRole('heading', { level: 2, name: 'Needs you today' })).toBeInTheDocument();
   expect(screen.getByText('Nudge reviewers')).toBeInTheDocument();
   expect(screen.getByText("Log today's hours")).toBeInTheDocument();
   expect(screen.getAllByText('item')).toHaveLength(2);
+  expect(screen.getByRole('heading', { level: 2, name: 'This week' })).toBeInTheDocument();
+  expect(screen.getByText('31h 30m / 40h')).toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent('Online');
 });
 

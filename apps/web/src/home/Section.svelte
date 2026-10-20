@@ -1,7 +1,20 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 
-let { title, accent, note, children }: { title: string; accent: string; note?: string; children: Snippet } = $props();
+import Arrow from './Arrow.svelte';
+
+interface Link {
+  href: string;
+  label: string;
+}
+
+let {
+  title,
+  accent,
+  note,
+  link,
+  children,
+}: { title: string; accent: string; note?: string; link?: Link; children: Snippet } = $props();
 </script>
 
 <section class="section">
@@ -10,6 +23,9 @@ let { title, accent, note, children }: { title: string; accent: string; note?: s
     <h2>{`${title} `}<em>{accent}</em></h2>
     {#if note}
       <p class="note">{note}</p>
+    {/if}
+    {#if link}
+      <a class="link" href={link.href}>{link.label}<Arrow /></a>
     {/if}
   </div>
   {@render children()}
@@ -51,6 +67,24 @@ em {
   font: 400 11px / 1.6 var(--font-mono);
   letter-spacing: 0.045em;
   text-transform: uppercase;
+}
+
+/* The underline is a border, so it runs under the arrow too. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 22px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--ink-muted);
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.link:hover {
+  border-color: var(--ink);
 }
 
 @media (max-width: 700px) {
