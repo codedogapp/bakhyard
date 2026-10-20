@@ -3,6 +3,7 @@ package cli
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,31 +12,40 @@ import (
 	"text/tabwriter"
 
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/manifest"
+	"github.com/codedogapp/bakhyard/tools/cockpit/internal/supervisor"
 )
 
 const (
 	manifestFile = "services.toml"
-	usage        = "usage: cockpit list"
+	usage        = "usage: cockpit list|up"
 	columnGap    = 2
 )
 
-// Run runs the command in args, reading the manifest from fsys and writing to stdout.
-func Run(args []string, fsys fs.FS, stdout io.Writer) error {
-	if len(args) != 1 || args[0] != "list" {
+// Run runs the command in args, reading the manifest from fsys and writing to stdout. up runs
+// until ctx ends.
+func Run(ctx context.Context, args []string, fsys fs.FS, stdout io.Writer) error {
+	if len(args) != 1 {
 		return errors.New(usage)
 	}
 
-	data, err := fs.ReadFile(fsys, manifestFile)
+	switch args[0] {
+	case "list":
+		return list(fsys, stdout)
+	case "up":
+		return up(ctx, fsys, stdout)
+	default:
+		return errors.New(usage)
+	}
+}
+
+// list prints the services in start order.
+func list(fsys fs.FS, stdout io.Writer) error {
+	services, err := readManifest(fsys)
 	if err != nil {
-		return fmt.Errorf("read the manifest: %w", err)
+		return err
 	}
 
-	services, err := manifest.Parse(data)
-	if err != nil {
-		return fmt.Errorf("%s: %w", manifestFile, err)
-	}
-
-	err = list(stdout, services)
+	err = printTable(stdout, services)
 	if err != nil {
 		return fmt.Errorf("print the services: %w", err)
 	}
@@ -43,8 +53,33 @@ func Run(args []string, fsys fs.FS, stdout io.Writer) error {
 	return nil
 }
 
-// list prints the services in start order, as a table.
-func list(stdout io.Writer, services []manifest.Service) error {
+// up runs every service in the foreground until ctx ends or one of them exits.
+func up(ctx context.Context, fsys fs.FS, stdout io.Writer) error {
+	services, err := readManifest(fsys)
+	if err != nil {
+		return err
+	}
+
+	return supervisor.Run(ctx, services, stdout)
+}
+
+// readManifest returns the services in the manifest, in start order.
+func readManifest(fsys fs.FS) ([]manifest.Service, error) {
+	data, err := fs.ReadFile(fsys, manifestFile)
+	if err != nil {
+		return nil, fmt.Errorf("read the manifest: %w", err)
+	}
+
+	services, err := manifest.Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", manifestFile, err)
+	}
+
+	return services, nil
+}
+
+// printTable prints the services as a table.
+func printTable(stdout io.Writer, services []manifest.Service) error {
 	table := tabwriter.NewWriter(stdout, 0, 0, columnGap, ' ', 0)
 
 	_, err := fmt.Fprintln(table, "SERVICE\tDEPENDS ON\tCOMMAND\tDESCRIPTION")

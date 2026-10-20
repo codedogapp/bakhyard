@@ -13,6 +13,18 @@ pnpm = "latest"
 jactionlint = "latest"
 shellcheck = "latest"
 
+[tasks.build]
+description = "Build the web app, then the services and the cockpit into bin/"
+depends = ["//apps/web:build"]
+run = "go build -o bin/ ./services/... ./tools/cockpit"
+
+# Not raw or interactive: only a plain task gets the signals that mise receives, so Ctrl-C
+# and kill reach the cockpit, which stops the services (docs/plan.md §6.8).
+[tasks.up]
+description = "Build, then run every service in the foreground until Ctrl-C"
+depends = ["build"]
+run = "bin/cockpit up"
+
 [tasks.fmt]
 description = "Format the Go code (gofumpt, golines)"
 run = "golangci-lint fmt"

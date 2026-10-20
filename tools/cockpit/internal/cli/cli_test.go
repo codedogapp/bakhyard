@@ -2,8 +2,10 @@ package cli_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -36,7 +38,7 @@ func TestListPrintsTheServicesInStartOrder(t *testing.T) {
 
 	var out bytes.Buffer
 
-	err := cli.Run([]string{"list"}, fsys, &out)
+	err := cli.Run(t.Context(), []string{"list"}, fsys, &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,14 +55,14 @@ func TestListPrintsTheServicesInStartOrder(t *testing.T) {
 	}
 }
 
-func TestRunRejectsAnythingButList(t *testing.T) {
+func TestRunRejectsUnknownCommands(t *testing.T) {
 	fsys := fstest.MapFS{"services.toml": {Data: []byte(manifestText)}}
 
-	for _, args := range [][]string{nil, {"start"}, {"list", "home"}, {"LIST"}} {
+	for _, args := range [][]string{nil, {"start"}, {"list", "home"}, {"up", "home"}, {"LIST"}} {
 		var out bytes.Buffer
 
-		err := cli.Run(args, fsys, &out)
-		if err == nil || err.Error() != "usage: cockpit list" {
+		err := cli.Run(t.Context(), args, fsys, &out)
+		if err == nil || err.Error() != "usage: cockpit list|up" {
 			t.Errorf("Run(%q) = %v, want the usage", args, err)
 		}
 
@@ -70,40 +72,69 @@ func TestRunRejectsAnythingButList(t *testing.T) {
 	}
 }
 
-func TestListWithoutAManifest(t *testing.T) {
-	var out bytes.Buffer
+func TestCommandsWithoutAManifest(t *testing.T) {
+	for _, command := range []string{"list", "up"} {
+		var out bytes.Buffer
 
-	err := cli.Run([]string{"list"}, fstest.MapFS{}, &out)
-	if !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("got %v, want a missing file", err)
-	}
-
-	if !strings.Contains(err.Error(), "services.toml") {
-		t.Errorf("the error %q doesn't name the manifest", err)
+		err := cli.Run(t.Context(), []string{command}, fstest.MapFS{}, &out)
+		if !errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), "services.toml") {
+			t.Errorf("%s: got %v, want the missing manifest", command, err)
+		}
 	}
 }
 
-func TestListWithABadManifest(t *testing.T) {
+func TestCommandsWithABadManifest(t *testing.T) {
 	fsys := fstest.MapFS{"services.toml": {Data: []byte("version = 2\n")}}
 
-	var out bytes.Buffer
+	for _, command := range []string{"list", "up"} {
+		var out bytes.Buffer
 
-	err := cli.Run([]string{"list"}, fsys, &out)
-	if err == nil || err.Error() != "services.toml: version must be 1, not 2" {
-		t.Errorf("got %v, want the manifest's error", err)
-	}
+		err := cli.Run(t.Context(), []string{command}, fsys, &out)
+		if err == nil || err.Error() != "services.toml: version must be 1, not 2" {
+			t.Errorf("%s: got %v, want the manifest's error", command, err)
+		}
 
-	if out.Len() != 0 {
-		t.Errorf("printed %q", out.String())
+		if out.Len() != 0 {
+			t.Errorf("%s printed %q", command, out.String())
+		}
 	}
 }
 
 func TestListReportsAFailedWrite(t *testing.T) {
 	fsys := fstest.MapFS{"services.toml": {Data: []byte(manifestText)}}
 
-	err := cli.Run([]string{"list"}, fsys, failingWriter{})
+	err := cli.Run(t.Context(), []string{"list"}, fsys, failingWriter{})
 	if !errors.Is(err, errWrite) {
 		t.Errorf("got %v, want the write error", err)
+	}
+}
+
+func TestUpRunsTheServicesUntilTheContextEnds(t *testing.T) {
+	const sleeper = `
+version = 1
+
+[[service]]
+name = "sleeper"
+description = "Sleeps"
+command = ["sleep", "60"]
+`
+
+	fsys := fstest.MapFS{"services.toml": {Data: []byte(sleeper)}}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	var out bytes.Buffer
+
+	err := cli.Run(ctx, []string{"up"}, fsys, &out)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := regexp.MustCompile(
+		`^cockpit \| started sleeper \(pid \d+\)\ncockpit \| stopping sleeper\n$`,
+	)
+	if !want.MatchString(out.String()) {
+		t.Errorf("got\n%s", out.String())
 	}
 }
 
