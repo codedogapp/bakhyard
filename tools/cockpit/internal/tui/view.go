@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/codedogapp/bakhyard/tools/cockpit/internal/resources"
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/supervisor"
 )
 
@@ -19,6 +20,8 @@ const (
 	stateWidth  = 9
 	pidWidth    = 7
 	uptimeWidth = 9
+	cpuWidth    = 7
+	memoryWidth = 10
 	exitWidth   = 30
 	cellPadding = 1 // on each side of a cell
 )
@@ -44,6 +47,8 @@ func (m model) status() string {
 		return fmt.Sprintf("Kill %s? y/n", m.killing)
 	case m.failure != nil:
 		return m.failure.Error()
+	case m.unmeasured != nil:
+		return m.unmeasured.Error()
 	default:
 		return ""
 	}
@@ -56,6 +61,8 @@ func newGrid(services int) table.Model {
 		{Title: "STATE", Width: stateWidth},
 		{Title: "PID", Width: pidWidth},
 		{Title: "UPTIME", Width: uptimeWidth},
+		{Title: "CPU", Width: cpuWidth},
+		{Title: "MEM", Width: memoryWidth},
 		{Title: "EXIT", Width: exitWidth},
 	}
 
@@ -77,13 +84,16 @@ func newGrid(services int) table.Model {
 	)
 }
 
-// rows returns a row per service, with its uptime at now.
-func rows(statuses []supervisor.Status, now time.Time) []table.Row {
+// rows returns a row per service, with its uptime at now and its last measured usage.
+func rows(
+	statuses []supervisor.Status, now time.Time, usage map[int]resources.Usage,
+) []table.Row {
 	all := make([]table.Row, 0, len(statuses))
 
 	for _, status := range statuses {
 		all = append(all, table.Row{
-			status.Name, string(status.State), pid(status), uptime(status, now), exit(status),
+			status.Name, string(status.State), pid(status), uptime(status, now),
+			cpu(usage, status.PID), memory(usage, status.PID), exit(status),
 		})
 	}
 
