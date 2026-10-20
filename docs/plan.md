@@ -53,13 +53,20 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `home-apps` | The "Your apps" grid: a card per app that links to its page, with its count of items | Done (#23) |
 | `home-week` | The "This week" card with the weekly hours bar, and the section head's text link to Time | Done (#24) |
 | `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas (decision 52) | Done (#25) |
-| `app-pages` | Each path shows its page in place, through the Navigation API: the Home, a "Coming soon" page per app, More at `/more`, and "Page not found" elsewhere (decision 53) | In progress |
+| `app-pages` | Each path shows its page in place, through the Navigation API: the Home, a "Coming soon" page per app, More at `/more`, and "Page not found" elsewhere (decision 53) | Done (#26) |
+| `cockpit-manifest` | `services.toml` lists the services; `cockpit list` checks it and prints them in start order (decision 54) | In progress |
+| `cockpit-up` | `mise run up` builds the services and runs them in start order, each in its own process group, with each line of output marked with its service; Ctrl-C stops them in reverse order, with SIGTERM and then SIGKILL after 10 s | Planned |
+| `service-env` | The services take their address and peers from `BAKHYARD_LISTEN` and `BAKHYARD_PEERS` (§4.7), and their shared server setup moves to the root `internal/` | Planned |
+| `cockpit-tui` | A Bubble Tea table of the services, with keys to start, stop, kill and restart each one | Planned |
+| `cockpit-health` | The table shows each service's health, readiness, CPU and memory | Planned |
+| `cockpit-logs` | Each service's log in the TUI | Planned |
+| `cockpit-restart` | A service that crashes restarts with backoff | Planned |
 
-After these: the cockpit, then the product phases (§8.2), each split into steps.
+After these: the product phases (§8.2), each split into steps.
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives. pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does.
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does.
 
 ## 1. Goal and scope
 
@@ -399,6 +406,12 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
   - cockpit ↛ services.
 
 ### 4.9 Cockpit
+
+> **v1.3:** built lean and in the foreground first, in the steps listed in §0 (decision 54). The daemon, the control API and every manifest field below that no step needs yet wait. `tools/cockpit` lives in the root module, with its own `internal/` packages (AGENTS.md). As built so far:
+>
+> - `services.toml` at the repo root: `version = 1`, then a `[[service]]` table per service with `name`, `description`, `command` and `depends_on`. `command` is the program and its arguments, run without a shell. An unknown key is an error, so a typo can't go unnoticed.
+> - Validation: names are unique, use a-z, 0-9 and hyphens, and start with a letter; every service has a description and a command; every dependency is a known service, and there is no cycle. A service that depends on itself is a cycle.
+> - `cockpit list`, run from the repo root (`go run ./tools/cockpit list`), checks the manifest and prints the services in start order: each one after the services it depends on, and otherwise in the manifest's order. An error names its line in the file where it can.
 
 `tools/cockpit` is its own module, built to `bin/cockpit`. Later, launchd keeps `cockpit daemon` up.
 
@@ -1098,6 +1111,7 @@ Made on 2026-10-20:
 51. **Durations in hours and minutes**: the app shows a duration in hours and minutes, the way Jira and Clockwork write them ("31h 30m", "40h", "0h 30m"), not in decimal hours ("31.5 h"). It rounds to the nearest minute and formats with `Intl.DurationFormat` (en-GB, narrow, with the hours always shown, so zero reads "0h" rather than nothing). The user's choice.
 52. **The More tab**: the user's choices. On phones and tablets the bottom tab bar's More links to `/more`, a page that lists the apps without a tab of their own (Time, GitHub, Games and Planner); the page comes with `app-pages`. More is the current tab on `/more` and also on those apps' pages, as iOS marks its More tab. Its link has `aria-current="page"` on `/more` only; on the apps' pages it has `aria-current="true"`, because the link isn't the page itself, as in GOV.UK's service navigation.
 53. **Pages through the Navigation API**: the user's choices. Each path shows its page without loading a new document, through the Navigation API rather than the pushState router §4.12 planned. The browser then keeps the URL, the history, the scroll position and focus, which a pushState router has to manage by hand. The API is Baseline since 13 January 2026 (Chrome 102, Safari 26.2, Firefox 147); without it, each link loads its page in full, which still works. A path that matches no page shows "Page not found", and `/more` shows the apps without a tab of their own as the same cards as "Your apps", with their counts.
+54. **The cockpit before the product phases**: the user's choice, once the Home steps were done. The cockpit is built lean, in seven steps (§0): the manifest; `mise run up`, which runs every service in the foreground and stops them all on Ctrl-C; the services' environment (§4.7); a TUI to start, stop, kill and restart each service; health, readiness, CPU and memory; logs; and restarts with backoff. The daemon and its control API (§4.9) wait until a step needs them, such as `deploy-launchd`. The manifest's `command` is an array run without a shell, so no quoting or shell expansion can surprise, and an unknown key is an error.
 
 ## 10. Risks
 
