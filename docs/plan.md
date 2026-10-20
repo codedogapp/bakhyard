@@ -47,8 +47,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it (decision 48) | Done (#17) |
 | `home-style` | The page style per §7: the tokens for both themes, the fonts, the paper grain and the base styles | Done (#18) |
 | `home-header` | The top bar's time and city, the header with the wordmark and the nav, and the focus outline | Done (#19) |
-| `home-name` | `home` serves `name` from `BAKHYARD_NAME`, falling back to "there" (§4.11) | In progress |
-| `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline | Planned |
+| `home-name` | `home` serves `name` from `BAKHYARD_NAME`, falling back to "there" (§4.11) | Done (#20) |
+| `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline (decision 49) | In progress |
 | `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
 | `home-apps` | The "Your apps" grid and the weekly hours bar | Planned |
 | `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas | Planned |
@@ -57,7 +57,7 @@ After these: the cockpit, then the product phases (§8.2), each split into steps
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives. pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`.
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives. pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`).
 
 ## 1. Goal and scope
 
@@ -121,7 +121,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 - **Frontend**:
   - Svelte 5 + Vite + TypeScript SPA, installed as a PWA (manifest, service worker, Web Push).
   - Notes render with a unified/remark pipeline plus our own embed resolver, backed by the notes service's vault index. CodeMirror 6 editor; KaTeX.
-  - Live updates over Connect server streams, with a polling fallback.
+  - Live updates by polling `/api/home` (decision 49); SSE when a step needs faster ones.
   - Look and feel per §7. Home = greeting + "Needs you today" feed (attention items from every app) + "Your apps" grid + weekly hours bar.
 - **Copilot** (planner service):
   - SDK client with an explicit `GitHubToken` and `COPILOT_HOME`, isolated from the personal GitHub token.
@@ -494,11 +494,11 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
   - Any other path without an extension gets `index.html`, so the app routes its own pages. A missing file with an extension gets a 404, so a page path has no dot in its last segment (`/notes/2026.10` is a 404).
 - Before the first build every request gets a 503 that says how to build the app.
 
-**UI client**:
+**UI client** (built in `home-hero`, decision 49):
 
-- `createConnectTransport({ baseUrl: '/api', useHttpGet: true })`, with types from `src/gen`.
-- A `WatchHome` stream, falling back to polling `GetHome` every 60 s and on window focus.
-- Protojson in the browser: camelCase fields, RFC 3339 timestamps, enum names as strings.
+- `fetch('/api/home')`, with hand-written types (decision 43) that declare only the fields the app reads.
+- It loads the Home at once, then every 60 s while the page is visible and again whenever it becomes visible, as TanStack Query does by default. Only the latest request's answer applies, so a slow answer never overwrites a newer one.
+- A failed load (the gateway's 503, or no network) keeps the last Home on screen, and the top bar says "Offline · as of 01:10" (§7). The client sets no timeout of its own: a hung upstream is for the gateway's timeouts (decision 41).
 - A small pushState router. Pages other than Home show "Coming soon" for now. Until it arrives, the nav's plain links load each page in full, and every path shows the same page with its app marked in the nav.
 
 **Dev loop**: `mise run dev` runs Vite on `:5173` with `/api` proxied to the gateway on `:8080`.
@@ -777,13 +777,13 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 **Page frame**
 
-- Content up to `--max` wide, centred, with `--gutter` on both sides.
+- Content up to `--max` wide, centred, with `--gutter` on both sides. Full-width bands (the top bar, the header, the hero) pad their sides with `--page-padding`, `max(var(--gutter), (100% - var(--max)) / 2)`, so their background spans the page while their content lines up within `--max`.
 - Breakpoints (ref): a tablet layout at `max-width: 1100px` and a phone layout at `max-width: 700px`. At `max-width: 980px` the header nav gives way to the bottom tab bar (ref).
 - Every page has the top bar and the header. Home then shows, from top to bottom: the hero, "Needs you today", "Your apps" and "This week".
 
 **Top bar**: full width, an `--ink` background with `--paper` text in mono 10 px, padding 8 px by the gutter, and one item at each end (ref).
 
-- Left: whether the data is current: "Online", or "Offline · as of 01:10" when `/api/home` can't be reached. Once home reports its `sources` (§4.5), it also says when some are down: "2 sources unavailable".
+- Left: whether the data is current. It stays blank until the first load of `/api/home` ends, then reads "Online", or "Offline · as of 01:10" when the last load failed, with the time of the last good one ("Offline" if none has worked yet). It is a polite live region (`role="status"`), so screen readers announce each change once. Once home reports its `sources` (§4.5), it also says when some are down: "2 sources unavailable".
 - Right: the local time, 24-hour, and the time zone's city: "01:12 · Tokyo". Built with `Intl` (en-GB); the city is the last part of the IANA time zone, with spaces for underscores ("America/Argentina/Buenos_Aires" gives "Buenos Aires"). It changes at the start of each minute, without a live region, so screen readers don't announce every minute.
 
 **Header**: a `1fr auto 1fr` grid with padding 24 px by the gutter (ref), and a 1 px `--rule` bottom border. The padding is 18 px top and bottom at `max-width: 980px`, and 16 px on phones (ref).
@@ -794,9 +794,10 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 **Hero**: two columns, 1.4fr and 1fr with a 10% gap, aligned to the bottom, with 58 px of padding above and 50 px below (ref). One column on phones (ref).
 
-- Left: the date as a mono eyebrow in `--ink-muted` ("Monday 20 October"), then the greeting, "Good evening, *Bakh*.", with the name (`name`, §4.11) in Instrument Serif italic.
-- The greeting follows the hour: before 05:00 evening, before 12:00 morning, before 18:00 afternoon, otherwise evening.
-- Right: a summary in `--ink-muted`, at most 390 px wide (ref): "6 things need you today. 2 are late." With no items: "All clear today."
+- Left: the date as a mono eyebrow in `--ink-muted` ("Monday 20 October"), 16 px above the greeting, "Good evening, *Bakh*.", with the name (`name`, §4.11) in Instrument Serif italic. The name starts 0.06em further right, because the italic capital leans into the comma.
+- The greeting follows the hour on the device's clock, checked each minute: before 05:00 evening, before 12:00 morning, before 18:00 afternoon, otherwise evening.
+- Right: a summary in `--ink-muted`, at most 390 px wide (ref): "6 things need you today. 2 are late." With no items: "All clear today." On phones it sits 20 px under the greeting.
+- Until the first load succeeds, the greeting has no name ("Good evening.") and there is no summary.
 
 **Section head**: a 1 px `--ink` rule on top with 13 px of space under it (ref), then the title on the left and a mono note or a text link on the right, aligned to the bottom, with 30 px below (24 on phones) (ref).
 
@@ -1062,6 +1063,7 @@ Made on 2026-10-20:
 46. **Time tracking with Jira worklogs**: time is logged as standard Jira worklogs, through Jira's REST API v3 (§2), as the user's own tool does. Clockwork writes standard worklogs too, so Bakhyard and Clockwork see the same hours. The Time module shows a day report and fills missing days after a preview, as the user's tool does. It has no timers, which Clockwork already provides. The `time` service keeps no table of its own, because the worklogs stay in Jira. Settles the open part of 40.
 47. **Renovate waits for npm releases**: a package rule gives the npm datasource a `minimumReleaseAge` of 1 day, the same as pnpm's default of 1,440 minutes (decision 44). With Renovate's default `internalChecksFilter` of `strict`, a release younger than that gets no PR and shows as pending on the Dependency Dashboard, so CI no longer fails on an update pnpm would refuse. Go modules and GitHub Actions still update at once: their tools have no such gate.
 48. **Web service**: a Go `web` service on `127.0.0.1:8082` serves the Vite build, embedded in its binary (§4.12). The gateway forwards every path outside `/api` to it unchanged, whatever the method, and an unreachable web gets the same 503 JSON error as home. `/api`, `/api/` and every `/api` path that no service claims keep their 404 and reach no service, so a mistyped API path never gets the app's page. Web has no ops endpoints yet, so no service's ops paths are reachable from outside. A page path has no dot in its last segment: web reads one as a file extension and answers a missing file with a 404. Replaces the 404 that 41 gives every path outside `/api`.
+49. **Polling for live updates**: the app polls `GET /api/home` every 60 s while the page is visible, and again when it becomes visible (§4.12), as TanStack Query does by default. SSE waits for a step that needs faster updates, which settles 43's open "SSE or polling" for now. A failed poll keeps the last Home and marks it offline, and the client sets no timeout of its own: a hung upstream is the gateway's to time out (41).
 
 ## 10. Risks
 

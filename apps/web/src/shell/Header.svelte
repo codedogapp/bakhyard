@@ -23,7 +23,7 @@ let { path }: { path: string } = $props();
   grid-template-columns: 1fr auto 1fr;
   gap: 32px;
   align-items: center;
-  padding: 24px var(--gutter);
+  padding: 24px var(--page-padding);
   border-bottom: 1px solid var(--rule);
 }
 
