@@ -1,13 +1,13 @@
-// Package supervisor runs services in the foreground: it starts them in order, marks each line
-// of their output with the service's name, and stops them in reverse order.
+// Package supervisor runs services, each in a process group of its own. It starts, stops,
+// kills and restarts each one, keeps track of its state, and marks each line of its output
+// with its name.
 package supervisor
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"io"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/manifest"
@@ -21,106 +21,87 @@ const (
 	stopTimeout = 10 * time.Second
 )
 
-// service is a service that has started.
+// Supervisor runs the services of a manifest. Its methods are safe to call at the same time.
+type Supervisor struct {
+	services []*service // in start order; the slice and the names never change
+	out      *output
+	changed  chan struct{}
+	mu       sync.Mutex // guards each service's state, err and run
+}
+
 type service struct {
-	name  string
-	proc  *process.Process
-	lines *lineWriter
+	name    string
+	command []string
+	vars    []string
+	state   State
+	err     error // how the service exited, when it exited on its own
+	run     *run  // the process, while the service runs or stops
 }
 
-type supervisor struct {
-	out     *output
-	started []*service
-	exits   chan *service // each started service, once it has exited
+// run is one run of a service's command.
+type run struct {
+	proc    *process.Process
+	lines   *lineWriter
+	started time.Time
+	exited  chan struct{} // closed once the supervisor has recorded the exit
 }
 
-// Run starts the services in the order given, and runs them until ctx ends or one of them
-// exits. Then it stops the others in reverse order, each with SIGTERM, and SIGKILL after 10 s.
-// It returns nil when ctx ended, and an error when a service couldn't start or exited.
-func Run(ctx context.Context, services []manifest.Service, out io.Writer) error {
-	sup := &supervisor{
-		out:   newOutput(out, services),
-		exits: make(chan *service, len(services)),
-	}
-
-	err := sup.startAll(services)
-	if err == nil {
-		err = sup.wait(ctx)
-	}
-
-	return errors.Join(err, sup.stopAll(), sup.out.failure())
-}
-
-// startAll starts the services in order, up to the first that can't start.
-func (s *supervisor) startAll(services []manifest.Service) error {
+// New returns a supervisor for services, given in start order, with every service stopped.
+// The services' output and the supervisor's own lines go to out.
+func New(services []manifest.Service, out io.Writer) *Supervisor {
 	vars := environment(services)
+	sup := &Supervisor{out: newOutput(out, services), changed: make(chan struct{}, 1)}
 
 	for _, svc := range services {
-		lines := &lineWriter{out: s.out, name: svc.Name}
+		sup.services = append(sup.services, &service{
+			name:    svc.Name,
+			command: svc.Command,
+			vars:    vars[svc.Name],
+			state:   Stopped,
+		})
+	}
 
-		proc, err := process.Start(svc.Command, vars[svc.Name], lines)
-		if err != nil {
-			return fmt.Errorf("start %s: %w", svc.Name, err)
+	return sup
+}
+
+// Services returns the status of every service, in start order.
+func (s *Supervisor) Services() []Status {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	statuses := make([]Status, 0, len(s.services))
+
+	for _, svc := range s.services {
+		status := Status{Name: svc.name, State: svc.state, Err: svc.err}
+		if svc.run != nil {
+			status.PID, status.Started = svc.run.proc.PID(), svc.run.started
 		}
 
-		running := &service{name: svc.Name, proc: proc, lines: lines}
-		s.started = append(s.started, running)
-		s.out.writeLine(cockpit, fmt.Sprintf("started %s (pid %d)", svc.Name, proc.PID()))
-
-		go func() {
-			<-proc.Done()
-
-			s.exits <- running
-		}()
+		statuses = append(statuses, status)
 	}
 
-	return nil
+	return statuses
 }
 
-// wait returns when ctx ends, or when a service exits, with the exit as an error.
-func (s *supervisor) wait(ctx context.Context) error {
+// Changed returns a channel that receives a value after a service's state changes, for one
+// reader. It holds one value at most, so several changes can give one value: read Services
+// after each.
+func (s *Supervisor) Changed() <-chan struct{} {
+	return s.changed
+}
+
+func (s *Supervisor) notify() {
 	select {
-	case <-ctx.Done():
-		return nil
-	case svc := <-s.exits:
-		return svc.exitError()
-	}
-}
-
-// stopAll stops the services that are still running, in reverse order.
-func (s *supervisor) stopAll() error {
-	var errs []error
-
-	for _, svc := range slices.Backward(s.started) {
-		errs = append(errs, s.stop(svc))
-	}
-
-	return errors.Join(errs...)
-}
-
-func (s *supervisor) stop(svc *service) error {
-	select {
-	case <-svc.proc.Done():
+	case s.changed <- struct{}{}:
 	default:
-		s.out.writeLine(cockpit, "stopping "+svc.name)
-
-		err := svc.proc.Stop(stopTimeout)
-		if err != nil {
-			return fmt.Errorf("stop %s: %w", svc.name, err)
-		}
 	}
-
-	// The service has exited, so nothing writes to its lines any more.
-	svc.lines.flush()
-
-	return nil
 }
 
-func (svc *service) exitError() error {
-	err := svc.proc.Err()
-	if err == nil {
-		return fmt.Errorf("%s exited", svc.name)
+func (s *Supervisor) find(name string) (*service, error) {
+	index := slices.IndexFunc(s.services, func(svc *service) bool { return svc.name == name })
+	if index < 0 {
+		return nil, fmt.Errorf("no service %q", name)
 	}
 
-	return fmt.Errorf("%s exited: %w", svc.name, err)
+	return s.services[index], nil
 }

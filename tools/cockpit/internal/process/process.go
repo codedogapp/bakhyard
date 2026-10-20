@@ -77,7 +77,13 @@ func (p *Process) Stop(timeout time.Duration) error {
 	case <-time.After(timeout):
 	}
 
-	err = p.signal(syscall.SIGKILL)
+	return p.Kill()
+}
+
+// Kill sends SIGKILL to the process group at once. It returns once the process has exited, or
+// with an error if the signal can't be sent.
+func (p *Process) Kill() error {
+	err := p.signal(syscall.SIGKILL)
 	if err != nil {
 		return err
 	}
