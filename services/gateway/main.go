@@ -7,8 +7,10 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/codedogapp/bakhyard/internal/env"
+	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/proxy"
 )
@@ -34,6 +36,10 @@ func routes(getenv func(string) string) (http.Handler, error) {
 
 	logger := slog.Default()
 	router := chi.NewRouter()
+	// Answer HEAD wherever GET is served.
+	router.Use(middleware.GetHead)
+	// The gateway's own health check, so /healthz never reaches web (decision 59).
+	health.Register(router)
 	proxy.Register(router, "home", &url.URL{Scheme: "http", Host: home}, logger)
 	proxy.RegisterFallback(router, "web", &url.URL{Scheme: "http", Host: web}, logger)
 

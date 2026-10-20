@@ -122,7 +122,7 @@ func TestChangesAndTicksRefreshTheTable(t *testing.T) {
 	upFor := 90 * time.Second
 	screen, next = update(t, screen, tickMsg(sup.Services()[0].Started.Add(upFor)))
 
-	if row := screen.grid.Rows()[0]; row[3] != "1m30s" || next == nil {
+	if row := screen.grid.Rows()[0]; row[4] != "1m30s" || next == nil {
 		t.Errorf("got %q, want a up for 1m30s, and to wait for the next tick", row)
 	}
 }

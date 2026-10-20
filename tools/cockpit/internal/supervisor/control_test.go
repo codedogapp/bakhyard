@@ -45,6 +45,23 @@ func TestStartAndStopOneService(t *testing.T) {
 	}
 }
 
+func TestServicesGivesEachServicesAddress(t *testing.T) {
+	sup := newSupervisor(t, io.Discard,
+		manifest.Service{Name: "a", Command: sleeper, Listen: "tcp://127.0.0.1:8081"},
+		manifest.Service{Name: "b", Command: sleeper, Listen: "tcp://127.0.0.1:8082"},
+	)
+
+	err := sup.Start("b")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := sup.Services()
+	if got[0].Listen != "tcp://127.0.0.1:8081" || got[1].Listen != "tcp://127.0.0.1:8082" {
+		t.Errorf("got %+v, want each service's address, whether it runs or not", got)
+	}
+}
+
 func TestActionsThatHaveNothingToDo(t *testing.T) {
 	sup := newSupervisor(t, io.Discard,
 		manifest.Service{Name: "a", Command: sleeper},

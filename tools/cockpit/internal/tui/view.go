@@ -18,6 +18,7 @@ const (
 
 	nameWidth   = 12
 	stateWidth  = 9
+	healthWidth = 6
 	pidWidth    = 7
 	uptimeWidth = 9
 	cpuWidth    = 7
@@ -50,7 +51,7 @@ func (m model) status() string {
 	case m.unmeasured != nil:
 		return m.unmeasured.Error()
 	default:
-		return ""
+		return m.down()
 	}
 }
 
@@ -59,6 +60,7 @@ func newGrid(services int) table.Model {
 	columns := []table.Column{
 		{Title: "NAME", Width: nameWidth},
 		{Title: "STATE", Width: stateWidth},
+		{Title: "HEALTH", Width: healthWidth},
 		{Title: "PID", Width: pidWidth},
 		{Title: "UPTIME", Width: uptimeWidth},
 		{Title: "CPU", Width: cpuWidth},
@@ -84,16 +86,20 @@ func newGrid(services int) table.Model {
 	)
 }
 
-// rows returns a row per service, with its uptime at now and its last measured usage.
+// rows returns a row per service, with how its last health check went, its uptime at now and
+// its last measured usage.
 func rows(
-	statuses []supervisor.Status, now time.Time, usage map[int]resources.Usage,
+	statuses []supervisor.Status,
+	now time.Time,
+	usage map[int]resources.Usage,
+	checks map[int]error,
 ) []table.Row {
 	all := make([]table.Row, 0, len(statuses))
 
 	for _, status := range statuses {
 		all = append(all, table.Row{
-			status.Name, string(status.State), pid(status), uptime(status, now),
-			cpu(usage, status.PID), memory(usage, status.PID), exit(status),
+			status.Name, string(status.State), health(checks, status.PID), pid(status),
+			uptime(status, now), cpu(usage, status.PID), memory(usage, status.PID), exit(status),
 		})
 	}
 

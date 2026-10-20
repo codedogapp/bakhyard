@@ -1,3 +1,5 @@
+// Package health answers a service's health check, GET /healthz, which says that the process is
+// alive and serving (docs/plan.md §4.7). Every service registers it.
 package health
 
 import (

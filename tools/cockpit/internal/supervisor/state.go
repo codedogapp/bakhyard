@@ -18,8 +18,10 @@ const (
 
 // Status is a service's state at one moment.
 type Status struct {
-	Name  string
-	State State
+	Name string
+	// Listen is the address the service listens on, tcp://host:port.
+	Listen string
+	State  State
 	// PID and Started are the process's ID and start time while it runs or stops, and zero
 	// otherwise.
 	PID     int

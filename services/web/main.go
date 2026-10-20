@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/web/internal/spa"
 )
@@ -38,6 +39,8 @@ func routes(_ func(string) string) (http.Handler, error) {
 	router := chi.NewRouter()
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
+	// The process is alive even before the app is built, so the health check doesn't need it.
+	health.Register(router)
 	spa.Register(router, app)
 
 	return router, nil
