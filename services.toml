@@ -1,0 +1,20 @@
+# The services the cockpit runs (docs/plan.md §4.9). It starts each one after the
+# services in its depends_on, and otherwise in this file's order. A command is the
+# program and its arguments, run without a shell.
+version = 1
+
+[[service]]
+name = "gateway"
+description = "The only way in: /api to the services, everything else to web"
+command = ["bin/gateway"]
+depends_on = ["home", "web"]
+
+[[service]]
+name = "home"
+description = "Builds the Home screen from every app"
+command = ["bin/home"]
+
+[[service]]
+name = "web"
+description = "Serves the built web app"
+command = ["bin/web"]

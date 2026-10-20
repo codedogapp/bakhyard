@@ -6,6 +6,6 @@ threshold:
 
 exclude:
   paths:
-    - '^services/[^/]+/main\.go$'
+    - '^(services|tools)/[^/]+/main\.go$'
 
 force-annotation-comment: true
