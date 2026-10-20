@@ -61,11 +61,11 @@ func TestListPrintsTheServicesInStartOrder(t *testing.T) {
 func TestRunRejectsUnknownCommands(t *testing.T) {
 	fsys := fstest.MapFS{"services.toml": {Data: []byte(manifestText)}}
 
-	for _, args := range [][]string{nil, {"start"}, {"list", "home"}, {"up", "home"}, {"LIST"}} {
+	for _, args := range [][]string{{"start"}, {"list", "home"}, {"up", "home"}, {"LIST"}, {""}} {
 		var out bytes.Buffer
 
 		err := cli.Run(t.Context(), args, fsys, &out)
-		if err == nil || err.Error() != "usage: cockpit list|up" {
+		if err == nil || err.Error() != "usage: cockpit [list|up]" {
 			t.Errorf("Run(%q) = %v, want the usage", args, err)
 		}
 
@@ -75,13 +75,16 @@ func TestRunRejectsUnknownCommands(t *testing.T) {
 	}
 }
 
+// commands are the ways to run the cockpit that read the manifest; nil opens the TUI.
+var commands = [][]string{nil, {"list"}, {"up"}}
+
 func TestCommandsWithoutAManifest(t *testing.T) {
-	for _, command := range []string{"list", "up"} {
+	for _, args := range commands {
 		var out bytes.Buffer
 
-		err := cli.Run(t.Context(), []string{command}, fstest.MapFS{}, &out)
+		err := cli.Run(t.Context(), args, fstest.MapFS{}, &out)
 		if !errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), "services.toml") {
-			t.Errorf("%s: got %v, want the missing manifest", command, err)
+			t.Errorf("Run(%q): got %v, want the missing manifest", args, err)
 		}
 	}
 }
@@ -89,16 +92,16 @@ func TestCommandsWithoutAManifest(t *testing.T) {
 func TestCommandsWithABadManifest(t *testing.T) {
 	fsys := fstest.MapFS{"services.toml": {Data: []byte("version = 2\n")}}
 
-	for _, command := range []string{"list", "up"} {
+	for _, args := range commands {
 		var out bytes.Buffer
 
-		err := cli.Run(t.Context(), []string{command}, fsys, &out)
+		err := cli.Run(t.Context(), args, fsys, &out)
 		if err == nil || err.Error() != "services.toml: version must be 1, not 2" {
-			t.Errorf("%s: got %v, want the manifest's error", command, err)
+			t.Errorf("Run(%q): got %v, want the manifest's error", args, err)
 		}
 
 		if out.Len() != 0 {
-			t.Errorf("%s printed %q", command, out.String())
+			t.Errorf("Run(%q) printed %q", args, out.String())
 		}
 	}
 }

@@ -25,6 +25,15 @@ description = "Build, then run every service in the foreground until Ctrl-C"
 depends = ["build"]
 run = "bin/cockpit up"
 
+# A plain task too, so SIGTERM and SIGHUP reach the cockpit. The TUI needs the terminal,
+# which mise takes away when it prefixes the output, as it does once tasks run in parallel
+# (docs/plan.md §6.8).
+[tasks.cockpit]
+description = "Build, then open the cockpit, which runs every service until you quit it"
+depends = ["build"]
+output = "interleave"
+run = "bin/cockpit"
+
 [tasks.fmt]
 description = "Format the Go code (gofumpt, golines)"
 run = "golangci-lint fmt"

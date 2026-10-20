@@ -11,19 +11,27 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/manifest"
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/supervisor"
+	"github.com/codedogapp/bakhyard/tools/cockpit/internal/tui"
 )
 
 const (
 	manifestFile = "services.toml"
-	usage        = "usage: cockpit list|up"
+	usage        = "usage: cockpit [list|up]"
 	columnGap    = 2
 )
 
-// Run runs the command in args, reading the manifest from fsys and writing to stdout. up runs
-// until ctx ends.
+// Run runs the command in args, reading the manifest from fsys and writing to stdout. With no
+// command it opens the TUI, which runs until the user quits it or ctx ends; up runs until ctx
+// ends.
 func Run(ctx context.Context, args []string, fsys fs.FS, stdout io.Writer) error {
+	if len(args) == 0 {
+		return open(ctx, fsys, stdout)
+	}
+
 	if len(args) != 1 {
 		return errors.New(usage)
 	}
@@ -61,6 +69,16 @@ func up(ctx context.Context, fsys fs.FS, stdout io.Writer) error {
 	}
 
 	return supervisor.Run(ctx, services, stdout)
+}
+
+// open runs every service under the TUI. Their output is discarded until the TUI shows logs.
+func open(ctx context.Context, fsys fs.FS, stdout io.Writer) error {
+	services, err := readManifest(fsys)
+	if err != nil {
+		return err
+	}
+
+	return tui.Run(ctx, supervisor.New(services, io.Discard), tea.WithOutput(stdout))
 }
 
 // readManifest returns the services in the manifest, in start order.

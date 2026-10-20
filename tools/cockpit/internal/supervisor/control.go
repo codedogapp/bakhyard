@@ -10,7 +10,8 @@ import (
 )
 
 // Start starts a service that is stopped or has exited. A running service is left alone, and
-// one that is stopping can't start until it has stopped.
+// one that is stopping can't start until it has stopped. Once Shutdown has been called, no
+// service starts.
 func (s *Supervisor) Start(name string) error {
 	svc, err := s.find(name)
 	if err != nil {
@@ -19,6 +20,10 @@ func (s *Supervisor) Start(name string) error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.shuttingDown {
+		return fmt.Errorf("start %s: the supervisor is shutting down", name)
+	}
 
 	switch svc.state {
 	case Running:
@@ -122,6 +127,16 @@ func (s *Supervisor) StopAll() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// Shutdown stops every service, as StopAll does, and no service can start from then on, so a
+// Start still in flight can't start one behind StopAll's back.
+func (s *Supervisor) Shutdown() error {
+	s.mu.Lock()
+	s.shuttingDown = true
+	s.mu.Unlock()
+
+	return s.StopAll()
 }
 
 // halt marks a running service as stopping. It returns the state the service was in, and its
