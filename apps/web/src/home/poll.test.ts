@@ -3,7 +3,10 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { Home } from './api';
 import { type Feed, pollHome } from './poll';
 
-const ada: Home = { name: 'Ada', items: [{ late: true }] };
+const ada: Home = {
+  name: 'Ada',
+  items: [{ id: 'pulls/1', app: 'pulls', title: 'Nudge reviewers', source: 'Bitbucket', late: true }],
+};
 const grace: Home = { name: 'Grace', items: [] };
 const start = new Date('2026-10-20T01:10:00Z');
 const minute = 60_000;

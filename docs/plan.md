@@ -48,8 +48,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `home-style` | The page style per §7: the tokens for both themes, the fonts, the paper grain and the base styles | Done (#18) |
 | `home-header` | The top bar's time and city, the header with the wordmark and the nav, and the focus outline | Done (#19) |
 | `home-name` | `home` serves `name` from `BAKHYARD_NAME`, falling back to "there" (§4.11) | Done (#20) |
-| `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline (decision 49) | In progress |
-| `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
+| `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline (decision 49) | Done (#21) |
+| `home-feed` | The "Needs you today" card, from `/api/home`, with rows that link to their app (decision 50) | In progress |
 | `home-apps` | The "Your apps" grid and the weekly hours bar | Planned |
 | `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas | Planned |
 
@@ -799,7 +799,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 - Right: a summary in `--ink-muted`, at most 390 px wide (ref): "6 things need you today. 2 are late." With no items: "All clear today." On phones it sits 20 px under the greeting.
 - Until the first load succeeds, the greeting has no name ("Good evening.") and there is no summary.
 
-**Section head**: a 1 px `--ink` rule on top with 13 px of space under it (ref), then the title on the left and a mono note or a text link on the right, aligned to the bottom, with 30 px below (24 on phones) (ref).
+**Section head**: a 1 px `--ink` rule on top with 13 px of space under it (ref), then the title on the left and a mono note or a text link on the right, aligned to the bottom, with 30 px below (24 on phones) (ref). A note that doesn't fit beside the title wraps under it.
 
 - One word of the title is the serif accent: "Needs you *today*", "Your *apps*", "This *week*".
 - **Text link**: 14 px, with a 1 px `--ink-muted` underline 5 px below the text (ref) that turns `--ink` on hover, and an arrow after it.
@@ -810,11 +810,13 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 - Pressed: the card moves 2 px down and to the right, and its shadow shrinks by the same, like a key going down.
 - Transitions: 150 ms on transform, shadow and border colour, and none under `prefers-reduced-motion` (ref). On touch screens (`hover: none`) cards don't lift.
 
-**"Needs you today"**: the section head's note reads "6 items · most urgent first". Below it, one card with no padding holds a row per item, split by 1 px `--rule` lines.
+**"Needs you today"**: the section head's note reads "6 items · most urgent first" ("1 item" for one), and there is no note without items. Below it, one card with no padding holds a row per item, in the server's order (§4.11), split by 1 px `--rule` lines. The section has 64 px of space below it (48 on phones).
 
-- A row, about 64 px tall: a mono source label ("Bitbucket") in a fixed left column; the title (16 / 500) over the detail (14, `--ink-muted`); the due time on the right, in mono, relative and built with `Intl.RelativeTimeFormat` (en-GB): "in 3 hours", "2 hours ago". A late item also gets a Late chip. On phones the source label sits above the title.
-- The whole row links to the item; on hover it fills with `--fill`.
+- A row is at least 64 px tall, with padding of 10 by 20 px: a mono source label ("Bitbucket") in a 120 px left column; the title (16 / 500) over the detail (14, `--ink-muted`); on the right, a late item's Late chip, then the due time in mono. On phones the source label shares the first line with the chip and the due time, and the title and detail sit under them. A long word in the title or detail breaks rather than widen the page.
+- The due time is relative, built with `Intl.RelativeTimeFormat` (en-GB, `numeric: 'always'`, so a day ago reads "1 day ago", never a "yesterday" that may not match the calendar): "now" within half a minute, then minutes under an hour, hours under a day and days beyond, each rounded to the nearest with halves away from zero: "in 3 hours", "2 hours ago", "in 5 days". It moves on at each minute with the page's one clock, which the top bar and the greeting share. Whether an item is late comes only from the server's `late`, refreshed by each poll (decision 49).
+- The whole row links to its app's page, such as `/pulls` (decision 50); on hover it fills with `--fill`.
 - With no items: "Nothing needs you today." in `--ink-muted`.
+- Until the first load succeeds there is no feed; offline, the last items stay.
 
 **Chip**: mono 10 px uppercase, padding 3 by 6 px, a 1 px `--ink` border. Late is an ink fill with `--paper` text. Colour is never used.
 
@@ -1064,6 +1066,7 @@ Made on 2026-10-20:
 47. **Renovate waits for npm releases**: a package rule gives the npm datasource a `minimumReleaseAge` of 1 day, the same as pnpm's default of 1,440 minutes (decision 44). With Renovate's default `internalChecksFilter` of `strict`, a release younger than that gets no PR and shows as pending on the Dependency Dashboard, so CI no longer fails on an update pnpm would refuse. Go modules and GitHub Actions still update at once: their tools have no such gate.
 48. **Web service**: a Go `web` service on `127.0.0.1:8082` serves the Vite build, embedded in its binary (§4.12). The gateway forwards every path outside `/api` to it unchanged, whatever the method, and an unreachable web gets the same 503 JSON error as home. `/api`, `/api/` and every `/api` path that no service claims keep their 404 and reach no service, so a mistyped API path never gets the app's page. Web has no ops endpoints yet, so no service's ops paths are reachable from outside. A page path has no dot in its last segment: web reads one as a file extension and answers a missing file with a 404. Replaces the 404 that 41 gives every path outside `/api`.
 49. **Polling for live updates**: the app polls `GET /api/home` every 60 s while the page is visible, and again when it becomes visible (§4.12), as TanStack Query does by default. SSE waits for a step that needs faster updates, which settles 43's open "SSE or polling" for now. A failed poll keeps the last Home and marks it offline, and the client sets no timeout of its own: a hung upstream is the gateway's to time out (41).
+50. **Feed rows link to their app**: until items carry their own url (§4.5's `url`), a row in "Needs you today" links to its app's page, such as `/pulls` or `/todos`, the same paths as the nav. The user's choice. When the urls arrive, only where a row links changes.
 
 ## 10. Risks
 
