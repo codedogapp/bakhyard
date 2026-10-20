@@ -1,20 +1,25 @@
 # The services the cockpit runs (docs/plan.md §4.9). It starts each one after the
 # services in its depends_on, and otherwise in this file's order. A command is the
-# program and its arguments, run without a shell.
+# program and its arguments, run without a shell. Each service listens on its listen
+# address, and gets those of its depends_on as its peers (§4.7).
 version = 1
 
 [[service]]
 name = "gateway"
 description = "The only way in: /api to the services, everything else to web"
 command = ["bin/gateway"]
+# Loopback only: tailscale serve will publish it.
+listen = "tcp://127.0.0.1:8080"
 depends_on = ["home", "web"]
 
 [[service]]
 name = "home"
 description = "Builds the Home screen from every app"
 command = ["bin/home"]
+listen = "tcp://127.0.0.1:8081"
 
 [[service]]
 name = "web"
 description = "Serves the built web app"
 command = ["bin/web"]
+listen = "tcp://127.0.0.1:8082"

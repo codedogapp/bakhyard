@@ -19,11 +19,13 @@ type Process struct {
 }
 
 // Start runs command, the program and its arguments, without a shell and in a new process
-// group. The command's output and errors go to out, and its input is empty. command must not
-// be empty.
-func Start(command []string, out io.Writer) (*Process, error) {
+// group. It gets the cockpit's environment plus vars, given as KEY=value, which win over it.
+// The command's output and errors go to out, and its input is empty. command must not be
+// empty.
+func Start(command, vars []string, out io.Writer) (*Process, error) {
 	//nolint:gosec // G204: running the commands that services.toml lists is the cockpit's job.
 	cmd := exec.Command(command[0], command[1:]...)
+	cmd.Env = append(cmd.Environ(), vars...)
 	cmd.Stdout = out
 	cmd.Stderr = out
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

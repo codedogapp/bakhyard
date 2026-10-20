@@ -53,10 +53,12 @@ func Run(ctx context.Context, services []manifest.Service, out io.Writer) error 
 
 // startAll starts the services in order, up to the first that can't start.
 func (s *supervisor) startAll(services []manifest.Service) error {
+	vars := environment(services)
+
 	for _, svc := range services {
 		lines := &lineWriter{out: s.out, name: svc.Name}
 
-		proc, err := process.Start(svc.Command, lines)
+		proc, err := process.Start(svc.Command, vars[svc.Name], lines)
 		if err != nil {
 			return fmt.Errorf("start %s: %w", svc.Name, err)
 		}

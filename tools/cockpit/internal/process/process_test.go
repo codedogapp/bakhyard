@@ -21,7 +21,7 @@ const stoppable = `sleep 60 & trap "echo stopped; exit 0" TERM; echo ready; wait
 func TestStartRunsTheCommandWithoutAShell(t *testing.T) {
 	out := newRecorder()
 
-	proc, err := process.Start([]string{"echo", "$HOME", "a b"}, out)
+	proc, err := process.Start([]string{"echo", "$HOME", "a b"}, nil, out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,10 +37,32 @@ func TestStartRunsTheCommandWithoutAShell(t *testing.T) {
 	}
 }
 
+func TestStartAddsTheVariablesToTheEnvironment(t *testing.T) {
+	t.Setenv("BAKHYARD_TEST_KEPT", "kept")
+	t.Setenv("BAKHYARD_TEST_REPLACED", "old")
+
+	out := newRecorder()
+	command := []string{
+		"sh", "-c", `echo "$BAKHYARD_TEST_KEPT $BAKHYARD_TEST_REPLACED $BAKHYARD_TEST_ADDED"`,
+	}
+	vars := []string{"BAKHYARD_TEST_REPLACED=new", "BAKHYARD_TEST_ADDED=added"}
+
+	proc, err := process.Start(command, vars, out)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	<-proc.Done()
+
+	if out.String() != "kept new added\n" {
+		t.Errorf("got %q, want the inherited, the replaced and the added variables", out.String())
+	}
+}
+
 func TestErrReportsTheExitStatus(t *testing.T) {
 	const status = 3
 
-	proc, err := process.Start([]string{"sh", "-c", "exit 3"}, io.Discard)
+	proc, err := process.Start([]string{"sh", "-c", "exit 3"}, nil, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +76,7 @@ func TestErrReportsTheExitStatus(t *testing.T) {
 }
 
 func TestStartReportsAMissingProgram(t *testing.T) {
-	_, err := process.Start([]string{"./no-such-program"}, io.Discard)
+	_, err := process.Start([]string{"./no-such-program"}, nil, io.Discard)
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("got %v, want a missing file", err)
 	}
@@ -65,7 +87,7 @@ func TestStopEndsTheWholeGroup(t *testing.T) {
 	// The shell waits for a child shell that reports SIGTERM.
 	command := []string{"sh", "-c", `sh -c "$1" & wait`, "sh", stoppable}
 
-	proc, err := process.Start(command, out)
+	proc, err := process.Start(command, nil, out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +117,7 @@ func TestStopKillsAProcessThatIgnoresSIGTERM(t *testing.T) {
 	out := newRecorder()
 	command := []string{"sh", "-c", `trap "" TERM; echo ready; while :; do sleep 1; done`}
 
-	proc, err := process.Start(command, out)
+	proc, err := process.Start(command, nil, out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +135,7 @@ func TestStopKillsAProcessThatIgnoresSIGTERM(t *testing.T) {
 }
 
 func TestStopAfterTheProcessExited(t *testing.T) {
-	proc, err := process.Start([]string{"true"}, io.Discard)
+	proc, err := process.Start([]string{"true"}, nil, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}

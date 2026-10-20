@@ -20,17 +20,20 @@ version = 1
 name = "gateway"
 description = "The way in"
 command = ["bin/gateway", "-v"]
+listen = "tcp://127.0.0.1:8080"
 depends_on = ["home", "web"]
 
 [[service]]
 name = "home"
 description = "The Home screen"
 command = ["bin/home"]
+listen = "tcp://127.0.0.1:8081"
 
 [[service]]
 name = "web"
 description = "The web app"
 command = ["bin/web"]
+listen = "tcp://127.0.0.1:8082"
 `
 
 func TestListPrintsTheServicesInStartOrder(t *testing.T) {
@@ -117,6 +120,7 @@ version = 1
 name = "sleeper"
 description = "Sleeps"
 command = ["sleep", "60"]
+listen = "tcp://127.0.0.1:8083"
 `
 
 	fsys := fstest.MapFS{"services.toml": {Data: []byte(sleeper)}}

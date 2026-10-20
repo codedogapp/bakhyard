@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+
+	"github.com/codedogapp/bakhyard/internal/env"
 )
 
 // Service is one service the cockpit runs.
@@ -16,7 +18,9 @@ type Service struct {
 	Name        string `toml:"name"`
 	Description string `toml:"description"`
 	// Command is the program and its arguments, run without a shell.
-	Command   []string `toml:"command"`
+	Command []string `toml:"command"`
+	// Listen is the address the service listens on, tcp://host:port.
+	Listen    string   `toml:"listen"`
 	DependsOn []string `toml:"depends_on"`
 }
 
@@ -118,7 +122,14 @@ func (s Service) check() error {
 		return errors.New("no description")
 	case len(s.Command) == 0 || s.Command[0] == "":
 		return errors.New("no command")
-	default:
-		return nil
+	case s.Listen == "":
+		return errors.New("no listen address")
 	}
+
+	_, err := env.Address(s.Listen)
+	if err != nil {
+		return fmt.Errorf("listen: %w", err)
+	}
+
+	return nil
 }
