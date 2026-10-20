@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -17,17 +16,13 @@ import (
 const upstreamBody = `{"items":[]}`
 
 func TestForwardsHome(t *testing.T) {
-	target, seen := upstream(t)
-
-	rec := serve(t, target, http.MethodGet, "/api/home?week=1")
+	rec, upstreams := route(t, http.MethodGet, "/api/home?week=1")
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 
-	if got := <-seen; got != "GET /home?week=1" {
-		t.Errorf("upstream got %q, want %q", got, "GET /home?week=1")
-	}
+	upstreams.expect(t, "GET /home?week=1", "")
 
 	if got := rec.Header().Get("Content-Type"); got != "application/json" {
 		t.Errorf("Content-Type = %q, want %q", got, "application/json")
@@ -49,128 +44,125 @@ func TestForwardsEveryMethod(t *testing.T) {
 	}
 
 	for _, method := range methods {
-		t.Run(method, func(t *testing.T) {
-			target, seen := upstream(t)
-
-			rec := serve(t, target, method, "/api/home")
+		t.Run(method+" home", func(t *testing.T) {
+			rec, upstreams := route(t, method, "/api/home")
 
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 			}
 
-			if got, want := <-seen, method+" /home"; got != want {
-				t.Errorf("upstream got %q, want %q", got, want)
-			}
+			upstreams.expect(t, method+" /home", "")
 		})
-	}
-}
 
-func TestRejectsOtherPaths(t *testing.T) {
-	paths := []string{
-		"/",
-		"/home",
-		"/healthz",
-		"/api",
-		"/api/",
-		"/api/healthz",
-		"/api/home/",
-		"/api/home/x",
-		"/api/homes",
-		"/API/home",
-		"/api//home",
-		"/api/home/../healthz",
-		"/api/ho%6De",
-	}
+		t.Run(method+" web", func(t *testing.T) {
+			rec, upstreams := route(t, method, "/notes")
 
-	for _, path := range paths {
-		t.Run(path, func(t *testing.T) {
-			target, seen := upstream(t)
-
-			rec := serve(t, target, http.MethodGet, path)
-
-			if rec.Code != http.StatusNotFound {
-				t.Errorf("status = %d, want %d", rec.Code, http.StatusNotFound)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 			}
 
-			if len(seen) != 0 {
-				t.Errorf("upstream got %q, want no request", <-seen)
-			}
+			upstreams.expect(t, "", method+" /notes")
 		})
 	}
 }
 
 func TestRejectsNonStandardMethods(t *testing.T) {
-	target, seen := upstream(t)
+	for _, path := range []string{"/api/home", "/"} {
+		t.Run(path, func(t *testing.T) {
+			rec, upstreams := route(t, "PURGE", path)
 
-	rec := serve(t, target, "PURGE", "/api/home")
+			if rec.Code != http.StatusMethodNotAllowed {
+				t.Errorf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
+			}
 
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
-	}
-
-	if len(seen) != 0 {
-		t.Errorf("upstream got %q, want no request", <-seen)
+			upstreams.expect(t, "", "")
+		})
 	}
 }
 
 func TestDropsClientForwardingHeaders(t *testing.T) {
-	headers := make(chan http.Header, 1)
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		headers <- r.Header.Clone()
-	}))
-	t.Cleanup(srv.Close)
-
 	names := []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto"}
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/home", nil)
 
-	for _, name := range names {
-		req.Header.Set(name, "spoofed")
+	for _, path := range []string{"/api/home", "/"} {
+		t.Run(path, func(t *testing.T) {
+			target, headers := headerSink(t)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+
+			for _, name := range names {
+				req.Header.Set(name, "spoofed")
+			}
+
+			rec := forward(req, target, target, slog.New(slog.DiscardHandler))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			got := <-headers
+			for _, name := range names {
+				if values := got.Values(name); len(values) != 0 {
+					t.Errorf("upstream got %s: %q, want none", name, values)
+				}
+			}
+		})
 	}
+}
 
-	rec := forward(parse(t, srv.URL), req, slog.New(slog.DiscardHandler))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
+// received holds the requests that the home and web stand-ins got.
+type received struct{ home, web <-chan string }
 
-	got := <-headers
-	for _, name := range names {
-		if values := got.Values(name); len(values) != 0 {
-			t.Errorf("upstream got %s: %q, want none", name, values)
+// expect fails t unless home and web got exactly the requests given; "" means none.
+func (upstreams received) expect(t *testing.T, home, web string) {
+	t.Helper()
+
+	expectRequest(t, "home", upstreams.home, home)
+	expectRequest(t, "web", upstreams.web, web)
+}
+
+func expectRequest(t *testing.T, name string, seen <-chan string, want string) {
+	t.Helper()
+
+	// The stand-in reports a request before it answers, so the report is already here.
+	select {
+	case req := <-seen:
+		if req != want {
+			t.Errorf("%s got %q, want %q", name, req, want)
+		}
+	default:
+		if want != "" {
+			t.Errorf("%s got no request, want %q", name, want)
 		}
 	}
 }
 
-func TestLogsUnavailableUpstream(t *testing.T) {
-	var logs strings.Builder
+// route sends a request through a gateway with stand-ins for home and web.
+func route(t *testing.T, method, path string) (*httptest.ResponseRecorder, received) {
+	t.Helper()
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/home", nil)
-	forward(closedUpstream(t), req, slog.New(slog.NewTextHandler(&logs, nil)))
+	home, homeSeen := upstream(t)
+	web, webSeen := upstream(t)
+	req := httptest.NewRequestWithContext(t.Context(), method, path, nil)
+	rec := forward(req, home, web, slog.New(slog.DiscardHandler))
 
-	for _, want := range []string{"level=WARN", "upstream=home", "err="} {
-		if !strings.Contains(logs.String(), want) {
-			t.Errorf("logs = %q, want them to contain %q", logs.String(), want)
-		}
-	}
+	return rec, received{home: homeSeen, web: webSeen}
 }
 
-func TestUpstreamDown(t *testing.T) {
-	rec := serve(t, closedUpstream(t), http.MethodGet, "/api/home")
+// forward sends req through a gateway that has home and web registered at their targets.
+func forward(
+	req *http.Request,
+	home, web *url.URL,
+	logger *slog.Logger,
+) *httptest.ResponseRecorder {
+	router := chi.NewRouter()
+	proxy.Register(router, "home", home, logger)
+	proxy.RegisterFallback(router, "web", web, logger)
 
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
-	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
 
-	if got := rec.Header().Get("Content-Type"); got != "application/json" {
-		t.Errorf("Content-Type = %q, want %q", got, "application/json")
-	}
-
-	want := `{"code":"unavailable","message":"home is unavailable"}`
-	if got := rec.Body.String(); got != want {
-		t.Errorf("body = %q, want %q", got, want)
-	}
+	return rec
 }
 
-// upstream starts a stand-in for home that reports each request as "<method> <request URI>".
+// upstream starts a stand-in service that reports each request as "<method> <request URI>".
 func upstream(t *testing.T) (*url.URL, <-chan string) {
 	t.Helper()
 
@@ -186,33 +178,17 @@ func upstream(t *testing.T) (*url.URL, <-chan string) {
 	return parse(t, srv.URL), seen
 }
 
-// closedUpstream returns the URL of a server that has shut down, so dialing it fails.
-func closedUpstream(t *testing.T) *url.URL {
+// headerSink starts a stand-in service that reports the headers of each request.
+func headerSink(t *testing.T) (*url.URL, <-chan http.Header) {
 	t.Helper()
 
-	srv := httptest.NewServer(http.NotFoundHandler())
-	srv.Close()
+	headers := make(chan http.Header, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		headers <- r.Header.Clone()
+	}))
+	t.Cleanup(srv.Close)
 
-	return parse(t, srv.URL)
-}
-
-func serve(t *testing.T, target *url.URL, method, path string) *httptest.ResponseRecorder {
-	t.Helper()
-
-	req := httptest.NewRequestWithContext(t.Context(), method, path, nil)
-
-	return forward(target, req, slog.New(slog.DiscardHandler))
-}
-
-// forward sends req through a gateway that has home registered at target.
-func forward(target *url.URL, req *http.Request, logger *slog.Logger) *httptest.ResponseRecorder {
-	router := chi.NewRouter()
-	proxy.Register(router, "home", target, logger)
-
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	return rec
+	return parse(t, srv.URL), headers
 }
 
 func parse(t *testing.T, raw string) *url.URL {

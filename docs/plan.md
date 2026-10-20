@@ -43,8 +43,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `web-scaffold` | The Svelte app in `apps/web`, its toolchain and the web gates (decision 44) | Done (#10) |
 | `visual-identity` | Replace §7 with the new visual identity (decision 45) | Done (#11) |
 | `time-worklogs` | Record how time is logged on Jira and what the Time module does (decision 46) | Done (#15) |
-| `renovate-age` | Renovate waits a day for npm releases, as pnpm does (decision 47) | In progress |
-| `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it | Planned |
+| `renovate-age` | Renovate waits a day for npm releases, as pnpm does (decision 47) | Done (#16) |
+| `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it (decision 48) | In progress |
 | `home-shell` | The Home page's frame per §7: tokens for both themes, fonts, grain, top bar, header and hero | Planned |
 | `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
 | `home-apps` | The "Your apps" grid and the weekly hours bar | Planned |
@@ -54,7 +54,7 @@ After these: the cockpit, then the product phases (§8.2), each split into steps
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10).
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives.
 
 ## 1. Goal and scope
 
@@ -479,13 +479,16 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 ### 4.12 Web service and UI
 
-**Web service**:
+**Web service** (built in `web-service`, decision 48):
 
-- `internal/site` embeds `dist` with `//go:embed all:dist`. A committed `dist/.gitkeep` keeps the embed valid before the first build.
-- Vite builds into `dist/app` (gitignored).
-- Caching: `/assets/*` is immutable; `index.html` is `no-cache`.
-- Extensionless unknown paths fall back to the SPA. Missing files with an extension get a 404.
-- Before the first build it serves a 503 "not built" page.
+- Listens on `127.0.0.1:8082` until unix sockets arrive. It has no ops endpoints yet, so `/healthz` through the gateway is just a page of the app.
+- `main.go` embeds `dist` with `//go:embed all:dist`; `all:` keeps the files whose names start with `.` or `_`. A committed `dist/.gitkeep` keeps the embed valid before the first build, so a fresh clone (CI) builds.
+- Vite builds into `services/web/dist/app` (gitignored), with `emptyOutDir` because the directory lies outside the app's root.
+- `internal/spa` serves the app for GET and HEAD. Paths are cleaned first, as a browser cleans them, so `..` can't leave the app.
+  - A path that names a file gets it, through `http.FileServerFS`. Directories are never listed, and `/index.html` redirects to `/`.
+  - Caching: Vite fingerprints the names in `assets/`, so those files are `public, max-age=31536000, immutable`; every other file, `index.html` included, is `no-cache`. Embedded files have no modification time, so there is no `Last-Modified`, and no ETag either.
+  - Any other path without an extension gets `index.html`, so the app routes its own pages. A missing file with an extension gets a 404, so a page path has no dot in its last segment (`/notes/2026.10` is a 404).
+- Before the first build every request gets a 503 that says how to build the app.
 
 **UI client**:
 
@@ -535,7 +538,7 @@ bakhyard/
 ```
 
 - Module paths: `github.com/Bakhomious/bakhyard/{services/<name>,libs/go/kit,libs/go/contracts,tools/cockpit}`.
-- Build outputs: `bin/bakhyard-<svc>` and `bin/cockpit`. The Vite build goes to `services/web/internal/site/dist/app/`. Both are gitignored.
+- Build outputs: `bin/bakhyard-<svc>` and `bin/cockpit`. The Vite build goes to `services/web/dist/app/`. Both are gitignored.
 - Runtime state lives under `$BAKHYARD_HOME`: `run/` (sockets, pidfiles, `cockpit.sock`), `logs/` and `data/<service>/`.
 
 ## 6. Toolchain and conventions
@@ -638,7 +641,7 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
     - JS style: single quotes, semicolons, ES5 trailing commas, arrow parentheses, bracket spacing;
     - the recommended preset with `noImportantStyles` and `noNonNullAssertion` off.
   - Adapted:
-    - no `files.includes`: the `.gitignore` already keeps out `node_modules`, `dist` and coverage;
+    - no `files.includes`: the `.gitignore` already keeps out `node_modules`, coverage and `.svelte-check`, and the build goes into the web service (§4.12);
     - full support for `.svelte` and HTML (`html.experimentalFullSupportEnabled`, with the HTML formatter on). Biome has no Svelte linter domain;
     - import groups: svelte → packages → paths;
     - the limits from AGENTS.md: cognitive complexity, function and file length, parameters.
@@ -1046,6 +1049,7 @@ Made on 2026-10-20:
 45. **Visual identity**: §7 replaces the first look, which was measured from a screenshot of a third-party dashboard. The user picked three other third-party sites as references, and the style is now soft neo-brutalism with editorial type: square cards with 1 px borders and hard offset shadows; Space Grotesk, Instrument Serif and JetBrains Mono; a paper grain; monochrome ink with no accent colour; and light and dark themes from the start, following the OS. The first look's fonts and icon library are dropped, and the few icons are our own inline SVGs. Plain CSS custom properties stay (decision 21).
 46. **Time tracking with Jira worklogs**: time is logged as standard Jira worklogs, through Jira's REST API v3 (§2), as the user's own tool does. Clockwork writes standard worklogs too, so Bakhyard and Clockwork see the same hours. The Time module shows a day report and fills missing days after a preview, as the user's tool does. It has no timers, which Clockwork already provides. The `time` service keeps no table of its own, because the worklogs stay in Jira. Settles the open part of 40.
 47. **Renovate waits for npm releases**: a package rule gives the npm datasource a `minimumReleaseAge` of 1 day, the same as pnpm's default of 1,440 minutes (decision 44). With Renovate's default `internalChecksFilter` of `strict`, a release younger than that gets no PR and shows as pending on the Dependency Dashboard, so CI no longer fails on an update pnpm would refuse. Go modules and GitHub Actions still update at once: their tools have no such gate.
+48. **Web service**: a Go `web` service on `127.0.0.1:8082` serves the Vite build, embedded in its binary (§4.12). The gateway forwards every path outside `/api` to it unchanged, whatever the method, and an unreachable web gets the same 503 JSON error as home. `/api`, `/api/` and every `/api` path that no service claims keep their 404 and reach no service, so a mistyped API path never gets the app's page. Web has no ops endpoints yet, so no service's ops paths are reachable from outside. A page path has no dot in its last segment: web reads one as a file extension and answers a missing file with a 404. Replaces the 404 that 41 gives every path outside `/api`.
 
 ## 10. Risks
 

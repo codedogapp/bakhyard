@@ -15,6 +15,11 @@ export default defineConfig({
   server: {
     proxy: { '/api': 'http://127.0.0.1:8080' },
   },
+  build: {
+    // The web service embeds the app from here; Vite empties a directory outside its root only when told to.
+    outDir: '../../services/web/dist/app',
+    emptyOutDir: true,
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
