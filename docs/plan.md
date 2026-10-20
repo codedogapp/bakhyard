@@ -50,15 +50,15 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `home-name` | `home` serves `name` from `BAKHYARD_NAME`, falling back to "there" (§4.11) | Done (#20) |
 | `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline (decision 49) | Done (#21) |
 | `home-feed` | The "Needs you today" card, from `/api/home`, with rows that link to their app (decision 50) | Done (#22) |
-| `home-apps` | The "Your apps" grid: a card per app that links to its page, with its count of items | In progress |
-| `home-week` | The "This week" card with the weekly hours bar, and the section head's text link to Time | Planned |
+| `home-apps` | The "Your apps" grid: a card per app that links to its page, with its count of items | Done (#23) |
+| `home-week` | The "This week" card with the weekly hours bar, and the section head's text link to Time | In progress |
 | `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas | Planned |
 
 After these: the cockpit, then the product phases (§8.2), each split into steps.
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives. pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`).
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives. pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies.
 
 ## 1. Goal and scope
 
@@ -651,7 +651,7 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
     - import groups: svelte → packages → paths;
     - the limits from AGENTS.md: cognitive complexity, function and file length, parameters.
   - Dropped: the React domain, the MUI import restrictions, the GritQL plugin, Tailwind directives, `jsxQuoteStyle`.
-- **tsconfig split**, as in the reference frontend project: `tsconfig.base.json`, `tsconfig.app.json` (extends `@tsconfig/svelte` + base), `tsconfig.node.json`, and a `tsconfig.json` with references only.
+- **tsconfig split**, as in the reference frontend project: `tsconfig.base.json`, `tsconfig.app.json` (extends `@tsconfig/svelte` + base), `tsconfig.node.json`, and a `tsconfig.json` with references only. The base targets ES2025, whose library declares `Intl.DurationFormat` (§7 "This week"); browsers have had it since Safari 16.4, Chrome 129 and Firefox 136.
 - **pnpm 12**:
   - Pins exact versions. pnpm's default prefix is `^`, so dependencies are added with `pnpm add -E` (`--save-exact`).
   - Refuses releases younger than its minimum release age (1,440 minutes, a day, by default), even in a lockfile it is asked to install. We keep that default, as with mise (decision 44): a release younger than a day waits. Renovate waits as long before it proposes an npm update (decision 47).
@@ -803,7 +803,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 **Section head**: a 1 px `--ink` rule on top with 13 px of space under it (ref), then the title on the left and a mono note or a text link on the right, aligned to the bottom, with 30 px below (24 on phones) (ref). A note that doesn't fit beside the title wraps under it. Each section has 64 px of space below it (48 on phones).
 
 - One word of the title is the serif accent: "Needs you *today*", "Your *apps*", "This *week*".
-- **Text link**: 14 px, with a 1 px `--ink-muted` underline 5 px below the text (ref) that turns `--ink` on hover, and an arrow after it.
+- **Text link**: 14 px with a line height of 1.5, kept on one line (ref). A 1 px `--ink-muted` underline sits 5 px below the text (ref) and turns `--ink` on hover, with no transition, like the nav. A → arrow, the same as the app cards', follows 22 px after the text (ref), and the underline runs under it too.
 
 **Card**: `--surface`, a 1 px `--rule` border, 20 px of padding, and a hard shadow: `box-shadow: var(--offset) var(--offset) 0 var(--shadow)` (ref).
 
@@ -826,7 +826,10 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 - Each app is one card, all of it a link to the app's page, the same path as in the nav. A mono number ("01") at the top left in `--ink-muted` and a → arrow at the top right, both hidden from screen readers. Then, 32 px down, how many of the app's items are in "Needs you today": a big number with a mono label, "item" for one and "items" otherwise; a zero shows in `--ink-muted`. Then the name as a card title (an `h3`), and a one-line description in `--ink-muted`, which wraps on phones.
 - The grid is how you reach the apps, so it shows before the first load succeeds too, without counts; the counts appear with the first load.
 
-**"This week"**: a card with the logged hours as a big number ("31.5 / 40 h"), a mono "Logged on Jira" label, and a bar 8 px tall with square ends: an `--ink` fill on an `--fill` track. The section head links to Time. Without a week (the time service is down, §4.11), the card says "Hours unavailable" in `--ink-muted`.
+**"This week"**: the section head's text link, "Day report", goes to the Time page. Below it, a card holds the hours logged against the target as a big number, "31h 30m / 40h" (decision 51), with a mono "Logged on Jira" label beside it, which wraps under it when it doesn't fit. 16 px below them is a bar 8 px tall with square ends: an `--ink` fill on an `--fill` track, filled to the share of the target logged, full once the target is met and empty without a target. The bar is hidden from screen readers, since the hours say the same.
+
+- Until the first load succeeds there is no week; offline, the last week stays.
+- Without a week (the time service is down, §4.11), the card will say "Hours unavailable" in `--ink-muted`. home sends a week every time until the time service exists, so that state comes with it.
 
 **Button**: mono 12 px with padding 14 by 22 px (ref), at least 44 px tall, and a 1 px `--ink` border. Primary: an ink fill with `--paper` text, inverted on hover. Secondary: `--surface` with `--ink` text, `--fill` on hover.
 
@@ -865,7 +868,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 | 06 | Games | Backloggd and Exophase |
 | 07 | Planner | Copilot plans saved to the vault |
 
-"This week" shows the time logged on Jira against the weekly target: 31.5 of 40 h in the demo data.
+"This week" shows the time logged on Jira against the weekly target: 31h 30m of 40h in the demo data.
 
 ## 8. Work breakdown
 
@@ -1069,6 +1072,7 @@ Made on 2026-10-20:
 48. **Web service**: a Go `web` service on `127.0.0.1:8082` serves the Vite build, embedded in its binary (§4.12). The gateway forwards every path outside `/api` to it unchanged, whatever the method, and an unreachable web gets the same 503 JSON error as home. `/api`, `/api/` and every `/api` path that no service claims keep their 404 and reach no service, so a mistyped API path never gets the app's page. Web has no ops endpoints yet, so no service's ops paths are reachable from outside. A page path has no dot in its last segment: web reads one as a file extension and answers a missing file with a 404. Replaces the 404 that 41 gives every path outside `/api`.
 49. **Polling for live updates**: the app polls `GET /api/home` every 60 s while the page is visible, and again when it becomes visible (§4.12), as TanStack Query does by default. SSE waits for a step that needs faster updates, which settles 43's open "SSE or polling" for now. A failed poll keeps the last Home and marks it offline, and the client sets no timeout of its own: a hung upstream is the gateway's to time out (41).
 50. **Feed rows link to their app**: until items carry their own url (§4.5's `url`), a row in "Needs you today" links to its app's page, such as `/pulls` or `/todos`, the same paths as the nav. The user's choice. When the urls arrive, only where a row links changes.
+51. **Durations in hours and minutes**: the app shows a duration in hours and minutes, the way Jira and Clockwork write them ("31h 30m", "40h", "0h 30m"), not in decimal hours ("31.5 h"). It rounds to the nearest minute and formats with `Intl.DurationFormat` (en-GB, narrow, with the hours always shown, so zero reads "0h" rather than nothing). The user's choice.
 
 ## 10. Risks
 

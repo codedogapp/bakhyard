@@ -1,5 +1,6 @@
 <script lang="ts">
 import { appHref, apps } from '../shell/apps';
+import Arrow from './Arrow.svelte';
 import type { Item } from './api';
 import { itemCount, itemNoun } from './items';
 import Section from './Section.svelte';
@@ -14,10 +15,8 @@ let { items }: { items?: readonly Item[] } = $props();
       <li>
         <a class="card" href={appHref(app.id)}>
           <span class="top">
-            <span aria-hidden="true">{app.number}</span>
-            <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16">
-              <path d="M2 8h11M9 4l4 4-4 4" />
-            </svg>
+            <span class="number" aria-hidden="true">{app.number}</span>
+            <Arrow />
           </span>
           {#if items}
             {@const count = itemCount(items, app.id)}
@@ -87,17 +86,12 @@ li {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.number {
   color: var(--ink-muted);
   font: 400 11px / 1.6 var(--font-mono);
   letter-spacing: 0.045em;
-}
-
-svg {
-  color: var(--ink);
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: square;
-  stroke-width: 1.5;
 }
 
 .count {

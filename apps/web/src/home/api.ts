@@ -16,10 +16,17 @@ export interface Item {
   late: boolean;
 }
 
+/** The hours logged this week, against the weekly target. */
+export interface Week {
+  loggedHours: number;
+  targetHours: number;
+}
+
 /** The Home screen's data from GET /api/home, with only the fields the app reads so far. */
 export interface Home {
   name: string;
   items: Item[];
+  week: Week;
 }
 
 /** Fetches the Home; fails when the gateway can't be reached or answers with an error. */

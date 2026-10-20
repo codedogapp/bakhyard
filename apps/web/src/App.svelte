@@ -2,6 +2,7 @@
 import Hero from './home/Hero.svelte';
 import NeedsYou from './home/NeedsYou.svelte';
 import { type Feed, pollHome } from './home/poll';
+import ThisWeek from './home/ThisWeek.svelte';
 import YourApps from './home/YourApps.svelte';
 import { startClock } from './shell/clock';
 import Header from './shell/Header.svelte';
@@ -32,4 +33,7 @@ $effect(() =>
     <NeedsYou {now} items={feed.home.items} />
   {/if}
   <YourApps items={feed.home?.items} />
+  {#if feed.home}
+    <ThisWeek week={feed.home.week} />
+  {/if}
 </main>
