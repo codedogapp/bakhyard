@@ -10,11 +10,12 @@ import (
 	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
 
+	"github.com/codedogapp/bakhyard/tools/cockpit/internal/resources"
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/supervisor"
 )
 
-// terminalWidth is the width of a classic terminal, which the TUI must fit.
-const terminalWidth = 80
+// terminalWidth is the width of a wide terminal, which the TUI must fit (decision 59).
+const terminalWidth = 120
 
 func TestRowsShowEachServicesState(t *testing.T) {
 	now := time.Now()
@@ -26,21 +27,22 @@ func TestRowsShowEachServicesState(t *testing.T) {
 		{Name: "c", State: supervisor.Stopping, PID: 42, Started: now.Add(time.Second)},
 		{Name: "d", State: supervisor.Exited},
 		{Name: "e", State: supervisor.Exited, Err: errors.New("signal: killed")},
-	}, now)
+	}, now, map[int]resources.Usage{41: {CPU: 0.3, Memory: 12*mebibyte + mebibyte/2}})
 
+	// c has no usage until it has been measured.
 	want := []table.Row{
-		{"a", "stopped", "", "", ""},
-		{"b", "running", "41", "1m30s", ""},
-		{"c", "stopping", "42", "0s", ""},
-		{"d", "exited", "", "", "exit status 0"},
-		{"e", "exited", "", "", "signal: killed"},
+		{"a", "stopped", "", "", "", "", ""},
+		{"b", "running", "41", "1m30s", "0.3%", "12.5 MiB", ""},
+		{"c", "stopping", "42", "0s", "", "", ""},
+		{"d", "exited", "", "", "", "", "exit status 0"},
+		{"e", "exited", "", "", "", "", "signal: killed"},
 	}
 	if !slices.EqualFunc(got, want, slices.Equal[table.Row]) {
 		t.Errorf("got\n%q\nwant\n%q", got, want)
 	}
 }
 
-func TestTheViewFitsAClassicTerminal(t *testing.T) {
+func TestTheViewFitsAWideTerminal(t *testing.T) {
 	sup := newSupervisor(t, io.Discard, sleeping("a")...)
 
 	content := newModel(sup, time.Now()).View().Content
