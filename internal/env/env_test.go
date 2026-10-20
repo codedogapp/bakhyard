@@ -2,47 +2,17 @@ package env_test
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 	"testing"
 
 	"github.com/codedogapp/bakhyard/internal/env"
 )
 
-func TestVars(t *testing.T) {
-	tests := []struct {
-		name  string
-		peers []env.Peer
-		want  string
-	}{
-		{"no peers", nil, "BAKHYARD_PEERS="},
-		{
-			"peers in the order given",
-			[]env.Peer{
-				{Name: "web", Listen: "tcp://[::1]:8082"},
-				{Name: "home", Listen: "tcp://127.0.0.1:8081"},
-			},
-			"BAKHYARD_PEERS=web=tcp://[::1]:8082,home=tcp://127.0.0.1:8081",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := env.Vars("tcp://127.0.0.1:8080", test.peers)
-
-			want := []string{"BAKHYARD_LISTEN=tcp://127.0.0.1:8080", test.want}
-			if !slices.Equal(got, want) {
-				t.Errorf("got %q, want %q", got, want)
-			}
-		})
-	}
-}
-
-func TestAServiceReadsWhatTheCockpitWrites(t *testing.T) {
-	getenv := getenvOf(env.Vars("tcp://127.0.0.1:8080", []env.Peer{
-		{Name: "home", Listen: "tcp://127.0.0.1:8081"},
-		{Name: "web", Listen: "tcp://[::1]:8082"},
-	})...)
+func TestAServiceReadsItsEnvironment(t *testing.T) {
+	getenv := getenvOf(
+		"BAKHYARD_LISTEN=tcp://127.0.0.1:8080",
+		"BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,web=tcp://[::1]:8082",
+	)
 
 	addr, err := env.ListenAddress(getenv)
 	if err != nil || addr != "127.0.0.1:8080" {

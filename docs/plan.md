@@ -54,22 +54,23 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `home-week` | The "This week" card with the weekly hours bar, and the section head's text link to Time | Done (#24) |
 | `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas (decision 52) | Done (#25) |
 | `app-pages` | Each path shows its page in place, through the Navigation API: the Home, a "Coming soon" page per app, More at `/more`, and "Page not found" elsewhere (decision 53) | Done (#26) |
-| `cockpit-manifest` | `services.toml` lists the services; `cockpit list` checks it and prints them in start order (decision 54) | Done (#27) |
-| `cockpit-up` | `mise run up` builds the services and runs them in start order, each in its own process group, with each line of output marked with its service; Ctrl-C stops them in reverse order, with SIGTERM and then SIGKILL after 10 s (decision 55) | Done (#28) |
+| `cockpit-manifest` | `services.toml` lists the services; `cockpit list` checks it and prints them in start order (decision 54) | Done (#27), later dropped (decision 61) |
+| `cockpit-up` | `mise run up` builds the services and runs them in start order, each in its own process group, with each line of output marked with its service; Ctrl-C stops them in reverse order, with SIGTERM and then SIGKILL after 10 s (decision 55) | Done (#28), later dropped (decision 61) |
 | `service-env` | The services take their address and peers from `BAKHYARD_LISTEN` and `BAKHYARD_PEERS` (§4.7), their shared server setup moves to the root `internal/`, and they shut down gracefully on SIGTERM (decision 56) | Done (#29) |
-| `cockpit-control` | The supervisor starts, stops, kills and restarts each service on its own and reports each one's state; `cockpit up` runs on it (decision 57) | Done (#30) |
-| `cockpit-tui` | `cockpit` opens a table of the services, with keys to start, stop, kill and restart each one; quitting stops them all (decision 58) | Done (#32) |
-| `cockpit-usage` | The table shows each running service's CPU and memory, measured every 2 s with one `ps` call (decision 59) | Done (#33) |
-| `cockpit-health` | Every service answers `GET /healthz`, the gateway included; the cockpit checks them every 2 s and the table shows each one's health (decision 60) | In progress |
-| `cockpit-wait` | The cockpit starts a service only once the services it depends on are healthy | Planned |
-| `cockpit-logs` | Each service's log in the TUI | Planned |
-| `cockpit-restart` | A service that crashes restarts with backoff | Planned |
+| `cockpit-control` | The supervisor starts, stops, kills and restarts each service on its own and reports each one's state; `cockpit up` runs on it (decision 57) | Done (#30), later dropped (decision 61) |
+| `cockpit-tui` | `cockpit` opens a table of the services, with keys to start, stop, kill and restart each one; quitting stops them all (decision 58) | Done (#32), later dropped (decision 61) |
+| `cockpit-usage` | The table shows each running service's CPU and memory, measured every 2 s with one `ps` call (decision 59) | Done (#33), later dropped (decision 61) |
+| `cockpit-health` | Every service answers `GET /healthz`, the gateway included; the cockpit checks them every 2 s and the table shows each one's health (decision 60) | Done (#34); the cockpit part later dropped (decision 61) |
+| `cockpit-wait` | The cockpit starts a service only once the services it depends on are healthy | Dropped (#35 closed, decision 61) |
+| `cockpit-logs` | Each service's log in the TUI | Dropped: process-compose has it (decision 61) |
+| `cockpit-restart` | A service that crashes restarts with backoff | Dropped: process-compose has it (decision 61) |
+| `process-compose` | process-compose runs the services in place of the cockpit, which is removed (decision 61) | In progress |
 
 After these: the product phases (§8.2), each split into steps.
 
-**Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
+**Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and process-compose's detached mode and API server (§4.9).
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does. A service named `cockpit` would look like the cockpit's own lines in `up`'s output; the manifest could reject the name. `cockpit up` counts a service as stopped only once its output closes, so a child that leaves the service's process group and keeps the output open would keep `up` from exiting; `exec.Cmd`'s `WaitDelay` could bound that wait. When a service exits on its own, the cockpit doesn't signal its process group, so a child the service left running with its output closed keeps running. A service that writes a very long line with no newline grows the cockpit's buffer until the newline comes; `cockpit-logs` could cap a line's length. The manifest could reject two services with the same `listen`; today the second can't bind, and `up` stops. It could also require a loopback host such as `127.0.0.1`, since nothing should listen on the LAN (§3); today it accepts any host.
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does. Each service's port is written twice in `process-compose.yaml`, in its `BAKHYARD_LISTEN` and its probe, and the gateway's `BAKHYARD_PEERS` repeats home's and web's; a check could keep them in step. Nothing checks that every address is on the loopback, though nothing should listen on the LAN (§3).
 
 ## 1. Goal and scope
 
@@ -117,7 +118,7 @@ Verified 2026-10-17 unless marked.
 
 ```
 iPhone PWA ─┐                              ┌── Jira / Bitbucket / GitHub / Exophase / IGDB (poll)
-MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac (services supervised by the cockpit, §4)
+MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac (services supervised by process-compose, §4)
             │                              ├── SQLite per service (todos, caches, push subscriptions, sessions)
             │                              ├── vault dir (iCloud Drive) ◀── iCloud ──▶ Obsidian (MacBook, iPhone)
             │                              ├── copilot CLI runtime (SDK, JSON-RPC, loopback)
@@ -126,7 +127,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 
 - **Host Mac**:
   - Dedicated macOS user, auto-login, sleep disabled.
-  - A LaunchAgent with `KeepAlive` runs the cockpit daemon, which supervises every service. A user session is needed for iCloud and the Keychain.
+  - A LaunchAgent with `KeepAlive` runs process-compose, which supervises every service. A user session is needed for iCloud and the Keychain.
   - Same Apple ID as the iPhone and the MacBook; the vault folder is set to *Keep Downloaded*.
 - **Network**: Tailscale on the host, the MacBook and the iPhone. `tailscale serve` publishes `https://<host>.<tailnet>.ts.net` → the gateway on `127.0.0.1:8080`. Nothing listens on the LAN.
 - **Backend**: Go services (§4). Secrets live in the macOS Keychain. Each integration service owns its adapters: poll → cache a snapshot in its own SQLite → diff → publish change events and feed the notification rules.
@@ -197,10 +198,10 @@ The user's brief (2026-10-18):
 
 Choices taken (all recommended options):
 
-- **Cockpit**: our own supervisor daemon plus a TUI client. Services keep running when the TUI closes; launchd keeps the daemon up.
+- **Cockpit**: process-compose, which supervises the services and has a TUI (decision 61). The v1.2 choice was our own supervisor daemon plus a TUI client.
 - **Contracts**: Protobuf + Connect RPC via buf, with generated Go and TypeScript.
 - **Events**: NATS, with JetStream enabled, running as its own service.
-- **Monitoring**: built in (health, readiness and Prometheus metrics, scraped by the cockpit), plus OpenTelemetry traces, off by default.
+- **Monitoring**: built in (health, readiness and Prometheus metrics), plus OpenTelemetry traces, off by default.
 
 ### 4.2 Overview
 
@@ -210,7 +211,7 @@ flowchart LR
     mac["MacBook browser"]
     serve["tailscale serve<br/>HTTPS on ts.net"]
 
-    subgraph host["Host Mac: every process supervised by the cockpit"]
+    subgraph host["Host Mac: every process supervised by process-compose"]
         gateway["gateway<br/>127.0.0.1:8080"]
         web["web<br/>Svelte SPA"]
         home["home<br/>Home screen BFF"]
@@ -320,13 +321,13 @@ Other rules:
 
 > **v1.3:** as built in `service-env` (decision 56):
 >
-> - The cockpit gives each service two variables on top of its own environment, which the service inherits whole: `BAKHYARD_LISTEN`, the service's `listen` from the manifest, and `BAKHYARD_PEERS`, `name=tcp://host:port,…` for the services in its `depends_on`, empty if there are none. So home's `BAKHYARD_NAME` comes from the shell or `mise.local.toml`, not from the manifest.
-> - Addresses are `tcp://host:port` only, with a host and a port from 1 to 65535. The root `internal/env` writes both variables for the cockpit and reads them for the services. A service that lacks one, or can't read it, exits 1 and says which, such as `BAKHYARD_PEERS has no peer "home"`.
+> - Each service inherits process-compose's whole environment, with two variables from `process-compose.yaml` on top (§4.9): `BAKHYARD_LISTEN`, the address it listens on, and `BAKHYARD_PEERS`, `name=tcp://host:port,…` for the services it calls, which only the gateway has. So home's `BAKHYARD_NAME` comes from the shell or `mise.local.toml`, not from `process-compose.yaml` (decision 56).
+> - Addresses are `tcp://host:port` only, with a host and a port from 1 to 65535. The root `internal/env` reads both variables. A service that lacks one it needs, or can't read it, exits 1 and says which, such as `BAKHYARD_PEERS has no peer "home"`.
 > - Every service starts through the root `internal/service`: it reads the address, builds the service's routes, and serves them with the root `internal/server`, with a 5 s `ReadHeaderTimeout`. On SIGTERM or Ctrl-C the server stops accepting connections and gives the requests in flight 8 s to finish; the service then exits 0 if they all did, and 1 if not. A service's `main.go` holds only its routes, and logs the error that ends it.
 > - Every service answers its health check, `GET /healthz`, on its `listen`, through the root `internal/health`: 200 with `{"status":"ok"}` as `application/json`. HEAD gets the same headers, and any other method a 405 with `Allow: GET`. The gateway answers its own rather than pass it to web, so no service's `/healthz` is reachable from outside (decision 60).
 > - The other variables, unix sockets, the other ops endpoints (`/readyz`, `/metrics`), and every shutdown step below other than `http.Server.Shutdown`, wait for the steps that need them.
 
-Services never read the manifest. The cockpit renders their environment:
+Services never read `process-compose.yaml`; it sets their environment:
 
 | Variable | Meaning |
 | --- | --- |
@@ -336,11 +337,11 @@ Services never read the manifest. The cockpit renders their environment:
 | `BAKHYARD_DATA_DIR` | The service's own data directory |
 | `BAKHYARD_PEERS` | `name=url,...` for declared peers only. A peer's url is its `url` if set, else its `listen` (nats → `nats://127.0.0.1:4222`) |
 | `BAKHYARD_LOG_FORMAT`, `BAKHYARD_LOG_LEVEL` | Logging; JSON by default |
-| `OTEL_SERVICE_NAME`, `OTEL_*` | Tracing; `OTEL_*` passed through from the cockpit |
-| Manifest `env` | Per-service values, e.g. home's `BAKHYARD_NAME` |
+| `OTEL_SERVICE_NAME`, `OTEL_*` | Tracing; `OTEL_*` inherited |
+| A process's `environment` | Per-service values; personal ones, such as home's `BAKHYARD_NAME`, come from `mise.local.toml` (decision 56) |
 | `PATH`, `HOME`, `TMPDIR`, `LANG`, `USER` | Passed through |
 
-Ops endpoints. These are not instrumented, so the cockpit's polling doesn't skew request metrics.
+Ops endpoints. These are not instrumented, so process-compose's probes don't skew request metrics.
 
 - `GET /healthz` → `{"status":"ok"}`: the process is alive.
 - `GET /readyz` → `{"status":"ok|degraded|fail","checks":[{"name","status","critical","error","duration_ms"}]}`.
@@ -354,12 +355,12 @@ Ops endpoints. These are not instrumented, so the cockpit's polling doesn't skew
   - `bakhyard_build_info{service,version,revision,go_version}`.
   - Go runtime and process collectors.
 
-The cockpit probes `probe` if set, else `admin_listen`, else `listen`.
+process-compose's readiness probes (§4.9) go to each service's `listen`; once a service has an `admin_listen`, they move there.
 
 Shutdown on SIGTERM:
 
 1. Readiness goes to 503.
-2. `http.Server.Shutdown`, with an 8 s budget inside the cockpit's 10 s stop timeout.
+2. `http.Server.Shutdown`, with an 8 s budget inside the 10 s process-compose waits before SIGKILL (§4.9).
 3. OnShutdown hooks run.
 4. The bus closes.
 5. Traces are flushed.
@@ -413,86 +414,31 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
   - `GOWORK=off` builds and `go mod tidy` (which ignores go.work) still work.
 - Layering, enforced by depguard:
   - kit ↛ services or contracts;
-  - contracts ↛ services or kit;
-  - cockpit ↛ services.
+  - contracts ↛ services or kit.
 
-### 4.9 Cockpit
+### 4.9 process-compose
 
-> **v1.3:** built lean and in the foreground first, in the steps listed in §0 (decision 54). The daemon, the control API and every manifest field below that no step needs yet wait. `tools/cockpit` lives in the root module, with its own `internal/` packages (AGENTS.md). As built so far:
->
-> - `services.toml` at the repo root: `version = 1`, then a `[[service]]` table per service with `name`, `description`, `command`, `listen` and `depends_on`. `command` is the program and its arguments, run without a shell. `listen` is the address the service listens on, `tcp://host:port` (§4.7). An unknown key is an error, so a typo can't go unnoticed.
-> - Validation: names are unique, use a-z, 0-9 and hyphens, and start with a letter; every service has a description, a command and a `listen` that is `tcp://host:port`, with a port from 1 to 65535; every dependency is a known service, and there is no cycle. A service that depends on itself is a cycle.
-> - `cockpit list`, run from the repo root (`go run ./tools/cockpit list`), checks the manifest and prints the services in start order: each one after the services it depends on, and otherwise in the manifest's order. An error names its line in the file where it can.
-> - `mise run build` builds the web app, then each service and the cockpit into `bin/` (gitignored), named after it: `bin/home`, `bin/cockpit`.
-> - `mise run up` builds, then runs `cockpit up`, which starts the services in start order, each in a process group of its own, and runs them in the foreground. Each line a service writes is marked with its name, padded so the lines align; the cockpit's own lines (`started home (pid 123)`, `stopping home`) are marked `cockpit`. Each service gets the cockpit's environment plus its own address and its peers' (§4.7). It doesn't wait for a service to be healthy before it starts the next; that comes with `cockpit-wait`.
-> - Ctrl-C, SIGTERM and SIGHUP stop the services in reverse order: SIGTERM to each one's process group, then SIGKILL if it hasn't exited after 10 s. The cockpit then exits 0. A service that exits on its own, or can't start, stops the others the same way, and the cockpit exits 1 with the reason, such as `cockpit: home exited: exit status 1` (decision 55).
-> - The supervisor controls each service on its own, for the TUI: it starts, stops, kills or restarts one service, starts or stops them all, and reports each one's state. A service is `stopped`, `running`, `stopping` or `exited`; it has a PID and a start time while it runs or stops, and once it has exited on its own, how it exited. A stopped or exited service can start; one that is stopping can't until it has stopped. Stop is SIGTERM, then SIGKILL after 10 s; kill is SIGKILL at once, with the cockpit's line `killing home`, and also ends a stop that hangs. `up` runs on the supervisor, so its behaviour is unchanged (decision 57).
-> - `cockpit` with no arguments opens the TUI; `mise run cockpit` builds first. It starts every service, then shows a table of them: each one's state, its PID and uptime while it runs or stops, and how it ended once it has exited on its own (`signal: killed`, or `exit status 0` when it ended cleanly). The arrow keys, or `j` and `k`, pick a service: `s` starts it, `x` stops it, `r` restarts it, and `K` kills it once `y` answers `Kill home? y/n`. `a` starts every service and `Z` stops them all. An action's error shows under the table until the next action ends. A service that exits on its own is marked exited, and the others keep running. `q`, Ctrl-C, SIGTERM and SIGHUP stop every service as `up` does, then the TUI exits and gives the terminal back; once that stop has begun, no service can start. The table is monochrome, as in §7: a bold header, the selected row reversed and the keys in faint text. The services' output is discarded until `cockpit-logs` (decision 58).
-> - The table also shows each running service's CPU and memory, such as `0.3%` and `12.4 MiB`, measured every 2 s with one `/bin/ps -o pid= -o rss= -o %cpu= -p <pids>` call under the C locale. CPU is ps's `%cpu`, a share of one core: on macOS a decaying average over up to a minute, on Linux the average over the process's life. Memory is the resident set. A service's cells stay blank until its process has been measured, so a restarted service never shows its old process's numbers. A failed measuring blanks them all and shows its error under the table until a measuring works; the quit message, the kill question and an action's error come first. The next measuring starts only once the last one is back (decision 59).
-> - The table also shows each service's health: `up` when its `GET /healthz` (§4.7) answered 200 OK within 1 s, `down` when it didn't, and nothing until its process has been checked, so a stopped service shows nothing, and so does one that has just started or restarted. Every 2 s the cockpit checks every service that has a process, all at once, each on a new connection, with no proxy and no redirect followed, and without reading the body; the next round starts 2 s after the last one is back. When the selected service is down, why shows under the table, such as `home is down: Get "http://127.0.0.1:8081/healthz": no answer within 1s`, after every other message. The table is 106 columns wide, and a narrower terminal cuts the columns on the right (decision 60).
+[process-compose](https://github.com/F1bonacc1/process-compose) runs the services, in place of the cockpit we had built (decision 61). It's a mise tool at `latest`, and `process-compose.yaml` at the repo root lists the services:
 
-`tools/cockpit` is its own module, built to `bin/cockpit`. Later, launchd keeps `cockpit daemon` up.
+- Each service has a `description`, a `command` (`bin/<name>`, run with `bash -c` from the repo root) and an `environment` with its `BAKHYARD_LISTEN` and, for the gateway, `BAKHYARD_PEERS` (§4.7).
+- A readiness probe checks each service's `GET /healthz` (§4.7), first 1 s after the start, then every 2 s. A check gets 1 s to answer, and 3 failures in a row fail the probe.
+- The gateway `depends_on` home and web with `condition: process_healthy`, so it starts once their probes pass.
+- What every service shares sits in an `x-service` YAML anchor, merged into each with `<<: *service`:
+  - `availability.restart: always`: a service that exits, or fails its probe, restarts after 1 s, however often it needs to. A service stopped by hand stays stopped.
+  - `shutdown.timeout_seconds: 10`: a stop sends SIGTERM to the service's process group, then SIGKILL if it's still running 10 s later. Without the timeout, process-compose never sends SIGKILL, and a hung service never stops.
+- `ordered_shutdown: true` stops the services in reverse dependency order, the gateway first.
+- `is_strict: true` makes an unknown key an error at the top level and in a process, except for keys that start with `x-`, such as the anchor's. `mise run lint:compose` checks the file with `process-compose up --dry-run`, and is part of `check`.
+- process-compose's API server would listen on `localhost:8080`, the gateway's address, so `PC_NO_SERVER` in mise's `[env]` turns it off; nothing uses it yet. `process-compose` run in a shell where mise isn't active would start it.
 
-| Command | Does |
-| --- | --- |
-| `cockpit` | Opens the TUI. Starts the daemon detached (`Setsid`, logging to `logs/cockpit.log`) if none is running. Quitting leaves the services running |
-| `cockpit daemon` | Runs the supervisor in the foreground (for launchd and mise) |
-| `cockpit up` / `cockpit down` | Starts the daemon and every autostart service / stops every service, then the daemon |
-| `cockpit status` | Prints each service's state, health and resource use |
-| `cockpit start\|stop\|kill\|restart <svc\|all>` | Controls services |
-| `cockpit logs <svc> [-f]` | Prints or follows a service's log |
-| `cockpit env <svc>` | Prints the environment the service receives |
-| `cockpit shutdown` | Asks the daemon to exit |
+`mise run up` builds, then runs `process-compose up`, which opens its TUI: a table of the services, with each one's status, age, health, memory, CPU, restarts and exit code, over the selected service's output. F7 starts the selected service, F9 stops it and Ctrl-R restarts it. F10 and Ctrl-C ask before quitting, and quitting stops every service, as SIGINT, SIGTERM and SIGHUP do.
 
-**Manifest** (`services.toml`, parsed with go-toml/v2):
-
-- `version = 1`.
-- `[defaults]`: `restart` (always / on-failure / never), `stop_timeout` (10s), `health_path`, `ready_path`, `metrics_path`.
-- `[[service]]` fields: `name`, `description`, `command`, `dir`, `build`, `listen`, `admin_listen`, `probe`, `url`, `peers`, `depends_on`, `env`, `autostart`.
-- `listen` defaults to `unix://{{run}}/svc/<name>.sock`.
-- Placeholders: `{{root}}` (the manifest's directory), `{{run}}`, `{{data}}` (the service's data directory), `{{logs}}`.
-- Validation: unique names, known peers and dependencies, no cycles, socket paths within macOS's 104-byte limit.
-- Start in dependency order, waiting for readiness; stop in reverse order.
-
-**Processes**:
-
-- Each service runs in its own process group (`Setpgid`).
-- Stop = SIGTERM to the group, then SIGKILL after `stop_timeout`. Kill = SIGKILL at once.
-- Restart policy: exponential backoff from 1 s to 60 s, reset after 60 s of health. About 5 crashes in 2 minutes → `failed`.
-- Desired state is respected: a service stopped by hand stays stopped.
-- Pidfiles live in `run/pids`. A starting daemon terminates leftovers from a previous run.
-- States: stopped, starting, running, degraded, unhealthy, stopping, crashed, failed, exited.
-
-**Logs**: `logs/<svc>.log` (rotated at 10 MiB, 3 kept), plus a 1,000-line in-memory ring with sequence numbers.
-
-**Probes**, every 5 s:
-
-- `/healthz` and `/readyz`.
-- A `/metrics` scrape (expfmt), giving req/s, error % and p95 from histogram deltas, plus in-flight requests.
-- CPU and RSS for every PID from one `ps -o pid=,rss=,%cpu=` call.
-
-**Control API**: HTTP + JSON on `run/cockpit.sock` (mode 0600).
-
-- `GET /v1/services`, `GET /v1/services/{name}`
-- `POST /v1/services/{name}/{start|stop|kill|restart}`, `POST /v1/all/{action}`
-- `GET /v1/services/{name}/logs?after=<seq>&n=`
-- `POST /v1/shutdown`
-
-**TUI** (Bubble Tea v2, Lip Gloss v2, Bubbles v2):
-
-- The table polls the API every 1 s; the logs view every 500 ms.
-- Columns: name, state dot, PID, uptime, restarts, ready, CPU, MEM, req/s, err %, p95.
-- A details pane and a logs viewport.
-- Keys: `s` start, `x` stop, `K` kill (with confirm), `r` restart, `a` start all, `Z` stop all, `l`/enter logs, `q` quit. Optional: `b` rebuild and restart.
-- The monochrome §7 palette.
-
-**Paths**: `BAKHYARD_HOME` defaults to `~/Library/Application Support/Bakhyard`; in dev, mise sets it to `<repo>/.bakhyard` (gitignored). It holds `run/`, `logs/` and `data/`. `BAKHYARD_MANIFEST` points at `services.toml`.
+Later, for `deploy-launchd` (§8.2): process-compose can run detached (`up -D`), with its API server on a unix socket (`-U`), and `process-compose attach` opens the TUI on it. `BAKHYARD_HOME`, the services' data directories, unix sockets and log files wait for the steps that need them.
 
 ### 4.10 Monitoring
 
-- **Golden signals**: rate, errors and duration per route and per peer, plus saturation (in-flight, CPU, RSS), shown live in the cockpit.
+- **Golden signals**: rate, errors and duration per route and per peer, plus saturation (in-flight, CPU, RSS). process-compose's TUI shows each service's CPU and memory.
 - **Health vs readiness**: `healthz` = alive, `readyz` = able to serve. An outage of an external API makes a service degraded, not failed.
-- **Logs**: JSON with `request_id` and `trace_id`; a file per service plus the cockpit's ring buffer.
+- **Logs**: JSON with `request_id` and `trace_id`; a file per service, plus process-compose's TUI.
 - **Traces**: W3C propagation always on; export is opt-in via `OTEL_EXPORTER_OTLP_ENDPOINT` (e.g. otel-tui or Jaeger).
 - **Supervisor**: restarts, last exit, uptime, crash loops.
 - **Planned integration metrics**:
@@ -517,7 +463,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 **Web service** (built in `web-service`, decision 48):
 
-- Listens on its `listen` from `services.toml` (§4.7), `127.0.0.1:8082`. It answers `GET /healthz` (§4.7) even before the app is built, but the gateway answers its own `/healthz`, so web's is reachable only by the cockpit.
+- Listens on its `BAKHYARD_LISTEN` from `process-compose.yaml` (§4.7), `127.0.0.1:8082`. It answers `GET /healthz` (§4.7) even before the app is built, but the gateway answers its own `/healthz`, so only process-compose's probe uses web's.
 - `main.go` embeds `dist` with `//go:embed all:dist`; `all:` keeps the files whose names start with `.` or `_`. A committed `dist/.gitkeep` keeps the embed valid before the first build, so a fresh clone (CI) builds.
 - Vite builds into `services/web/dist/app` (gitignored), with `emptyOutDir` because the directory lies outside the app's root.
 - Vite inlines every asset under 4 KiB as a `data:` URI (its default `assetsInlineLimit`): today the grain tile and JetBrains Mono's Cyrillic Extended subset, both in the CSS.
@@ -566,11 +512,10 @@ bakhyard/
 ├── libs/go/contracts/         generated Go contracts (gen/) + NATS subjects
 ├── libs/go/kit/               shared service infrastructure
 ├── services/<name>/           one Go module per service
-├── tools/cockpit/             supervisor daemon + TUI
 ├── scripts/go-each.sh         runs a command in every Go module
 ├── .githooks/pre-commit
 ├── docs/                      this plan, the design reference, later architecture.md
-├── services.toml              service manifest (read only by the cockpit)
+├── process-compose.yaml       the services, as process-compose runs them
 ├── buf.yaml, buf.gen.yaml
 ├── .golangci.yml
 ├── go.work                    every Go module (to add)
@@ -578,9 +523,9 @@ bakhyard/
 └── deploy/                    launchd plist and host setup notes (later)
 ```
 
-- Module paths: `github.com/Bakhomious/bakhyard/{services/<name>,libs/go/kit,libs/go/contracts,tools/cockpit}`.
-- Build outputs: `bin/<svc>` and `bin/cockpit`. The Vite build goes to `services/web/dist/app/`. Both are gitignored.
-- Runtime state lives under `$BAKHYARD_HOME`: `run/` (sockets, pidfiles, `cockpit.sock`), `logs/` and `data/<service>/`.
+- Module paths: `github.com/Bakhomious/bakhyard/{services/<name>,libs/go/kit,libs/go/contracts}`.
+- Build outputs: `bin/<svc>`. The Vite build goes to `services/web/dist/app/`. Both are gitignored.
+- Runtime state lives under `$BAKHYARD_HOME`: `run/` (sockets), `logs/` and `data/<service>/`.
 
 ## 6. Toolchain and conventions
 
@@ -610,21 +555,20 @@ Verified on 2026-10-18:
 | `@bufbuild/protobuf`, `@bufbuild/protoc-gen-es` | 2.16.0 |
 | `@fontsource-variable/space-grotesk`, `@fontsource/instrument-serif`, `@fontsource-variable/jetbrains-mono` | 5.3.0 (verified on 2026-10-20) |
 | `@tsconfig/svelte`, `@types/node` | 5.0.8, 26.6.5 |
+| process-compose | 1.122.0 (verified on 2026-10-21) |
 
-Go libraries for the kit and the cockpit, added with `@latest` (latest on 2026-10-18):
+Go libraries for the kit, added with `@latest` (latest on 2026-10-18):
 
 - OpenTelemetry `otel`, `sdk`, `otlptracehttp` v1.47.0; `otelhttp` v0.72.0.
 - Prometheus `client_golang` v1.25.0, `common` v0.72.1.
 - `nats.go` v1.54.0; `nats-server/v2` v2.15.1 (tests).
-- `go-toml/v2` v2.4.3.
-- `charm.land/bubbletea/v2` v2.1.0, `lipgloss/v2` v2.0.6, `bubbles/v2` v2.2.1.
 
 Later phases: `go-oidc/v3` 3.21.0, `x/oauth2` 0.37.0, Copilot SDK for Go v1.0.x, remark plugins (§2). Re-check all of these when the work starts.
 
 ### 6.2 mise
 
 - Monorepo mode, as in the user's reference frontend project: the root `mise.toml` has `monorepo_root = true` and `config_roots = ["apps/web"]`. Web tasks are named `//apps/web:<task>`, and tools are inherited from the root.
-- `[env]` sets `BAKHYARD_HOME` and `BAKHYARD_MANIFEST`. Secrets go in `mise.local.toml` (gitignored).
+- `[env]` sets `PC_NO_SERVER` (§4.9), and later `BAKHYARD_HOME`. Secrets go in `mise.local.toml` (gitignored).
 - A postinstall hook sets `core.hooksPath` to `.githooks`.
 - Every task has a description.
 
@@ -636,8 +580,9 @@ Root tasks:
 | `gen`, `gen:go` | `buf lint` + `buf generate` for Go and TypeScript |
 | `gen:check` | Regenerates, then fails on drift or uncommitted generated files |
 | `proto:breaking` | `buf breaking` against `main` |
-| `build` | Web build into the web service, then `bin/<svc>` and `bin/cockpit` |
-| `up`, `down`, `status`, `cockpit` | Stack control through the cockpit |
+| `build` | Web build into the web service, then `bin/<svc>` |
+| `up` | Builds, then runs every service with process-compose (§4.9) |
+| `lint:compose` | Checks `process-compose.yaml` with `process-compose up --dry-run` |
 | `dev` | `up` + the Vite dev server |
 | `test` | `go test -race` in every module + web type-check |
 | `lint` | golangci-lint in every module, `buf lint`, Biome |
@@ -722,9 +667,11 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
 
 - mise `"latest"` resolves to the newest *installed* version. `mise upgrade --local` refreshes project tools only; plain `mise upgrade` also upgrades global tools.
 - `mise -C <dir> exec -- <cmd>` runs the command in `<dir>`. Use `$(mise which go)` or `cd` instead.
-- macOS caps unix socket paths at 104 bytes. Keep `BAKHYARD_HOME` short; the cockpit validates paths.
-- Signals and mise tasks (mise 2026.10.13): mise passes SIGINT, SIGTERM and SIGHUP on to a plain task and waits for it to exit, and a terminal's Ctrl-C reaches the task directly, because it runs in mise's process group. A `raw` or `interactive` task gets neither: SIGINT sent to mise alone doesn't reach it, and on SIGTERM mise exits at once and leaves the task running. So `up` and `cockpit` are plain tasks. After SIGINT mise exits 130, even when the task exits 0.
-- A task's terminal (mise 2026.10.13): mise interleaves the tasks' output by default when they run one at a time, and the task then gets the terminal. Once tasks run in parallel, it prefixes each line with the task's name and runs the tasks without a controlling terminal, so the TUI fails with `could not open TTY`. `cockpit` sets `output = "interleave"`, which keeps the terminal for it even then. A prefix style set for the whole run, with `--output prefix` or `task.output`, still wins over the task's own.
+- macOS caps unix socket paths at 104 bytes. Keep `BAKHYARD_HOME` short.
+- Signals and mise tasks (mise 2026.10.13): mise passes SIGINT, SIGTERM and SIGHUP on to a plain task and waits for it to exit, and a terminal's Ctrl-C reaches the task directly, because it runs in mise's process group. A `raw` or `interactive` task gets neither: SIGINT sent to mise alone doesn't reach it, and on SIGTERM mise exits at once and leaves the task running. So `up` is a plain task. In process-compose's TUI, though, the terminal's Ctrl-C is a key rather than a signal, and asks before quitting, as F10 does. After SIGINT mise exits 130, even when the task exits 0.
+- A task's terminal (mise 2026.10.13): mise interleaves the tasks' output by default when they run one at a time, and the task then gets the terminal. Once tasks run in parallel, it prefixes each line with the task's name and runs the tasks without a controlling terminal, so process-compose's TUI fails with `open /dev/tty: device not configured`. `up` sets `output = "interleave"`, which keeps the terminal for it even then. A prefix style set for the whole run, with `--output prefix` or `task.output`, still wins over the task's own.
+- `process-compose up --dry-run` (1.122.0) writes two JSON debug lines, `Path not found for process compose config home`, to stderr when process-compose's config directory doesn't exist, as on CI. They're harmless; the TUI creates the directory on its first run.
+- On macOS, a SIGTERM sent to a Go service that SIGSTOP has paused is lost: once SIGCONT resumes it, the service keeps running. So SIGSTOP can't stand in for a hung service when testing the SIGKILL after 10 s (§4.9).
 
 ## 7. Visual identity
 
@@ -987,7 +934,7 @@ Every item is pending. The service an item lands in is in brackets.
   - Home page per §7.
   - Each module registers its provider as it lands. Partly done in the first slice (contracts, demo data).
 - `deploy-launchd`. Needs `backend-foundation`.
-  - A LaunchAgent (`KeepAlive`) for the cockpit daemon, plus a build-and-deploy script.
+  - A LaunchAgent (`KeepAlive`) that runs process-compose (§4.9), plus a build-and-deploy script.
   - Host setup notes: auto-login, no sleep, `tailscale serve`, copilot CLI install.
 
 **Phase 2: notes**
@@ -1139,6 +1086,10 @@ Made on 2026-10-20:
 59. **Health in three steps**: the user's choices. Decision 54's step for health, readiness, CPU and memory becomes three: `cockpit-usage` (CPU and memory), `cockpit-health` (`/healthz` on every service) and `cockpit-wait` (start a service only once its dependencies are healthy). Readiness (`/readyz`) and a READY column wait until a service has something to check. The gateway will answer `/healthz` itself, on its main listener, rather than pass it to `web`; that is revisited with `auth-signin`. Home's health handler then moves to the root `internal/`, as every service needs one. The cockpit measures every 2 s, not every 5 s as §4.9 planned. CPU and memory come from one `ps -p <pids>` call, which costs about a ninth of the CPU time of listing every process with `ps -A`; the PIDs in its arguments trip gosec's G204, which is suppressed with a reason. ps is called by its absolute path, `/bin/ps`, so that no directory on `PATH` can stand in for it, as SonarQube Cloud's rule S4036 asks; on CI's Ubuntu, `/bin` links to `/usr/bin`. ps runs under the C locale, because macOS's ps writes `0,5` for `0.5` in locales such as `de_DE`. The table may grow past 80 columns: the test that it fits a terminal allows 120, and a narrower terminal cuts the columns on the right.
 60. **Health checks**: the user's choices. The table's HEALTH column says `up` or `down`, and why the selected service is down shows under the table. A service is up when its `GET /healthz` answers 200 OK within 1 s. The body isn't read and no redirect is followed, so any other answer, or none, is down; a check that times out says `no answer within 1s`. Each check goes straight to the service, with no proxy, on a new connection, so a service that stops taking connections fails its next check. The checks run all at once, and the next round starts 2 s after the last one is back, as the measuring does (decision 59). The cockpit checks a service's `listen`, as there is no `admin_listen` or `probe` yet (§4.9). The gateway now answers HEAD through `middleware.GetHead`, as web does, and sends the paths it has no route for to web from chi's NotFound handler rather than a `/*` route. chi would pick a `/*` route for a method that one of the gateway's own routes doesn't serve, so `POST /healthz` would reach web instead of getting a 405. Every other path outside `/api` still reaches web unchanged, whatever the method (decision 48).
 
+Made on 2026-10-21:
+
+61. **process-compose instead of the cockpit**: the user's choice, to keep things simple. [process-compose](https://github.com/F1bonacc1/process-compose) runs the services from `process-compose.yaml` (§4.9), and `tools/cockpit` and `services.toml` are removed, with the Go modules only the cockpit used (Bubble Tea, Lip Gloss, Bubbles and go-toml). It already has what the cockpit's last three steps were to build: the gateway starts once home's and web's health checks pass, the TUI shows each service's output, and a service that exits or fails its checks restarts. Its TUI starts, stops and restarts each service and shows its status, health, CPU and memory, as the cockpit's did. Every service restarts after 1 s with no limit: process-compose counts a service's restarts from its own start, with no time window, until a restart by hand resets the count, so any limit would one day leave a long-running service down. A service stopped by hand stays stopped, and a service that exits no longer stops the others, which replaces 55. A stop is SIGTERM, then SIGKILL after 10 s; that needs `shutdown.timeout_seconds`, since without it process-compose never sends SIGKILL. Its API server stays off, because its default address is the gateway's. The services' environment is unchanged (56), now written in `process-compose.yaml`, and `internal/env` only reads it. Replaces 13, and the cockpit parts of 54 to 60.
+
 ## 10. Risks
 
 - **Exophase polling** (accepted by the user): undocumented endpoints behind a Cloudflare bot check may break or get blocked at any time. Mitigations: hourly at most, backoff, last-good cache, "stale" badge, card-image fallback. Backloggd's manual list carries no scraping risk.
@@ -1151,7 +1102,7 @@ Made on 2026-10-20:
 - **Sign-in**:
   - Google login inside the iPhone Home Screen app is unverified on iOS 18/26 (conflicting reports). The fallback is the Tailscale identity alone, or a passkey.
   - HTTPS certificates publish the machine and tailnet names in public Certificate Transparency logs.
-- **Microservices overhead**: about a dozen processes for one user, plus sockets, a supervisor and contracts to maintain. The effort goes up by about 25–40% (§11). Mitigated by the cockpit, the kit and the contract checks.
+- **Microservices overhead**: about a dozen processes for one user, plus sockets, a supervisor and contracts to maintain. The effort goes up by about 25–40% (§11). Mitigated by process-compose, the kit and the contract checks.
 - **Bleeding-edge toolchain**:
   - TypeScript 7 relies on svelte-check's `--tsgo` mode, which has open issues, and TypeScript 6 must stay installed alongside until svelte-check supports TypeScript 7 directly.
   - connect-go v2 is new; its ecosystem modules (for example OpenTelemetry or validation interceptors for v2) are not verified yet.
@@ -1159,13 +1110,14 @@ Made on 2026-10-20:
 - **pnpm's minimum release age**: pnpm refuses npm releases younger than a day, so Renovate waits as long before it proposes one (decision 47). Renovate's wait covers only the package it updates; any transitive dependency that pnpm adds to the lockfile is left to pnpm's own check. Renovate never re-runs a failed check: it rebases a branch only when the branch conflicts, because `main` doesn't require branches to be up to date. So a Renovate PR that fails on a release's age needs its checks re-run by hand once the release is a day old.
 - **Security hotspots**: the Sonar way gate still counts `new_security_hotspots_reviewed`, but SonarQube Cloud deprecated the hotspots API on 2026-06-16 in favour of security issues. So `mise run sonar-issues` can't list hotspots; a gate that is red because of a hotspot has to be read in the SonarQube Cloud UI.
 - **Floating tool versions**: mise tools use `latest` with no lockfile, so a new release (for example a new jactionlint rule) can turn CI red with no change in the repo. A local run may also use an older version than CI until `mise upgrade --local`. When CI turns red for no reason, check the tool versions first.
-- **Unix socket paths** are limited to 104 bytes on macOS → keep `BAKHYARD_HOME` short; the cockpit validates.
+- **Unix socket paths** are limited to 104 bytes on macOS → keep `BAKHYARD_HOME` short.
 - **Gaps in the gates**, all upstream. The user chose review over custom guards: every suppression needs the user's OK and every change to a gate's config is reviewed, so the reviewer catches these.
   - nolintlint lets `//nolint:ALL`, `//nolint:x,all` and `//nolint:x,nolintlint` through.
   - revive's `package-naming` can miss a bad package name when an external `_test` package in the same directory is analysed first.
   - go-test-coverage accepts any text after `coverage-ignore` as a reason, and checks no reason at all in a file where every statement is ignored.
   - A reason made only of invisible characters, such as a zero-width space, passes both nolintlint and revive's reason check.
   - `golangci-lint config verify` doesn't check revive rule arguments, and revive ignores unknown keys, so a typo such as `maxx` for `max` silently turns a limit off.
+  - process-compose's `is_strict` rejects an unknown key at the top level or in a process, but not inside a nested setting such as a probe, `availability` or `shutdown`, and its JSON schema allows unknown keys everywhere. So a typo such as `timeout_second` silently drops a setting, and `lint:compose` passes.
   - Some tools have their own ignore comments, which need no reason and which nolintlint and revive don't see. `//gocognit:ignore` and `//gocyclo:ignore` in a function's doc comment skip that function, and `//exhaustive:ignore` skips a switch; no golangci-lint option turns them off. `//NOSONAR` hides a Sonar issue, and `# shellcheck disable=` hides a finding in a workflow's `run:` script.
   - On the web side, `biome-ignore` takes any non-empty reason, and these need none: `<!-- svelte-ignore -->` for a Svelte warning, `@ts-expect-error` for a type error, `/* v8 ignore */` for coverage, and knip's `@public` tag for an unused export. Biome's file-length limit counts comments, where revive's skips them, and it measures a `.svelte` file's script and markup separately, so a component can reach about 400 lines.
 
@@ -1184,7 +1136,7 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 | 6 Copilot planner | 1–2 d |
 | 7 Hardening + docs | 1 d |
 | **Total (single-binary design)** | **≈ 15–22 d** |
-| **Microservices experiment** (gateway, kit, contracts, cockpit, per-service plumbing) | **about +25–40% → ≈ 19–31 d** |
+| **Microservices experiment** (gateway, kit, contracts, process supervision, per-service plumbing) | **about +25–40% → ≈ 19–31 d** |
 
 - **Calendar time** (single-binary figures): full-time ≈ 3–4.5 weeks; at about 10 h/week, ≈ 2.5–3.5 months.
 - **Without an agent**: solo by hand takes roughly 1.5–2× as long.

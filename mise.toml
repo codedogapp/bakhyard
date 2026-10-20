@@ -12,27 +12,26 @@ pnpm = "latest"
 "github:vladopajic/go-test-coverage" = "latest"
 jactionlint = "latest"
 shellcheck = "latest"
+process-compose = "latest"
+
+[env]
+# process-compose's API server listens on localhost:8080 by default, the gateway's address.
+# Nothing uses the API yet, so it stays off.
+PC_NO_SERVER = "1"
 
 [tasks.build]
-description = "Build the web app, then the services and the cockpit into bin/"
+description = "Build the web app, then the services into bin/"
 depends = ["//apps/web:build"]
-run = "go build -o bin/ ./services/... ./tools/cockpit"
+run = "go build -o bin/ ./services/..."
 
-# Not raw or interactive: only a plain task gets the signals that mise receives, so Ctrl-C
-# and kill reach the cockpit, which stops the services (docs/plan.md §6.8).
+# A plain task, so mise passes SIGINT, SIGTERM and SIGHUP on to process-compose, which stops the
+# services. Its TUI needs the terminal, which mise takes away when it prefixes the output, as it
+# does once tasks run in parallel (docs/plan.md §6.8).
 [tasks.up]
-description = "Build, then run every service in the foreground until Ctrl-C"
-depends = ["build"]
-run = "bin/cockpit up"
-
-# A plain task too, so SIGTERM and SIGHUP reach the cockpit. The TUI needs the terminal,
-# which mise takes away when it prefixes the output, as it does once tasks run in parallel
-# (docs/plan.md §6.8).
-[tasks.cockpit]
-description = "Build, then open the cockpit, which runs every service until you quit it"
+description = "Build, then run every service with process-compose until you quit its TUI"
 depends = ["build"]
 output = "interleave"
-run = "bin/cockpit"
+run = "process-compose up"
 
 [tasks.fmt]
 description = "Format the Go code (gofumpt, golines)"
@@ -48,6 +47,10 @@ run = [
     "golangci-lint config verify",
     "golangci-lint run",
 ]
+
+[tasks."lint:compose"]
+description = "Check process-compose.yaml (process-compose up --dry-run)"
+run = "process-compose up --dry-run"
 
 [tasks."lint:actions"]
 description = "Lint the GitHub Actions workflows (jactionlint, shellcheck)"
@@ -68,7 +71,15 @@ run = "govulncheck ./..."
 
 [tasks.check]
 description = "Run the local quality gate"
-depends = ["fmt:check", "lint", "lint:actions", "cover", "vuln", "//apps/web:check"]
+depends = [
+    "fmt:check",
+    "lint",
+    "lint:actions",
+    "lint:compose",
+    "cover",
+    "vuln",
+    "//apps/web:check",
+]
 
 [tasks.sonar-issues]
 description = "List open SonarQube Cloud issues"

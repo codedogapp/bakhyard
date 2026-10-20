@@ -13,7 +13,7 @@ import (
 
 const (
 	readHeaderTimeout = 5 * time.Second
-	// shutdownTimeout fits in the cockpit's 10 s between SIGTERM and SIGKILL.
+	// shutdownTimeout fits in process-compose's 10 s between SIGTERM and SIGKILL.
 	shutdownTimeout = 8 * time.Second
 )
 

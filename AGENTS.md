@@ -64,7 +64,7 @@ Never report a step as done before `mise run check` has passed, and say which ga
 
 ## Architecture
 
-- **Lean microservices.** An experiment the user chose: each feature is its own service (process) behind a gateway, with one SPA and no micro-frontends. It starts with the gateway and one service. Infrastructure (an event bus, metrics, tracing, more services, cockpit features) arrives only when a step needs it.
+- **Lean microservices.** An experiment the user chose: each feature is its own service (process) behind a gateway, with one SPA and no micro-frontends. It starts with the gateway and one service. Infrastructure (an event bus, metrics, tracing, more services) arrives only when a step needs it.
 - **One Go module** at the root: `github.com/codedogapp/bakhyard`. Each service lives in `services/<name>/`, with its `main.go` and its own `internal/` packages, so Go's `internal` rule keeps services out of each other's code. Code that two or more services need moves to the root `internal/`.
 - Services talk only through their APIs. No service reads another service's data.
 

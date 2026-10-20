@@ -1,0 +1,59 @@
+# The services that mise run up runs with process-compose (docs/plan.md §4.9). Each one
+# listens on its BAKHYARD_LISTEN, and the gateway finds the others in its BAKHYARD_PEERS (§4.7).
+# Every address is on the loopback: tailscale serve will publish the gateway.
+is_strict: true
+ordered_shutdown: true
+
+# Every service restarts after 1 s whenever it exits or fails its readiness probe 3 times in a
+# row, unless you stopped it. A service still running 10 s after SIGTERM gets SIGKILL.
+x-service: &service
+  availability:
+    restart: always
+  shutdown:
+    timeout_seconds: 10
+
+processes:
+  home:
+    <<: *service
+    description: Builds the Home screen from every app
+    command: bin/home
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8081
+    readiness_probe:
+      http_get:
+        port: 8081
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
+  web:
+    <<: *service
+    description: Serves the built web app
+    command: bin/web
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8082
+    readiness_probe:
+      http_get:
+        port: 8082
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
+  gateway:
+    <<: *service
+    description: "The only way in: /api to the services, everything else to web"
+    command: bin/gateway
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8080
+      - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,web=tcp://127.0.0.1:8082
+    depends_on:
+      home:
+        condition: process_healthy
+      web:
+        condition: process_healthy
+    readiness_probe:
+      http_get:
+        port: 8080
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
