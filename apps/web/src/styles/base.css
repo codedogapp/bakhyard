@@ -1,0 +1,15 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: url("./grain.svg") var(--paper);
+  color: var(--ink);
+  font: 400 16px / 1.5 var(--font-sans);
+}
+
+body {
+  margin: 0;
+}

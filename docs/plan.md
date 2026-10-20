@@ -44,8 +44,11 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `visual-identity` | Replace §7 with the new visual identity (decision 45) | Done (#11) |
 | `time-worklogs` | Record how time is logged on Jira and what the Time module does (decision 46) | Done (#15) |
 | `renovate-age` | Renovate waits a day for npm releases, as pnpm does (decision 47) | Done (#16) |
-| `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it (decision 48) | In progress |
-| `home-shell` | The Home page's frame per §7: tokens for both themes, fonts, grain, top bar, header and hero | Planned |
+| `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it (decision 48) | Done (#17) |
+| `home-style` | The page style per §7: the tokens for both themes, the fonts, the paper grain and the base styles | In progress |
+| `home-header` | The top bar's time and city, the header with the wordmark and the nav, and the focus outline | Planned |
+| `home-name` | `home` serves `name` from `BAKHYARD_NAME`, falling back to "there" (§4.11) | Planned |
+| `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline | Planned |
 | `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
 | `home-apps` | The "Your apps" grid and the weekly hours bar | Planned |
 | `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas | Planned |
@@ -54,7 +57,7 @@ After these: the cockpit, then the product phases (§8.2), each split into steps
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives.
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives. pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`.
 
 ## 1. Goal and scope
 
@@ -260,7 +263,7 @@ flowchart LR
 - `httputil.ReverseProxy` (Rewrite + SetXForwarded) over the kit's unix-socket transport. Streaming responses flush immediately.
 - An upstream that is down gets a 503 with a Connect-style JSON error on `/api`.
 - Sets or forwards `X-Request-Id`.
-- Security headers, including CSP `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'`.
+- Security headers, including CSP `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'`. `data:` covers the images and fonts Vite inlines (§4.12).
 - CSRF protection via `http.NewCrossOriginProtection()`.
 - Later: sign-in (§3 Auth) is enforced here.
 
@@ -484,6 +487,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 - Listens on `127.0.0.1:8082` until unix sockets arrive. It has no ops endpoints yet, so `/healthz` through the gateway is just a page of the app.
 - `main.go` embeds `dist` with `//go:embed all:dist`; `all:` keeps the files whose names start with `.` or `_`. A committed `dist/.gitkeep` keeps the embed valid before the first build, so a fresh clone (CI) builds.
 - Vite builds into `services/web/dist/app` (gitignored), with `emptyOutDir` because the directory lies outside the app's root.
+- Vite inlines every asset under 4 KiB as a `data:` URI (its default `assetsInlineLimit`): today the grain tile and JetBrains Mono's Cyrillic Extended subset, both in the CSS.
 - `internal/spa` serves the app for GET and HEAD. Paths are cleaned first, as a browser cleans them, so `..` can't leave the app.
   - A path that names a file gets it, through `http.FileServerFS`. Directories are never listed, and `/index.html` redirects to `/`.
   - Caching: Vite fingerprints the names in `assets/`, so those files are `public, max-age=31536000, immutable`; every other file, `index.html` included, is `no-cache`. Embedded files have no modification time, so there is no `Last-Modified`, and no ETag either.
@@ -648,7 +652,7 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
   - Dropped: the React domain, the MUI import restrictions, the GritQL plugin, Tailwind directives, `jsxQuoteStyle`.
 - **tsconfig split**, as in the reference frontend project: `tsconfig.base.json`, `tsconfig.app.json` (extends `@tsconfig/svelte` + base), `tsconfig.node.json`, and a `tsconfig.json` with references only.
 - **pnpm 12**:
-  - Saves exact versions.
+  - Pins exact versions. pnpm's default prefix is `^`, so dependencies are added with `pnpm add -E` (`--save-exact`).
   - Refuses releases younger than its minimum release age (1,440 minutes, a day, by default), even in a lockfile it is asked to install. We keep that default, as with mise (decision 44): a release younger than a day waits. Renovate waits as long before it proposes an npm update (decision 47).
 - **CSS**: plain CSS custom properties from §7. Tailwind is not used (the user left it optional).
 - **Icons**: no icon library. The few icons are inline SVGs of our own (§7).
@@ -761,7 +765,14 @@ Scale, in px / weight / letter-spacing:
 - `--ink` and `--ink-muted` reach at least 5.9:1 on `--paper`, `--surface` and `--fill` in both themes; WCAG AA asks for 4.5:1.
 - Corners are square everywhere, so there is no radius token.
 
-**Grain**: a tiled SVG fractal-noise texture (`feTurbulence`) as the page's background image, under all content. Black specks at about 8% opacity in light, white specks at about 5% in dark. Cards are solid `--surface`, so they sit on the grain like paper on a desk. These values are ours: no reference's live page has a CSS grain.
+**Grain**: one 200 px SVG tile of fractal noise (`feTurbulence`), repeated as the page's background image under all content. Its specks are a single mid-grey, so the same tile darkens light paper and lightens dark paper.
+
+- About a sixth of the page has a speck.
+- Light: the specks read as black at under 7% opacity on 99% of the page, and 13% at the darkest.
+- Dark: they read as white at under 4.5%, and 8% at the brightest.
+- `--ink-muted` keeps at least 4.7:1 on the darkest speck in light and 5.9:1 in dark (WCAG AA asks for 4.5:1).
+
+Cards are solid `--surface`, so they sit on the grain like paper on a desk. These values are ours: no reference's live page has a CSS grain.
 
 **Page frame**
 

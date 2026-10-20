@@ -1,0 +1,46 @@
+:root {
+  color-scheme: light dark;
+
+  --paper: #fafaf8; /* page, under the grain */
+  --surface: #ffffff; /* cards, the bottom tab bar */
+  --fill: #f2f2f0; /* bar tracks, row hover */
+  --ink: #111111; /* text, ink fills, hover borders */
+  --ink-muted: #5c5c5c; /* secondary text and labels */
+  --rule: #d9d9d6; /* 1 px card borders and dividers */
+  --shadow: #ebebe8; /* resting offset shadow */
+  --shadow-strong: #ccccc9; /* hover offset shadow */
+
+  --font-sans: "Space Grotesk Variable", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  --max: 1440px; /* content width */
+  --gutter: 40px;
+  --offset: 6px; /* resting shadow offset */
+  --offset-hover: 8px;
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --gutter: 30px;
+  }
+}
+
+@media (max-width: 700px) {
+  :root {
+    --gutter: 20px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #131312;
+    --surface: #1b1b1a;
+    --fill: #252523;
+    --ink: #ededea;
+    --ink-muted: #a3a3a0;
+    --rule: #343432;
+    --shadow: #262624; /* lighter than the page, so the offset shows */
+    --shadow-strong: #3a3a38;
+  }
+}
