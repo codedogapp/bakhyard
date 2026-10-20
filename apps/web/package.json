@@ -12,6 +12,9 @@
     "unused": "knip"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@fontsource-variable/space-grotesk": "5.3.0",
+    "@fontsource/instrument-serif": "5.3.0",
     "svelte": "5.57.2"
   },
   "devDependencies": {
