@@ -1,20 +1,17 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/codedogapp/bakhyard/internal/env"
-	"github.com/codedogapp/bakhyard/internal/server"
+	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/web/internal/spa"
 )
 
@@ -25,25 +22,17 @@ const appDir = "dist/app"
 var dist embed.FS
 
 func main() {
-	err := run()
+	err := service.Run(os.Getenv, routes)
 	if err != nil {
 		slog.Error("failed", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	addr, err := env.ListenAddress(os.Getenv)
-	if err != nil {
-		return err
-	}
-
+func routes(_ func(string) string) (http.Handler, error) {
 	app, err := fs.Sub(dist, appDir)
 	if err != nil {
-		return fmt.Errorf("open the embedded app in %s: %w", appDir, err)
+		return nil, fmt.Errorf("open the embedded app in %s: %w", appDir, err)
 	}
 
 	router := chi.NewRouter()
@@ -51,5 +40,5 @@ func run() error {
 	router.Use(middleware.GetHead)
 	spa.Register(router, app)
 
-	return server.Run(ctx, addr, router)
+	return router, nil
 }

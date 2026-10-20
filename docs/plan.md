@@ -319,7 +319,7 @@ Other rules:
 >
 > - The cockpit gives each service two variables on top of its own environment, which the service inherits whole: `BAKHYARD_LISTEN`, the service's `listen` from the manifest, and `BAKHYARD_PEERS`, `name=tcp://host:port,…` for the services in its `depends_on`, empty if there are none. So home's `BAKHYARD_NAME` comes from the shell or `mise.local.toml`, not from the manifest.
 > - Addresses are `tcp://host:port` only, with a host and a port from 1 to 65535. The root `internal/env` writes both variables for the cockpit and reads them for the services. A service that lacks one, or can't read it, exits 1 and says which, such as `BAKHYARD_PEERS has no peer "home"`.
-> - The root `internal/server` serves on the address with a 5 s `ReadHeaderTimeout`. On SIGTERM or Ctrl-C it stops accepting connections and gives the requests in flight 8 s to finish; the service then exits 0 if they all did, and 1 if not.
+> - Every service starts through the root `internal/service`: it reads the address, builds the service's routes, and serves them with the root `internal/server`, with a 5 s `ReadHeaderTimeout`. On SIGTERM or Ctrl-C the server stops accepting connections and gives the requests in flight 8 s to finish; the service then exits 0 if they all did, and 1 if not. A service's `main.go` holds only its routes, and logs the error that ends it.
 > - The other variables, unix sockets, the ops endpoints on every service, and every shutdown step below other than `http.Server.Shutdown`, wait for the steps that need them.
 
 Services never read the manifest. The cockpit renders their environment:
