@@ -54,9 +54,9 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `home-week` | The "This week" card with the weekly hours bar, and the section head's text link to Time | Done (#24) |
 | `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas (decision 52) | Done (#25) |
 | `app-pages` | Each path shows its page in place, through the Navigation API: the Home, a "Coming soon" page per app, More at `/more`, and "Page not found" elsewhere (decision 53) | Done (#26) |
-| `cockpit-manifest` | `services.toml` lists the services; `cockpit list` checks it and prints them in start order (decision 54) | In progress |
-| `cockpit-up` | `mise run up` builds the services and runs them in start order, each in its own process group, with each line of output marked with its service; Ctrl-C stops them in reverse order, with SIGTERM and then SIGKILL after 10 s | Planned |
-| `service-env` | The services take their address and peers from `BAKHYARD_LISTEN` and `BAKHYARD_PEERS` (§4.7), and their shared server setup moves to the root `internal/` | Planned |
+| `cockpit-manifest` | `services.toml` lists the services; `cockpit list` checks it and prints them in start order (decision 54) | Done (#27) |
+| `cockpit-up` | `mise run up` builds the services and runs them in start order, each in its own process group, with each line of output marked with its service; Ctrl-C stops them in reverse order, with SIGTERM and then SIGKILL after 10 s (decision 55) | In progress |
+| `service-env` | The services take their address and peers from `BAKHYARD_LISTEN` and `BAKHYARD_PEERS` (§4.7), their shared server setup moves to the root `internal/`, and they shut down gracefully on SIGTERM | Planned |
 | `cockpit-tui` | A Bubble Tea table of the services, with keys to start, stop, kill and restart each one | Planned |
 | `cockpit-health` | The table shows each service's health, readiness, CPU and memory | Planned |
 | `cockpit-logs` | Each service's log in the TUI | Planned |
@@ -66,7 +66,7 @@ After these: the product phases (§8.2), each split into steps.
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does.
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does. A service named `cockpit` would look like the cockpit's own lines in `up`'s output; the manifest could reject the name. `cockpit up` counts a service as stopped only once its output closes, so a child that leaves the service's process group and keeps the output open would keep `up` from exiting; `exec.Cmd`'s `WaitDelay` could bound that wait. When a service exits on its own, the cockpit doesn't signal its process group, so a child the service left running with its output closed keeps running. A service that writes a very long line with no newline grows the cockpit's buffer until the newline comes; `cockpit-logs` could cap a line's length.
 
 ## 1. Goal and scope
 
@@ -412,6 +412,9 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 > - `services.toml` at the repo root: `version = 1`, then a `[[service]]` table per service with `name`, `description`, `command` and `depends_on`. `command` is the program and its arguments, run without a shell. An unknown key is an error, so a typo can't go unnoticed.
 > - Validation: names are unique, use a-z, 0-9 and hyphens, and start with a letter; every service has a description and a command; every dependency is a known service, and there is no cycle. A service that depends on itself is a cycle.
 > - `cockpit list`, run from the repo root (`go run ./tools/cockpit list`), checks the manifest and prints the services in start order: each one after the services it depends on, and otherwise in the manifest's order. An error names its line in the file where it can.
+> - `mise run build` builds the web app, then each service and the cockpit into `bin/` (gitignored), named after it: `bin/home`, `bin/cockpit`.
+> - `mise run up` builds, then runs `cockpit up`, which starts the services in start order, each in a process group of its own, and runs them in the foreground. Each line a service writes is marked with its name, padded so the lines align; the cockpit's own lines (`started home (pid 123)`, `stopping home`) are marked `cockpit`. It doesn't wait for a service to be ready before it starts the next; that comes with `cockpit-health`.
+> - Ctrl-C, SIGTERM and SIGHUP stop the services in reverse order: SIGTERM to each one's process group, then SIGKILL if it hasn't exited after 10 s. The cockpit then exits 0. A service that exits on its own, or can't start, stops the others the same way, and the cockpit exits 1 with the reason, such as `cockpit: home exited: exit status 1` (decision 55).
 
 `tools/cockpit` is its own module, built to `bin/cockpit`. Later, launchd keeps `cockpit daemon` up.
 
@@ -561,7 +564,7 @@ bakhyard/
 ```
 
 - Module paths: `github.com/Bakhomious/bakhyard/{services/<name>,libs/go/kit,libs/go/contracts,tools/cockpit}`.
-- Build outputs: `bin/bakhyard-<svc>` and `bin/cockpit`. The Vite build goes to `services/web/dist/app/`. Both are gitignored.
+- Build outputs: `bin/<svc>` and `bin/cockpit`. The Vite build goes to `services/web/dist/app/`. Both are gitignored.
 - Runtime state lives under `$BAKHYARD_HOME`: `run/` (sockets, pidfiles, `cockpit.sock`), `logs/` and `data/<service>/`.
 
 ## 6. Toolchain and conventions
@@ -618,7 +621,7 @@ Root tasks:
 | `gen`, `gen:go` | `buf lint` + `buf generate` for Go and TypeScript |
 | `gen:check` | Regenerates, then fails on drift or uncommitted generated files |
 | `proto:breaking` | `buf breaking` against `main` |
-| `build` | Web build into the web service, then `bin/bakhyard-<svc>` and `bin/cockpit` |
+| `build` | Web build into the web service, then `bin/<svc>` and `bin/cockpit` |
 | `up`, `down`, `status`, `cockpit` | Stack control through the cockpit |
 | `dev` | `up` + the Vite dev server |
 | `test` | `go test -race` in every module + web type-check |
@@ -705,6 +708,7 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
 - mise `"latest"` resolves to the newest *installed* version. `mise upgrade --local` refreshes project tools only; plain `mise upgrade` also upgrades global tools.
 - `mise -C <dir> exec -- <cmd>` runs the command in `<dir>`. Use `$(mise which go)` or `cd` instead.
 - macOS caps unix socket paths at 104 bytes. Keep `BAKHYARD_HOME` short; the cockpit validates paths.
+- Signals and mise tasks (mise 2026.10.13): mise passes SIGINT, SIGTERM and SIGHUP on to a plain task and waits for it to exit, and a terminal's Ctrl-C reaches the task directly, because it runs in mise's process group. A `raw` or `interactive` task gets neither: SIGINT sent to mise alone doesn't reach it, and on SIGTERM mise exits at once and leaves the task running. So `up` is a plain task, and the TUI, which needs the terminal, has to find a way round this. After SIGINT mise exits 130, even when the task exits 0.
 
 ## 7. Visual identity
 
@@ -1112,6 +1116,7 @@ Made on 2026-10-20:
 52. **The More tab**: the user's choices. On phones and tablets the bottom tab bar's More links to `/more`, a page that lists the apps without a tab of their own (Time, GitHub, Games and Planner); the page comes with `app-pages`. More is the current tab on `/more` and also on those apps' pages, as iOS marks its More tab. Its link has `aria-current="page"` on `/more` only; on the apps' pages it has `aria-current="true"`, because the link isn't the page itself, as in GOV.UK's service navigation.
 53. **Pages through the Navigation API**: the user's choices. Each path shows its page without loading a new document, through the Navigation API rather than the pushState router §4.12 planned. The browser then keeps the URL, the history, the scroll position and focus, which a pushState router has to manage by hand. The API is Baseline since 13 January 2026 (Chrome 102, Safari 26.2, Firefox 147); without it, each link loads its page in full, which still works. A path that matches no page shows "Page not found", and `/more` shows the apps without a tab of their own as the same cards as "Your apps", with their counts.
 54. **The cockpit before the product phases**: the user's choice, once the Home steps were done. The cockpit is built lean, in seven steps (§0): the manifest; `mise run up`, which runs every service in the foreground and stops them all on Ctrl-C; the services' environment (§4.7); a TUI to start, stop, kill and restart each service; health, readiness, CPU and memory; logs; and restarts with backoff. The daemon and its control API (§4.9) wait until a step needs them, such as `deploy-launchd`. The manifest's `command` is an array run without a shell, so no quoting or shell expansion can surprise, and an unknown key is an error.
+55. **A service that exits stops `up`**: the user's choice. When a service exits on its own while `cockpit up` runs, whatever its status, the cockpit stops the others in reverse order and exits 1, naming the service and how it exited, as foreman does. A service that can't start stops the ones already started the same way. Restarts come with `cockpit-restart`.
 
 ## 10. Risks
 

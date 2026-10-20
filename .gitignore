@@ -2,6 +2,9 @@
 mise.local.toml
 coverage.out
 
+# The services and the cockpit, built by mise run build
+bin/
+
 # The web app's build, which the web service embeds
 services/web/dist/app/
 
