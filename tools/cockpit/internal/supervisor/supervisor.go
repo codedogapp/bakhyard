@@ -23,10 +23,11 @@ const (
 
 // Supervisor runs the services of a manifest. Its methods are safe to call at the same time.
 type Supervisor struct {
-	services []*service // in start order; the slice and the names never change
-	out      *output
-	changed  chan struct{}
-	mu       sync.Mutex // guards each service's state, err and run
+	services     []*service // in start order; the slice and the names never change
+	out          *output
+	changed      chan struct{}
+	mu           sync.Mutex // guards shuttingDown, and each service's state, err and run
+	shuttingDown bool       // set by Shutdown, after which no service starts
 }
 
 type service struct {

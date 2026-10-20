@@ -1,0 +1,63 @@
+package tui
+
+import (
+	"time"
+
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/codedogapp/bakhyard/tools/cockpit/internal/supervisor"
+)
+
+// model is the TUI's state.
+type model struct {
+	sup      *supervisor.Supervisor
+	grid     table.Model
+	now      time.Time // the last tick, which the uptimes are measured at
+	failure  error     // the last action's error, until the next action ends
+	killing  string    // the service to kill once y confirms it
+	quitting bool      // Shutdown is stopping every service
+	err      error     // Shutdown's error, once it has returned
+}
+
+func newModel(sup *supervisor.Supervisor, now time.Time) model {
+	start := model{sup: sup, grid: newGrid(len(sup.Services())), now: now}
+
+	return start.refresh()
+}
+
+func (m model) Init() tea.Cmd {
+	return tea.Batch(perform(m.sup.StartAll), waitForChange(m.sup), tick())
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		return m.press(msg)
+	case changedMsg:
+		return m.refresh(), waitForChange(m.sup)
+	case tickMsg:
+		m.now = time.Time(msg)
+
+		return m.refresh(), tick()
+	case doneMsg:
+		m.failure = msg.err
+
+		return m, nil
+	case quitMsg:
+		return m.quit()
+	case shutDownMsg:
+		m.err = msg.err
+
+		return m, tea.Quit
+	}
+
+	return m, nil
+}
+
+// refresh puts the services' current state in the table.
+func (m model) refresh() model {
+	m.grid.SetRows(rows(m.sup.Services(), m.now))
+
+	return m
+}
