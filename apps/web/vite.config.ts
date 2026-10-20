@@ -22,6 +22,8 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // A fixed zone that isn't UTC and has no daylight saving, so a test that mixes up local and UTC time fails everywhere.
+    env: { TZ: 'Asia/Tokyo' },
     setupFiles: ['./src/test-setup.ts'],
     coverage: {
       provider: 'v8',

@@ -45,8 +45,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `time-worklogs` | Record how time is logged on Jira and what the Time module does (decision 46) | Done (#15) |
 | `renovate-age` | Renovate waits a day for npm releases, as pnpm does (decision 47) | Done (#16) |
 | `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it (decision 48) | Done (#17) |
-| `home-style` | The page style per §7: the tokens for both themes, the fonts, the paper grain and the base styles | In progress |
-| `home-header` | The top bar's time and city, the header with the wordmark and the nav, and the focus outline | Planned |
+| `home-style` | The page style per §7: the tokens for both themes, the fonts, the paper grain and the base styles | Done (#18) |
+| `home-header` | The top bar's time and city, the header with the wordmark and the nav, and the focus outline | In progress |
 | `home-name` | `home` serves `name` from `BAKHYARD_NAME`, falling back to "there" (§4.11) | Planned |
 | `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline | Planned |
 | `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
@@ -499,7 +499,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 - `createConnectTransport({ baseUrl: '/api', useHttpGet: true })`, with types from `src/gen`.
 - A `WatchHome` stream, falling back to polling `GetHome` every 60 s and on window focus.
 - Protojson in the browser: camelCase fields, RFC 3339 timestamps, enum names as strings.
-- A small pushState router. Pages other than Home show "Coming soon" for now.
+- A small pushState router. Pages other than Home show "Coming soon" for now. Until it arrives, the nav's plain links load each page in full, and every path shows the same page with its app marked in the nav.
 
 **Dev loop**: `mise run dev` runs Vite on `:5173` with `/api` proxied to the gateway on `:8080`.
 
@@ -655,6 +655,7 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
   - Pins exact versions. pnpm's default prefix is `^`, so dependencies are added with `pnpm add -E` (`--save-exact`).
   - Refuses releases younger than its minimum release age (1,440 minutes, a day, by default), even in a lockfile it is asked to install. We keep that default, as with mise (decision 44): a release younger than a day waits. Renovate waits as long before it proposes an npm update (decision 47).
 - **CSS**: plain CSS custom properties from §7. Tailwind is not used (the user left it optional).
+- **Tests run in the `Asia/Tokyo` time zone** (`test.env` in `vite.config.ts`): a fixed zone that isn't UTC and has no daylight saving, so a test that mixes up local and UTC time fails on every machine, CI's UTC runners included.
 - **Icons**: no icon library. The few icons are inline SVGs of our own (§7).
 
 ### 6.5 Protobuf
@@ -783,12 +784,12 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 **Top bar**: full width, an `--ink` background with `--paper` text in mono 10 px, padding 8 px by the gutter, and one item at each end (ref).
 
 - Left: whether the data is current: "Online", or "Offline · as of 01:10" when `/api/home` can't be reached. Once home reports its `sources` (§4.5), it also says when some are down: "2 sources unavailable".
-- Right: the time and city, "01:12 · <city>". Built with `Intl` (en-GB), with the city taken from the time zone.
+- Right: the local time, 24-hour, and the time zone's city: "01:12 · Tokyo". Built with `Intl` (en-GB); the city is the last part of the IANA time zone, with spaces for underscores ("America/Argentina/Buenos_Aires" gives "Buenos Aires"). It changes at the start of each minute, without a live region, so screen readers don't announce every minute.
 
-**Header**: a `1fr auto 1fr` grid with padding 24 px by the gutter (ref), and a 1 px `--rule` bottom border.
+**Header**: a `1fr auto 1fr` grid with padding 24 px by the gutter (ref), and a 1 px `--rule` bottom border. The padding is 18 px top and bottom at `max-width: 980px`, and 16 px on phones (ref).
 
-- Left: the wordmark.
-- Centre: the app nav in mono: Home, Notes, Todos, PRs, Time, GitHub, Games, Planner. The current page's item has a 1 px `--ink` underline; on the others it grows from the left on hover (ref).
+- Left: the wordmark, a link to Home.
+- Centre: the app nav in mono: Home, Notes, Todos, PRs, Time, GitHub, Games, Planner. Each app's path is its service's name: `/`, `/notes`, `/todos`, `/pulls`, `/time`, `/github`, `/games` and `/planner`, with the app's own pages under it. The current page's item (`aria-current="page"`) has a 1 px `--ink` underline, 2 px below the link's 4 px padding (ref); on the others it grows from the left on hover, over 250 ms (ref), and at once under `prefers-reduced-motion`.
 - Right: kept free for notifications (§8.2 `notifications`).
 
 **Hero**: two columns, 1.4fr and 1fr with a 10% gap, aligned to the bottom, with 58 px of padding above and 50 px below (ref). One column on phones (ref).
@@ -824,7 +825,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 **Button**: mono 12 px with padding 14 by 22 px (ref), at least 44 px tall, and a 1 px `--ink` border. Primary: an ink fill with `--paper` text, inverted on hover. Secondary: `--surface` with `--ink` text, `--fill` on hover.
 
-**Focus**: every focusable element gets a 2 px `--ink` outline, 3 px outside it (ref: 2 px wide, 5 px out).
+**Focus**: every focusable element gets a 2 px `--ink` outline, 3 px outside it (ref: 2 px wide, 5 px out). It uses `:focus-visible`, so keyboard focus always shows it and a click on a link doesn't.
 
 **Icons**: no icon library. The few icons (arrows, menu, close) are inline SVGs of our own, with 1.5 px strokes and square caps, in `currentColor`. Apps have no icons; their number and name identify them.
 
