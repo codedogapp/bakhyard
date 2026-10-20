@@ -16,7 +16,7 @@ let { now, connection, asOf }: { now: Date; connection: Connection; asOf?: Date 
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px var(--page-padding);
+  padding: calc(8px + env(safe-area-inset-top)) var(--page-padding) 8px;
   background: var(--ink);
   color: var(--paper);
   font: 400 10px / 1.6 var(--font-mono);

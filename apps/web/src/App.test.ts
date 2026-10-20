@@ -38,7 +38,8 @@ test('shows the frame and the apps, then the hero, the feed, the counts, the wee
 
   expect(screen.getByText(/ · Tokyo$/)).toBeInTheDocument();
   expect(screen.getByRole('banner')).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Home', current: 'page' })).toBeInTheDocument();
+  // The header's nav and the tab bar: the CSS shows one of them, by the screen's width.
+  expect(screen.getAllByRole('link', { name: 'Home', current: 'page' })).toHaveLength(2);
   expect(screen.queryByRole('heading', { level: 2, name: 'Needs you today' })).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { level: 2, name: 'Your apps' })).toBeInTheDocument();
   expect(screen.queryByText(/^items?$/)).not.toBeInTheDocument();

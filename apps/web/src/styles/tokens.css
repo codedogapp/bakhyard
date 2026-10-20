@@ -16,8 +16,10 @@
 
   --max: 1440px; /* content width */
   --gutter: 40px;
+  /* The larger side safe area, such as a phone's notch in landscape, so content stays centred as it clears it. */
+  --inset-x: max(env(safe-area-inset-left), env(safe-area-inset-right));
   /* A full-width block's side padding: keeps its content within --max, centred, and a gutter from the edges. */
-  --page-padding: max(var(--gutter), (100% - var(--max)) / 2);
+  --page-padding: max(var(--gutter) + var(--inset-x), (100% - var(--max)) / 2);
   --offset: 6px; /* resting shadow offset */
   --offset-hover: 8px;
 }
