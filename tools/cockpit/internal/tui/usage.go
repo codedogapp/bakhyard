@@ -30,20 +30,25 @@ func measureLater(sup *supervisor.Supervisor) tea.Cmd {
 
 // measure measures the CPU and memory of every service that has a process.
 func measure(sup *supervisor.Supervisor) measuredMsg {
+	ctx, cancel := context.WithTimeout(context.Background(), measureTimeout)
+	defer cancel()
+
+	usage, err := resources.Measure(ctx, processIDs(sup.Services()))
+
+	return measuredMsg{usage: usage, err: err}
+}
+
+// processIDs returns the PID of each service that has a process.
+func processIDs(statuses []supervisor.Status) []int {
 	var pids []int
 
-	for _, status := range sup.Services() {
+	for _, status := range statuses {
 		if status.PID != 0 {
 			pids = append(pids, status.PID)
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), measureTimeout)
-	defer cancel()
-
-	usage, err := resources.Measure(ctx, pids)
-
-	return measuredMsg{usage: usage, err: err}
+	return pids
 }
 
 // cpu is the share of one core that the process pid used, if it has been measured.

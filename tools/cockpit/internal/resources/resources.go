@@ -45,8 +45,9 @@ func run(ps *exec.Cmd) (map[int]Usage, error) {
 	return nil, fmt.Errorf("measure resources: %w", withStderr(err))
 }
 
-// command returns ps for pids. Separate -o flags, because POSIX makes everything after a = the
-// header, and the C locale, because others can print 0,5 for 0.5.
+// command returns ps for pids. ps by its absolute path, so no directory on PATH can stand in for
+// it; separate -o flags, because POSIX makes everything after a = the header; and the C locale,
+// because others can print 0,5 for 0.5.
 func command(ctx context.Context, pids []int) *exec.Cmd {
 	list := make([]string, 0, len(pids))
 	for _, pid := range pids {
@@ -54,7 +55,7 @@ func command(ctx context.Context, pids []int) *exec.Cmd {
 	}
 
 	//nolint:gosec // G204: only the PIDs vary, and they are numbers the supervisor got from the OS.
-	cmd := exec.CommandContext(ctx, "ps",
+	cmd := exec.CommandContext(ctx, "/bin/ps",
 		"-o", "pid=", "-o", "rss=", "-o", "%cpu=", "-p", strings.Join(list, ","))
 	cmd.Env = append(cmd.Environ(), "LC_ALL=C")
 

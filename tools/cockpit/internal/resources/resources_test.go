@@ -26,10 +26,8 @@ func TestMeasureWithNoneRunningIsEmpty(t *testing.T) {
 	}
 }
 
-func TestMeasureWithNoPIDsDoesntRunPS(t *testing.T) {
-	t.Setenv("PATH", "") // so ps would fail
-
-	usage, err := Measure(t.Context(), nil)
+func TestMeasureWithNoPIDsIsEmpty(t *testing.T) {
+	usage, err := Measure(t.Context(), nil) // ps itself fails on an empty list
 	if err != nil || len(usage) != 0 {
 		t.Errorf("got %v and %v, want nothing", usage, err)
 	}

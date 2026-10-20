@@ -3,12 +3,14 @@ package tui
 import (
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/manifest"
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/resources"
+	"github.com/codedogapp/bakhyard/tools/cockpit/internal/supervisor"
 )
 
 func TestMeasuringFillsTheColumns(t *testing.T) {
@@ -93,11 +95,15 @@ func TestMeasureMeasuresTheServicesWithAProcess(t *testing.T) {
 	}
 }
 
-func TestMeasureRunsNothingWhileNoServiceRuns(t *testing.T) {
-	sup := newSupervisor(t, io.Discard, sleeping("a")...)
-	t.Setenv("PATH", "") // so ps would fail
+func TestProcessIDsLeavesOutTheServicesWithNoProcess(t *testing.T) {
+	statuses := []supervisor.Status{
+		{Name: "a", State: supervisor.Stopped},
+		{Name: "b", State: supervisor.Running, PID: 41},
+		{Name: "c", State: supervisor.Exited},
+		{Name: "d", State: supervisor.Stopping, PID: 7},
+	}
 
-	if measured := measure(sup); measured.err != nil || len(measured.usage) != 0 {
-		t.Errorf("got %+v, want nothing measured", measured)
+	if got := processIDs(statuses); !slices.Equal(got, []int{41, 7}) {
+		t.Errorf("got %v, want 41 and 7", got)
 	}
 }
