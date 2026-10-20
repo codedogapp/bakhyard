@@ -8,7 +8,7 @@ depends = [":install"]
 run = "pnpm run dev"
 
 [tasks.build]
-description = "Build the web app into dist"
+description = "Build the web app into the web service (services/web/dist/app)"
 depends = [":install"]
 run = "pnpm run build"
 

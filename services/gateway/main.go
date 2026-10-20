@@ -15,8 +15,9 @@ import (
 const (
 	// Loopback only; tailscale serve will publish it.
 	listenAddr = "127.0.0.1:8080"
-	// home's listen address, until the services get their peers from the environment.
+	// home's and web's listen addresses, until the services get their peers from the environment.
 	homeAddr          = "127.0.0.1:8081"
+	webAddr           = "127.0.0.1:8082"
 	readHeaderTimeout = 5 * time.Second
 )
 
@@ -25,6 +26,7 @@ func main() {
 
 	router := chi.NewRouter()
 	proxy.Register(router, "home", &url.URL{Scheme: "http", Host: homeAddr}, logger)
+	proxy.RegisterFallback(router, "web", &url.URL{Scheme: "http", Host: webAddr}, logger)
 
 	server := &http.Server{
 		Addr:              listenAddr,

@@ -2,5 +2,8 @@
 mise.local.toml
 coverage.out
 
+# The web app's build, which the web service embeds
+services/web/dist/app/
+
 # Third-party screenshot, kept local only (see docs/plan.md §7)
 docs/visual-identity-reference.png
