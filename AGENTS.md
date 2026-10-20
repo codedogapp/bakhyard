@@ -46,6 +46,7 @@ Never report a step as done before `mise run check` has passed, and say which ga
 - Never force-push `main` or rewrite pushed history.
 - Secrets never go into git or chat. Local secrets live in `mise.local.toml` (gitignored); CI secrets are GitHub organisation secrets.
 - The repo is public: no personal identifiers, work-project names or third-party material in tracked files.
+- A PR that changes what the user sees includes screenshots: light and dark, desktop and phone where they differ. PR attachments are public too, so take them with the demo data, a made-up name and a time zone other than the host's.
 
 ## Engineering principles
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { clockLabel, startClock } from './clock';
+import { clockLabel, startClock, timeLabel } from './clock';
 
 describe('clockLabel', () => {
   test.each([
@@ -13,6 +13,12 @@ describe('clockLabel', () => {
 
   test('uses the local time zone by default', () => {
     expect(clockLabel(new Date('2026-10-20T01:11:59Z'))).toBe('10:11 · Tokyo');
+  });
+});
+
+describe('timeLabel', () => {
+  test('shows the local 24-hour time', () => {
+    expect(timeLabel(new Date('2026-10-20T15:05:00Z'))).toBe('00:05');
   });
 });
 

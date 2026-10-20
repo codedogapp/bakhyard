@@ -16,6 +16,8 @@
 
   --max: 1440px; /* content width */
   --gutter: 40px;
+  /* A full-width block's side padding: keeps its content within --max, centred, and a gutter from the edges. */
+  --page-padding: max(var(--gutter), (100% - var(--max)) / 2);
   --offset: 6px; /* resting shadow offset */
   --offset-hover: 8px;
 }
