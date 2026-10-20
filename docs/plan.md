@@ -51,14 +51,15 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline (decision 49) | Done (#21) |
 | `home-feed` | The "Needs you today" card, from `/api/home`, with rows that link to their app (decision 50) | Done (#22) |
 | `home-apps` | The "Your apps" grid: a card per app that links to its page, with its count of items | Done (#23) |
-| `home-week` | The "This week" card with the weekly hours bar, and the section head's text link to Time | In progress |
-| `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas | Planned |
+| `home-week` | The "This week" card with the weekly hours bar, and the section head's text link to Time | Done (#24) |
+| `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas (decision 52) | In progress |
+| `app-pages` | A small router: each app's path shows its page, "Coming soon" for now, and `/more` lists the apps without a tab | Planned |
 
 After these: the cockpit, then the product phases (§8.2), each split into steps.
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and the cockpit daemon and control API.
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives. pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies.
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). The three services' `main.go` files repeat the same server setup, which could move to the root `internal/` when the environment config (§4.7) arrives. pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52).
 
 ## 1. Goal and scope
 
@@ -500,7 +501,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 - `fetch('/api/home')`, with hand-written types (decision 43) that declare only the fields the app reads.
 - It loads the Home at once, then every 60 s while the page is visible and again whenever it becomes visible, as TanStack Query does by default. Only the latest request's answer applies, so a slow answer never overwrites a newer one.
 - A failed load (the gateway's 503, or no network) keeps the last Home on screen, and the top bar says "Offline · as of 01:10" (§7). The client sets no timeout of its own: a hung upstream is for the gateway's timeouts (decision 41).
-- A small pushState router. Pages other than Home show "Coming soon" for now. Until it arrives, the plain links in the nav and on the app cards load each page in full, and every path shows the same page with its app marked in the nav.
+- A small pushState router (`app-pages`): each app's path shows its page, "Coming soon" for now, and `/more` lists the apps without a tab. Until it arrives, the plain links in the nav, the tab bar and the app cards load each page in full, and every path, `/more` included, shows the same page with its app marked in the nav and the tab bar.
 
 **Dev loop**: `mise run dev` runs Vite on `:5173` with `/api` proxied to the gateway on `:8080`.
 
@@ -778,7 +779,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 **Page frame**
 
-- Content up to `--max` wide, centred, with `--gutter` on both sides. Full-width bands (the top bar, the header, the hero) pad their sides with `--page-padding`, `max(var(--gutter), (100% - var(--max)) / 2)`, so their background spans the page while their content lines up within `--max`.
+- Content up to `--max` wide, centred, with `--gutter` on both sides. Full-width bands (the top bar, the header, the hero) pad their sides with `--page-padding`, `max(var(--gutter) + var(--inset-x), (100% - var(--max)) / 2)`, so their background spans the page while their content lines up within `--max`. `--inset-x` is the larger of the side safe areas (see Phone and tablet), so content clears a notch and stays centred.
 - Breakpoints (ref): a tablet layout at `max-width: 1100px` and a phone layout at `max-width: 700px`. At `max-width: 980px` the header nav gives way to the bottom tab bar (ref).
 - Every page has the top bar and the header. Home then shows, from top to bottom: the hero, "Needs you today", "Your apps" and "This week".
 
@@ -833,14 +834,21 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 **Button**: mono 12 px with padding 14 by 22 px (ref), at least 44 px tall, and a 1 px `--ink` border. Primary: an ink fill with `--paper` text, inverted on hover. Secondary: `--surface` with `--ink` text, `--fill` on hover.
 
-**Focus**: every focusable element gets a 2 px `--ink` outline, 3 px outside it (ref: 2 px wide, 5 px out). It uses `:focus-visible`, so keyboard focus always shows it and a click on a link doesn't.
+**Focus**: every focusable element gets a 2 px `--ink` outline, 3 px outside it (ref: 2 px wide, 5 px out). It uses `:focus-visible`, so keyboard focus always shows it and a click on a link doesn't. The tab bar's cells draw it inside instead (Phone and tablet).
 
 **Icons**: no icon library. The few icons (arrows, menu, close) are inline SVGs of our own, with 1.5 px strokes and square caps, in `currentColor`. Apps have no icons; their number and name identify them.
 
-**Phone and tablet** (`max-width: 980px`):
+**Phone and tablet** (`max-width: 980px`), built in `home-phone`:
 
-- The header nav gives way to a bottom tab bar: Home, Notes, Todos, PRs, More. More opens a page with the other apps. It's a `--surface` bar with a 1 px `--ink` top border, five cells split by 1 px `--rule` lines, and mono 10 px labels with no icons. The current page's cell is an ink fill with `--paper` text. It's 49 px tall, plus the bottom safe area.
-- Safe-area insets are respected (`viewport-fit=cover`, `env(safe-area-inset-*)`).
+- The header nav gives way to a bottom tab bar: Home, Notes, Todos, PRs, More. It's a `--surface` bar fixed to the bottom, with a 1 px `--ink` top border, five equal cells split by 1 px `--rule` lines, and mono 10 px labels with no icons.
+  - The cells are 48 px tall, so the bar is 49 px with its border, plus the bottom safe area below the cells. The page gets the same as bottom padding, so the bar never covers its end.
+  - The current tab's cell is an ink fill with `--paper` text; the others fill with `--fill` on hover.
+  - More links to `/more`, a page listing the other apps (`app-pages`). It's current there, and also on the pages of the apps it lists, as iOS marks its More tab (decision 52).
+  - Focus: the bar touches the screen's edges, so the ring sits 3 px inside the cell, in the cell's text colour, rather than outside it.
+- Safe-area insets are respected, for phones with a notch or a home indicator. The viewport has `viewport-fit=cover`, so the page reaches the screen's edges and each band handles its insets (`env(safe-area-inset-*)`):
+  - The top bar's ink fills the top inset, and its text sits below it.
+  - Full-width bands add the larger side inset to the gutter (`--page-padding`).
+  - The tab bar's background reaches every edge, while its cells sit above the bottom inset and inside the side insets.
 - The header keeps the wordmark and its right slot.
 
 **Themes**: the OS setting picks light or dark (`prefers-color-scheme`). `color-scheme: light dark` makes the browser draw its own controls and scrollbars to match, and the PWA sets a `theme-color` for each scheme. A manual override can come with the settings page (§8.2 `frontend-shell`).
@@ -1073,6 +1081,7 @@ Made on 2026-10-20:
 49. **Polling for live updates**: the app polls `GET /api/home` every 60 s while the page is visible, and again when it becomes visible (§4.12), as TanStack Query does by default. SSE waits for a step that needs faster updates, which settles 43's open "SSE or polling" for now. A failed poll keeps the last Home and marks it offline, and the client sets no timeout of its own: a hung upstream is the gateway's to time out (41).
 50. **Feed rows link to their app**: until items carry their own url (§4.5's `url`), a row in "Needs you today" links to its app's page, such as `/pulls` or `/todos`, the same paths as the nav. The user's choice. When the urls arrive, only where a row links changes.
 51. **Durations in hours and minutes**: the app shows a duration in hours and minutes, the way Jira and Clockwork write them ("31h 30m", "40h", "0h 30m"), not in decimal hours ("31.5 h"). It rounds to the nearest minute and formats with `Intl.DurationFormat` (en-GB, narrow, with the hours always shown, so zero reads "0h" rather than nothing). The user's choice.
+52. **The More tab**: the user's choices. On phones and tablets the bottom tab bar's More links to `/more`, a page that lists the apps without a tab of their own (Time, GitHub, Games and Planner); the page comes with `app-pages`. More is the current tab on `/more` and also on those apps' pages, as iOS marks its More tab. Its link has `aria-current="page"` on `/more` only; on the apps' pages it has `aria-current="true"`, because the link isn't the page itself, as in GOV.UK's service navigation.
 
 ## 10. Risks
 
