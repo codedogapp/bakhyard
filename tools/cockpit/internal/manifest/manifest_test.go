@@ -18,12 +18,14 @@ version = 1
 name = "gateway"
 description = "The way in"
 command = ["bin/gateway", "-v"]
+listen = "tcp://127.0.0.1:8080"
 depends_on = ["home"]
 
 [[service]]
 name = "home"
 description = "The Home screen"
 command = ["bin/home"]
+listen = "tcp://[::1]:8081"
 `
 
 func TestParseReadsEveryField(t *testing.T) {
@@ -33,11 +35,17 @@ func TestParseReadsEveryField(t *testing.T) {
 	}
 
 	want := []manifest.Service{
-		{Name: "home", Description: "The Home screen", Command: []string{"bin/home"}},
+		{
+			Name:        "home",
+			Description: "The Home screen",
+			Command:     []string{"bin/home"},
+			Listen:      "tcp://[::1]:8081",
+		},
 		{
 			Name:        "gateway",
 			Description: "The way in",
 			Command:     []string{"bin/gateway", "-v"},
+			Listen:      "tcp://127.0.0.1:8080",
 			DependsOn:   []string{"home"},
 		},
 	}
@@ -60,7 +68,7 @@ func TestParseRejectsABadManifest(t *testing.T) {
 		{
 			"an unknown key",
 			manifestOf("home") + "depends-on = [\"web\"]\n",
-			"line 6: service.depends-on: unknown key",
+			"line 7: service.depends-on: unknown key",
 		},
 		{"an unknown table", "version = 1\n[[services]]\n", "line 2: services: unknown key"},
 		{
@@ -94,6 +102,21 @@ func TestParseRejectsABadManifest(t *testing.T) {
 			"an empty program",
 			oneService(`name = "home"`, `description = "Home"`, `command = ["", "-v"]`),
 			`service "home": no command`,
+		},
+		{
+			"no listen address",
+			oneService(`name = "home"`, `description = "Home"`, `command = ["bin/home"]`),
+			`service "home": no listen address`,
+		},
+		{
+			"a unix socket",
+			withListen("unix:///tmp/home.sock"),
+			`service "home": listen: "unix:///tmp/home.sock" is not tcp://host:port`,
+		},
+		{
+			"no port",
+			withListen("tcp://127.0.0.1"),
+			`service "home": listen: "tcp://127.0.0.1" is not tcp://host:port`,
 		},
 		{"a name used twice", manifestOf("home", "home"), `service "home": defined twice`},
 		{
@@ -154,6 +177,7 @@ func serviceTable(spec string) string {
 	name, dependencies, _ := strings.Cut(spec, ":")
 	fmt.Fprintf(&table, "[[service]]\nname = %q\ndescription = \"A service\"\n", name)
 	fmt.Fprintf(&table, "command = [\"bin/%s\"]\n", name)
+	table.WriteString("listen = \"tcp://127.0.0.1:8081\"\n")
 
 	if dependencies != "" {
 		quoted := strings.ReplaceAll(dependencies, ",", `", "`)
@@ -161,6 +185,16 @@ func serviceTable(spec string) string {
 	}
 
 	return table.String()
+}
+
+// withListen writes a manifest with one service that listens on listen.
+func withListen(listen string) string {
+	return oneService(
+		`name = "home"`,
+		`description = "Home"`,
+		`command = ["bin/home"]`,
+		fmt.Sprintf("listen = %q", listen),
+	)
 }
 
 // oneService writes a manifest with one service made of the given lines.

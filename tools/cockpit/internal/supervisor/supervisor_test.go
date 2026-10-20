@@ -106,6 +106,66 @@ func TestRunTreatsAnyExitAsAFailure(t *testing.T) {
 	}
 }
 
+func TestRunGivesEachServiceItsAddressAndItsPeers(t *testing.T) {
+	// The services inherit the cockpit's environment too.
+	t.Setenv("BAKHYARD_NAME", "Ada")
+
+	// exec, so that SIGTERM reaches sleep with no shell in between.
+	report := []string{
+		"sh", "-c", `echo "$BAKHYARD_LISTEN [$BAKHYARD_PEERS] $BAKHYARD_NAME"; exec sleep 60`,
+	}
+	services := []manifest.Service{
+		{Name: "home", Command: report, Listen: "tcp://127.0.0.1:8081"},
+		{Name: "web", Command: report, Listen: "tcp://127.0.0.1:8082"},
+		{
+			Name:      "gateway",
+			Command:   report,
+			Listen:    "tcp://127.0.0.1:8080",
+			DependsOn: []string{"home", "web"},
+		},
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	out := make(lines, bufferedLines)
+	result := make(chan error, 1)
+
+	go func() {
+		result <- supervisor.Run(ctx, services, out)
+	}()
+
+	var got []string
+
+	for reported := 0; reported < len(services); {
+		line := <-out
+		got = append(got, line)
+
+		if !strings.HasPrefix(line, "cockpit ") {
+			reported++
+		}
+	}
+
+	cancel()
+
+	err := <-result
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got = append(got, out.rest()...)
+
+	want := map[string][]string{
+		"home": {"tcp://127.0.0.1:8081 [] Ada"},
+		"web":  {"tcp://127.0.0.1:8082 [] Ada"},
+		"gateway": {
+			"tcp://127.0.0.1:8080 [home=tcp://127.0.0.1:8081,web=tcp://127.0.0.1:8082] Ada",
+		},
+	}
+	for name, texts := range want {
+		if !slices.Equal(linesOf(name, got), texts) {
+			t.Errorf("%s's lines: got %q, want %q", name, linesOf(name, got), texts)
+		}
+	}
+}
+
 func TestRunStopsWhatStartedWhenAServiceCannotStart(t *testing.T) {
 	services := []manifest.Service{
 		{Name: "a", Command: []string{"sleep", "60"}},

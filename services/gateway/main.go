@@ -1,40 +1,51 @@
 package main
 
 import (
+	"context"
 	"log/slog"
-	"net/http"
 	"net/url"
 	"os"
-	"time"
+	"os/signal"
+	"syscall"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/codedogapp/bakhyard/internal/env"
+	"github.com/codedogapp/bakhyard/internal/server"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/proxy"
 )
 
-const (
-	// Loopback only; tailscale serve will publish it.
-	listenAddr = "127.0.0.1:8080"
-	// home's and web's listen addresses, until the services get their peers from the environment.
-	homeAddr          = "127.0.0.1:8081"
-	webAddr           = "127.0.0.1:8082"
-	readHeaderTimeout = 5 * time.Second
-)
-
 func main() {
-	logger := slog.Default()
+	err := run()
+	if err != nil {
+		slog.Error("failed", "err", err)
+		os.Exit(1)
+	}
+}
 
-	router := chi.NewRouter()
-	proxy.Register(router, "home", &url.URL{Scheme: "http", Host: homeAddr}, logger)
-	proxy.RegisterFallback(router, "web", &url.URL{Scheme: "http", Host: webAddr}, logger)
+func run() error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	server := &http.Server{
-		Addr:              listenAddr,
-		Handler:           router,
-		ReadHeaderTimeout: readHeaderTimeout,
+	addr, err := env.ListenAddress(os.Getenv)
+	if err != nil {
+		return err
 	}
 
-	err := server.ListenAndServe()
-	logger.Error("serve", "addr", listenAddr, "err", err)
-	os.Exit(1)
+	home, err := env.PeerAddress(os.Getenv, "home")
+	if err != nil {
+		return err
+	}
+
+	web, err := env.PeerAddress(os.Getenv, "web")
+	if err != nil {
+		return err
+	}
+
+	logger := slog.Default()
+	router := chi.NewRouter()
+	proxy.Register(router, "home", &url.URL{Scheme: "http", Host: home}, logger)
+	proxy.RegisterFallback(router, "web", &url.URL{Scheme: "http", Host: web}, logger)
+
+	return server.Run(ctx, addr, router)
 }
