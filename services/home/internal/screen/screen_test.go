@@ -59,10 +59,36 @@ func TestNewOrdersByUrgency(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			home := screen.New(test.items, screen.Week{}, now)
+			home := screen.New("", test.items, screen.Week{}, now)
 
 			if got := ids(home.Items); !slices.Equal(got, test.want) {
 				t.Errorf("order = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestNewName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "kept", input: "Ada", want: "Ada"},
+		{name: "inner spaces kept", input: "Ada Lovelace", want: "Ada Lovelace"},
+		{name: "non-ASCII kept", input: "Zoë", want: "Zoë"},
+		{name: "surrounding whitespace trimmed", input: " \tAda\n", want: "Ada"},
+		{name: "invalid UTF-8 replaced", input: "Ad\xffa", want: "Ad\uFFFDa"},
+		{name: "empty falls back", input: "", want: "there"},
+		{name: "blank falls back", input: " \t\n\u00a0", want: "there"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := screen.New(test.input, nil, screen.Week{}, time.Time{})
+
+			if home.Name != test.want {
+				t.Errorf("name = %q, want %q", home.Name, test.want)
 			}
 		})
 	}
@@ -78,7 +104,7 @@ func TestNewMarksLateItems(t *testing.T) {
 	}
 	want := map[string]bool{"a/past": true, "a/now": false, "a/future": false, "a/none": false}
 
-	for _, item := range screen.New(items, screen.Week{}, now).Items {
+	for _, item := range screen.New("", items, screen.Week{}, now).Items {
 		if item.Late != want[item.ID] {
 			t.Errorf("%s: late = %t, want %t", item.ID, item.Late, want[item.ID])
 		}
@@ -93,7 +119,7 @@ func TestNewKeepsInputAndWeek(t *testing.T) {
 	}
 	week := screen.Week{LoggedHours: 1, TargetHours: 2}
 
-	home := screen.New(items, week, now)
+	home := screen.New("", items, week, now)
 
 	if got := ids(items); !slices.Equal(got, []string{"a/2", "a/1"}) {
 		t.Errorf("input order = %v, want it unchanged", got)

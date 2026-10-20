@@ -24,7 +24,7 @@ func main() {
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, time.Now)
+	api.Register(router, os.Getenv("BAKHYARD_NAME"), time.Now)
 
 	server := &http.Server{
 		Addr:              listenAddr,

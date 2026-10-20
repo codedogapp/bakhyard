@@ -46,8 +46,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `renovate-age` | Renovate waits a day for npm releases, as pnpm does (decision 47) | Done (#16) |
 | `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it (decision 48) | Done (#17) |
 | `home-style` | The page style per §7: the tokens for both themes, the fonts, the paper grain and the base styles | Done (#18) |
-| `home-header` | The top bar's time and city, the header with the wordmark and the nav, and the focus outline | In progress |
-| `home-name` | `home` serves `name` from `BAKHYARD_NAME`, falling back to "there" (§4.11) | Planned |
+| `home-header` | The top bar's time and city, the header with the wordmark and the nav, and the focus outline | Done (#19) |
+| `home-name` | `home` serves `name` from `BAKHYARD_NAME`, falling back to "there" (§4.11) | In progress |
 | `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline | Planned |
 | `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
 | `home-apps` | The "Your apps" grid and the weekly hours bar | Planned |
@@ -477,7 +477,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 - Item ids are `<app>/<id>`; `late = due is set && due < now`.
 - Sort order (`cmp.Or`): late first, then earliest due (no due date last), then title, then id.
 - The week comes from `TimeService.GetWeek` on peer `time`, and is unset if `time` is down.
-- The name comes from `BAKHYARD_NAME`, falling back to "there".
+- The name comes from `BAKHYARD_NAME`, without surrounding whitespace and with invalid UTF-8 replaced by U+FFFD; unset or blank, it falls back to "there". A name is personal, so it's set in the shell or in the gitignored `mise.local.toml` (`[env]`), never in git.
 - `WatchHome` sends immediately, again after each `bakhyard.attention.changed.*` event (250 ms debounce), and every 60 s.
 
 ### 4.12 Web service and UI
