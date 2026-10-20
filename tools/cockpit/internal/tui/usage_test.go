@@ -25,7 +25,7 @@ func TestMeasuringFillsTheColumns(t *testing.T) {
 	usage := map[int]resources.Usage{sup.Services()[0].PID: {CPU: 1.5, Memory: 3 * mebibyte}}
 
 	screen, next := update(t, screen, measuredMsg{usage: usage})
-	if row := screen.grid.Rows()[0]; row[4] != "1.5%" || row[5] != "3.0 MiB" || next == nil {
+	if row := screen.grid.Rows()[0]; row[5] != "1.5%" || row[6] != "3.0 MiB" || next == nil {
 		t.Errorf("got %q, want a's usage, and to measure again", row)
 	}
 }
@@ -43,7 +43,7 @@ func TestAFailedMeasuringShowsUntilOneWorks(t *testing.T) {
 	screen, _ = update(t, screen, measuredMsg{usage: usage})
 
 	screen, next := update(t, screen, measuredMsg{err: errors.New("measure resources: no ps")})
-	if row := screen.grid.Rows()[0]; row[4] != "" || row[5] != "" || next == nil {
+	if row := screen.grid.Rows()[0]; row[5] != "" || row[6] != "" || next == nil {
 		t.Errorf("got %q, want no usage, and to measure again", row)
 	}
 

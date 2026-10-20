@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/codedogapp/bakhyard/services/home/internal/health"
+	"github.com/codedogapp/bakhyard/internal/health"
 )
 
 func TestHealthzGet(t *testing.T) {

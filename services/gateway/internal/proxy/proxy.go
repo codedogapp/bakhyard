@@ -27,11 +27,13 @@ func Register(router chi.Router, name string, target *url.URL, logger *slog.Logg
 	router.Handle(apiPrefix+"/"+name, http.StripPrefix(apiPrefix, forwarder(name, target, logger)))
 }
 
-// RegisterFallback forwards every path outside /api on router to target unchanged, as Register
-// does. The paths under /api that no service claims keep their 404, so a mistyped API path
+// RegisterFallback forwards every path outside /api that router has no route for to target
+// unchanged, as Register does. It is router's NotFound handler rather than a /* route, which chi
+// would also pick for a method that one of router's own routes doesn't serve; so that route keeps
+// its 405. The paths under /api that no service claims keep their 404, so a mistyped API path
 // never gets the app's page.
 func RegisterFallback(router chi.Router, name string, target *url.URL, logger *slog.Logger) {
-	router.Handle("/*", forwarder(name, target, logger))
+	router.NotFound(forwarder(name, target, logger).ServeHTTP)
 	router.Handle(apiPrefix, http.NotFoundHandler())
 	router.Handle(apiPrefix+"/*", http.NotFoundHandler())
 }

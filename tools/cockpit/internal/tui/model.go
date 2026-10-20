@@ -6,6 +6,7 @@ import (
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/codedogapp/bakhyard/tools/cockpit/internal/probe"
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/resources"
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/supervisor"
 )
@@ -13,10 +14,12 @@ import (
 // model is the TUI's state.
 type model struct {
 	sup        *supervisor.Supervisor
+	prober     *probe.Prober
 	grid       table.Model
 	now        time.Time               // the last tick, which the uptimes are measured at
 	usage      map[int]resources.Usage // the last CPU and memory measured, by PID
 	unmeasured error                   // why the last measuring failed, until one works
+	checks     map[int]error           // how the last health checks went, by PID
 	failure    error                   // the last action's error, until the next action ends
 	killing    string                  // the service to kill once y confirms it
 	quitting   bool                    // Shutdown is stopping every service
@@ -24,13 +27,19 @@ type model struct {
 }
 
 func newModel(sup *supervisor.Supervisor, now time.Time) model {
-	start := model{sup: sup, grid: newGrid(len(sup.Services())), now: now}
+	start := model{sup: sup, prober: probe.New(), grid: newGrid(len(sup.Services())), now: now}
 
 	return start.refresh()
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(perform(m.sup.StartAll), waitForChange(m.sup), tick(), measureLater(m.sup))
+	return tea.Batch(
+		perform(m.sup.StartAll),
+		waitForChange(m.sup),
+		tick(),
+		measureLater(m.sup),
+		checkLater(m.sup, m.prober),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -48,6 +57,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// The next measuring waits for this one, so they never overlap.
 		return m.refresh(), measureLater(m.sup)
+	case checkedMsg:
+		m.checks = msg
+
+		// The same goes for the checks.
+		return m.refresh(), checkLater(m.sup, m.prober)
 	case doneMsg:
 		m.failure = msg.err
 
@@ -65,7 +79,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // refresh puts the services' current state in the table.
 func (m model) refresh() model {
-	m.grid.SetRows(rows(m.sup.Services(), m.now, m.usage))
+	m.grid.SetRows(rows(m.sup.Services(), m.now, m.usage, m.checks))
 
 	return m
 }

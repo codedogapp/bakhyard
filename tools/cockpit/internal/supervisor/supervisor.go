@@ -34,6 +34,7 @@ type service struct {
 	name    string
 	command []string
 	vars    []string
+	listen  string
 	state   State
 	err     error // how the service exited, when it exited on its own
 	run     *run  // the process, while the service runs or stops
@@ -58,6 +59,7 @@ func New(services []manifest.Service, out io.Writer) *Supervisor {
 			name:    svc.Name,
 			command: svc.Command,
 			vars:    vars[svc.Name],
+			listen:  svc.Listen,
 			state:   Stopped,
 		})
 	}
@@ -73,7 +75,7 @@ func (s *Supervisor) Services() []Status {
 	statuses := make([]Status, 0, len(s.services))
 
 	for _, svc := range s.services {
-		status := Status{Name: svc.name, State: svc.state, Err: svc.err}
+		status := Status{Name: svc.name, Listen: svc.listen, State: svc.state, Err: svc.err}
 		if svc.run != nil {
 			status.PID, status.Started = svc.run.proc.PID(), svc.run.started
 		}

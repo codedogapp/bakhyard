@@ -27,15 +27,18 @@ func TestRowsShowEachServicesState(t *testing.T) {
 		{Name: "c", State: supervisor.Stopping, PID: 42, Started: now.Add(time.Second)},
 		{Name: "d", State: supervisor.Exited},
 		{Name: "e", State: supervisor.Exited, Err: errors.New("signal: killed")},
-	}, now, map[int]resources.Usage{41: {CPU: 0.3, Memory: 12*mebibyte + mebibyte/2}})
+	}, now,
+		map[int]resources.Usage{41: {CPU: 0.3, Memory: 12*mebibyte + mebibyte/2}},
+		map[int]error{41: nil, 42: errors.New("connection refused")},
+	)
 
 	// c has no usage until it has been measured.
 	want := []table.Row{
-		{"a", "stopped", "", "", "", "", ""},
-		{"b", "running", "41", "1m30s", "0.3%", "12.5 MiB", ""},
-		{"c", "stopping", "42", "0s", "", "", ""},
-		{"d", "exited", "", "", "", "", "exit status 0"},
-		{"e", "exited", "", "", "", "", "signal: killed"},
+		{"a", "stopped", "", "", "", "", "", ""},
+		{"b", "running", "up", "41", "1m30s", "0.3%", "12.5 MiB", ""},
+		{"c", "stopping", "down", "42", "0s", "", "", ""},
+		{"d", "exited", "", "", "", "", "", "exit status 0"},
+		{"e", "exited", "", "", "", "", "", "signal: killed"},
 	}
 	if !slices.EqualFunc(got, want, slices.Equal[table.Row]) {
 		t.Errorf("got\n%q\nwant\n%q", got, want)
