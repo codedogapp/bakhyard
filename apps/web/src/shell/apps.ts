@@ -1,7 +1,7 @@
 /** An app's id: the name of its service, and of its page (plan §4.3). */
 export type AppId = 'notes' | 'todos' | 'pulls' | 'time' | 'github' | 'games' | 'planner';
 
-interface App {
+export interface App {
   id: AppId;
   /** Its short name in the nav. */
   label: string;

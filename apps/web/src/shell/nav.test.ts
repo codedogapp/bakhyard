@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { isCurrent, tabCurrent, tabItems } from './nav';
+import { isCurrent, moreApps, tabCurrent, tabItems } from './nav';
 
 test.each([
   { href: '/', path: '/', want: true },
@@ -23,6 +23,10 @@ test('gives Home, Notes, Todos and PRs a tab, then More', () => {
     ['PRs', '/pulls'],
     ['More', '/more'],
   ]);
+});
+
+test('lists the other apps under More', () => {
+  expect(moreApps.map((app) => app.id)).toEqual(['time', 'github', 'games', 'planner']);
 });
 
 test.each([

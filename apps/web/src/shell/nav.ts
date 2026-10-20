@@ -1,4 +1,4 @@
-import { appHref, apps } from './apps';
+import { type App, appHref, apps } from './apps';
 
 interface NavItem {
   label: string;
@@ -16,7 +16,8 @@ export function isCurrent(href: string, path: string): boolean {
   return href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`);
 }
 
-const moreHref = '/more';
+/** The More tab's page. */
+export const moreHref = '/more';
 /** Home, Notes, Todos and PRs get a tab of their own. */
 const ownTabs = 4;
 
@@ -24,7 +25,7 @@ const ownTabs = 4;
 export const tabItems: readonly NavItem[] = [...navItems.slice(0, ownTabs), { label: 'More', href: moreHref }];
 
 /** The apps without a tab of their own, which More lists. */
-const moreHrefs = navItems.slice(ownTabs).map((item) => item.href);
+export const moreApps: readonly App[] = apps.filter((app) => !tabItems.some((item) => item.href === appHref(app.id)));
 
 /** How a tab is current, as its aria-current: "page" for its own pages, "true" for a page it only stands for. */
 type TabCurrent = 'page' | 'true';
@@ -34,7 +35,7 @@ export function tabCurrent(href: string, path: string): TabCurrent | undefined {
   if (isCurrent(href, path)) {
     return 'page';
   }
-  if (href === moreHref && moreHrefs.some((more) => isCurrent(more, path))) {
+  if (href === moreHref && moreApps.some((app) => isCurrent(appHref(app.id), path))) {
     return 'true';
   }
   return undefined;

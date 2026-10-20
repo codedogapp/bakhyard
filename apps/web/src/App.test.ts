@@ -21,6 +21,34 @@ const home: Home = {
   week: { loggedHours: 31.5, targetHours: 40 },
 };
 
+// Fires the navigate event the browser fires for a click on a link to path; returns its handler if intercepted.
+function navigate(navigation: EventTarget, path: string): NavigationInterceptHandler | undefined {
+  let handler: NavigationInterceptHandler | undefined;
+  navigation.dispatchEvent(
+    Object.assign(new Event('navigate'), {
+      canIntercept: true,
+      hashChange: false,
+      downloadRequest: null,
+      formData: null,
+      navigationType: 'push',
+      destination: { url: new URL(path, location.href).href },
+      intercept: (options?: NavigationInterceptOptions) => {
+        handler = options?.handler;
+      },
+    })
+  );
+  return handler;
+}
+
+// Navigates to path as the browser does, and waits for the page to show.
+async function go(navigation: EventTarget, path: string) {
+  const handler = navigate(navigation, path);
+  expect(handler).toBeDefined();
+  await act(async () => {
+    await handler?.();
+  });
+}
+
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
@@ -31,6 +59,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  history.replaceState(null, '', '/');
 });
 
 test('shows the frame and the apps, then the hero, the feed, the counts, the week and the status once the Home loads', async () => {
@@ -53,6 +82,57 @@ test('shows the frame and the apps, then the hero, the feed, the counts, the wee
   expect(screen.getByRole('heading', { level: 2, name: 'This week' })).toBeInTheDocument();
   expect(screen.getByText('31h 30m / 40h')).toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent('Online');
+  expect(document.title).toBe('Bakhyard');
+});
+
+test('shows the page at the path it opens on', () => {
+  history.replaceState(null, '', '/time');
+  render(App);
+
+  expect(screen.getByRole('heading', { level: 1, name: 'Time' })).toBeInTheDocument();
+  expect(screen.getByText('Coming soon')).toBeInTheDocument();
+  expect(document.title).toBe('Time · Bakhyard');
+  expect(screen.getByRole('link', { name: 'Time', current: 'page' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'More', current: true })).toBeInTheDocument();
+});
+
+test('shows each page in place as the browser navigates, with the Home it has already loaded', async () => {
+  const navigation = new EventTarget();
+  vi.stubGlobal('navigation', navigation);
+  render(App);
+  await screen.findByRole('heading', { level: 1, name: /^Good \w+, Ada\.$/ });
+
+  await go(navigation, '/more');
+
+  expect(screen.getByRole('heading', { level: 1, name: 'More' })).toBeInTheDocument();
+  expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(4);
+  expect(screen.getByRole('heading', { level: 2, name: 'Time' }).closest('a')).toHaveTextContent('1 item');
+  expect(document.title).toBe('More · Bakhyard');
+  expect(screen.getByRole('link', { name: 'More', current: 'page' })).toBeInTheDocument();
+
+  await go(navigation, '/elsewhere');
+
+  expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument();
+  expect(screen.getByText("There's no page at /elsewhere.")).toBeInTheDocument();
+  expect(document.title).toBe('Page not found · Bakhyard');
+  expect(screen.queryByRole('link', { current: 'page' })).not.toBeInTheDocument();
+
+  await go(navigation, '/');
+
+  expect(screen.getByRole('heading', { level: 1, name: /^Good \w+, Ada\.$/ })).toBeInTheDocument();
+  expect(document.title).toBe('Bakhyard');
+  expect(fetch).toHaveBeenCalledOnce();
+});
+
+test('leaves navigations to the browser once it goes away', () => {
+  const navigation = new EventTarget();
+  vi.stubGlobal('navigation', navigation);
+  const { unmount } = render(App);
+  expect(navigate(navigation, '/more')).toBeDefined();
+
+  unmount();
+
+  expect(navigate(navigation, '/more')).toBeUndefined();
 });
 
 test('moves the clock, the greeting and the due times on together', async () => {
