@@ -1,7 +1,8 @@
-# The services the cockpit runs (docs/plan.md §4.9). It starts each one after the
-# services in its depends_on, and otherwise in this file's order. A command is the
-# program and its arguments, run without a shell. Each service listens on its listen
-# address, and gets those of its depends_on as its peers (§4.7).
+# The services the cockpit runs (docs/plan.md §4.9). It starts each one once the
+# services in its depends_on are healthy, and otherwise in this file's order. A
+# command is the program and its arguments, run without a shell. Each service
+# listens on its listen address, and gets those of its depends_on as its peers
+# (§4.7).
 version = 1
 
 [[service]]

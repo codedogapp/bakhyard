@@ -14,7 +14,7 @@ const stopping = "Stopping every service…"
 func TestQuitStopsEveryServiceThenExits(t *testing.T) {
 	sup := newSupervisor(t, io.Discard, sleeping("a", "b")...)
 
-	err := sup.StartAll()
+	err := sup.StartAll(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}

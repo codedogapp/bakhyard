@@ -101,6 +101,17 @@ func TestACheckEndsWithItsContext(t *testing.T) {
 	}
 }
 
+func TestACheckGivesUpAfterASecond(t *testing.T) {
+	listen := serve(t, func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	})
+
+	err := probe.New().Check(t.Context(), listen)
+	if err == nil || !strings.HasSuffix(err.Error(), "/healthz\": no answer within 1s") {
+		t.Errorf("got %v, want no answer within 1s", err)
+	}
+}
+
 func TestABadListenAddressIsAnError(t *testing.T) {
 	for _, listen := range []string{"unix:///tmp/a.sock", "tcp://127.0.0.1", "tcp://a host:80"} {
 		t.Run(listen, func(t *testing.T) {

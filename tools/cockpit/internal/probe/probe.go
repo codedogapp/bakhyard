@@ -7,9 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/codedogapp/bakhyard/internal/env"
 )
+
+// timeout is how long a service has to answer its health check (decision 60).
+const timeout = time.Second
 
 // Prober checks services. Its methods are safe to call at the same time.
 type Prober struct {
@@ -28,12 +32,18 @@ func New() *Prober {
 }
 
 // Check returns nil if the service that listens on listen, tcp://host:port, answers its health
-// check with 200 OK before ctx ends, and why not otherwise. It doesn't read the answer's body.
+// check with 200 OK within a second and before ctx ends, and why not otherwise. It doesn't read
+// the answer's body.
 func (p *Prober) Check(ctx context.Context, listen string) error {
 	addr, err := env.Address(listen)
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := context.WithTimeoutCause(
+		ctx, timeout, fmt.Errorf("no answer within %s", timeout),
+	)
+	defer cancel()
 
 	target := (&url.URL{Scheme: "http", Host: addr, Path: "/healthz"}).String()
 

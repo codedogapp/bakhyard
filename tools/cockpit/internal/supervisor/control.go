@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -106,10 +107,20 @@ func (s *Supervisor) Restart(name string) error {
 	return s.Start(name)
 }
 
-// StartAll starts the services in start order, up to the first that can't start.
-func (s *Supervisor) StartAll() error {
+// StartAll starts the services in start order, each once the services it depends on are
+// healthy, up to the first that can't start. It leaves a service that runs already alone, with
+// no wait. A wait ends early, with ctx's error, if ctx ends.
+func (s *Supervisor) StartAll(ctx context.Context) error {
 	for _, svc := range s.services {
-		err := s.Start(svc.name)
+		if s.running(svc) == nil {
+			continue
+		}
+
+		err := s.awaitDependencies(ctx, svc)
+		if err == nil {
+			err = s.Start(svc.name)
+		}
+
 		if err != nil {
 			return err
 		}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/manifest"
+	"github.com/codedogapp/bakhyard/tools/cockpit/internal/probe"
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/process"
 )
 
@@ -26,18 +27,21 @@ type Supervisor struct {
 	services     []*service // in start order; the slice and the names never change
 	out          *output
 	changed      chan struct{}
-	mu           sync.Mutex // guards shuttingDown, and each service's state, err and run
-	shuttingDown bool       // set by Shutdown, after which no service starts
+	prober       *probe.Prober
+	waitTimeout  time.Duration // how long StartAll waits for a service's dependencies
+	mu           sync.Mutex    // guards shuttingDown, and each service's state, err and run
+	shuttingDown bool          // set by Shutdown, after which no service starts
 }
 
 type service struct {
-	name    string
-	command []string
-	vars    []string
-	listen  string
-	state   State
-	err     error // how the service exited, when it exited on its own
-	run     *run  // the process, while the service runs or stops
+	name      string
+	command   []string
+	vars      []string
+	listen    string
+	dependsOn []string
+	state     State
+	err       error // how the service exited, when it exited on its own
+	run       *run  // the process, while the service runs or stops
 }
 
 // run is one run of a service's command.
@@ -52,15 +56,21 @@ type run struct {
 // The services' output and the supervisor's own lines go to out.
 func New(services []manifest.Service, out io.Writer) *Supervisor {
 	vars := environment(services)
-	sup := &Supervisor{out: newOutput(out, services), changed: make(chan struct{}, 1)}
+	sup := &Supervisor{
+		out:         newOutput(out, services),
+		changed:     make(chan struct{}, 1),
+		prober:      probe.New(),
+		waitTimeout: waitTimeout,
+	}
 
 	for _, svc := range services {
 		sup.services = append(sup.services, &service{
-			name:    svc.Name,
-			command: svc.Command,
-			vars:    vars[svc.Name],
-			listen:  svc.Listen,
-			state:   Stopped,
+			name:      svc.Name,
+			command:   svc.Command,
+			vars:      vars[svc.Name],
+			listen:    svc.Listen,
+			dependsOn: svc.DependsOn,
+			state:     Stopped,
 		})
 	}
 

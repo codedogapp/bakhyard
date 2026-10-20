@@ -40,7 +40,7 @@ func TestRestartRestartsTheSelectedService(t *testing.T) {
 	sup := newSupervisor(t, io.Discard, sleeping("a", "b")...)
 	screen := newModel(sup, time.Now())
 
-	err := sup.StartAll()
+	err := sup.StartAll(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}

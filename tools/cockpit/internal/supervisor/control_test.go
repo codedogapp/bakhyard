@@ -95,7 +95,7 @@ func TestAServiceThatExitsOnItsOwn(t *testing.T) {
 		manifest.Service{Name: "b", Command: sleeper},
 	)
 
-	err := sup.StartAll()
+	err := sup.StartAll(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}

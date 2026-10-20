@@ -12,11 +12,7 @@ import (
 	"github.com/codedogapp/bakhyard/tools/cockpit/internal/supervisor"
 )
 
-const (
-	checkEvery = 2 * time.Second
-	// checkTimeout is how long a service has to answer its health check (decision 60).
-	checkTimeout = time.Second
-)
+const checkEvery = 2 * time.Second
 
 // checkedMsg is how each service's health check went, by PID: nil if the service is up, and
 // why it is down otherwise.
@@ -29,11 +25,6 @@ func checkLater(sup *supervisor.Supervisor, prober *probe.Prober) tea.Cmd {
 
 // check checks every service that has a process, all at once.
 func check(sup *supervisor.Supervisor, prober *probe.Prober) checkedMsg {
-	timedOut := fmt.Errorf("no answer within %s", checkTimeout)
-
-	ctx, cancel := context.WithTimeoutCause(context.Background(), checkTimeout, timedOut)
-	defer cancel()
-
 	var (
 		group sync.WaitGroup
 		mutex sync.Mutex
@@ -47,7 +38,7 @@ func check(sup *supervisor.Supervisor, prober *probe.Prober) checkedMsg {
 		}
 
 		group.Go(func() {
-			err := prober.Check(ctx, status.Listen)
+			err := prober.Check(context.Background(), status.Listen)
 
 			mutex.Lock()
 			defer mutex.Unlock()

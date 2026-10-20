@@ -29,7 +29,7 @@ func TestShutdownStopsEveryServiceAndNothingStartsAfterIt(t *testing.T) {
 	actions := map[string]func() error{
 		"Start":    func() error { return sup.Start("a") },
 		"Restart":  func() error { return sup.Restart("a") },
-		"StartAll": sup.StartAll,
+		"StartAll": func() error { return sup.StartAll(t.Context()) },
 	}
 	for action, call := range actions {
 		err = call()
@@ -53,7 +53,7 @@ func TestNoServiceRunsAfterAShutdownThatRacesAStartAll(t *testing.T) {
 		started error
 	)
 
-	group.Go(func() { started = sup.StartAll() })
+	group.Go(func() { started = sup.StartAll(t.Context()) })
 
 	err := sup.Shutdown()
 	if err != nil {

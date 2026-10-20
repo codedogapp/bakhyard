@@ -114,9 +114,10 @@ func TestRunGivesEachServiceItsAddressAndItsPeers(t *testing.T) {
 	report := []string{
 		"sh", "-c", `echo "$BAKHYARD_LISTEN [$BAKHYARD_PEERS] $BAKHYARD_NAME"; exec sleep 60`,
 	}
+	home, web := newHealthServer(t, true), newHealthServer(t, true)
 	services := []manifest.Service{
-		{Name: "home", Command: report, Listen: "tcp://127.0.0.1:8081"},
-		{Name: "web", Command: report, Listen: "tcp://127.0.0.1:8082"},
+		{Name: "home", Command: report, Listen: home.listen},
+		{Name: "web", Command: report, Listen: web.listen},
 		{
 			Name:      "gateway",
 			Command:   report,
@@ -153,10 +154,10 @@ func TestRunGivesEachServiceItsAddressAndItsPeers(t *testing.T) {
 	got = append(got, out.rest()...)
 
 	want := map[string][]string{
-		"home": {"tcp://127.0.0.1:8081 [] Ada"},
-		"web":  {"tcp://127.0.0.1:8082 [] Ada"},
+		"home": {home.listen + " [] Ada"},
+		"web":  {web.listen + " [] Ada"},
 		"gateway": {
-			"tcp://127.0.0.1:8080 [home=tcp://127.0.0.1:8081,web=tcp://127.0.0.1:8082] Ada",
+			"tcp://127.0.0.1:8080 [home=" + home.listen + ",web=" + web.listen + "] Ada",
 		},
 	}
 	for name, texts := range want {

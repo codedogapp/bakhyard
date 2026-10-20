@@ -63,7 +63,7 @@ func TestWhyTheSelectedServiceIsDownComesAfterEveryOtherMessage(t *testing.T) {
 	sup := newSupervisor(t, io.Discard, sleeping("a", "b")...)
 	screen := newModel(sup, time.Now())
 
-	err := sup.StartAll()
+	err := sup.StartAll(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,29 +126,6 @@ func TestCheckChecksEveryServiceWithAProcess(t *testing.T) {
 
 	if len(checked) != 2 || !okA || errA != nil || errB == nil {
 		t.Errorf("got %v, want a up and b down, and nothing for c", checked)
-	}
-}
-
-func TestACheckGivesUpAfterItsTimeout(t *testing.T) {
-	silent := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		<-r.Context().Done()
-	}))
-	t.Cleanup(silent.Close)
-
-	sup := newSupervisor(t, io.Discard, manifest.Service{
-		Name:    "a",
-		Command: []string{"sleep", "60"},
-		Listen:  "tcp://" + silent.Listener.Addr().String(),
-	})
-
-	err := sup.Start("a")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = check(sup, probe.New())[sup.Services()[0].PID]
-	if err == nil || !strings.HasSuffix(err.Error(), "no answer within 1s") {
-		t.Errorf("got %v, want no answer within 1s", err)
 	}
 }
 

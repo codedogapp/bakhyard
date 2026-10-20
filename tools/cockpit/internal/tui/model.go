@@ -34,7 +34,7 @@ func newModel(sup *supervisor.Supervisor, now time.Time) model {
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
-		perform(m.sup.StartAll),
+		perform(m.startAll),
 		waitForChange(m.sup),
 		tick(),
 		measureLater(m.sup),

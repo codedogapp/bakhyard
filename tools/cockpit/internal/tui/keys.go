@@ -1,6 +1,10 @@
 package tui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"context"
+
+	tea "charm.land/bubbletea/v2"
+)
 
 // press handles a key: an action on the selected service, the answer to a kill's question, or
 // a move in the table.
@@ -41,9 +45,15 @@ func (m model) actions() map[string]func(name string) error {
 		"s": m.sup.Start,
 		"x": m.sup.Stop,
 		"r": m.sup.Restart,
-		"a": func(string) error { return m.sup.StartAll() },
+		"a": func(string) error { return m.startAll() },
 		"Z": func(string) error { return m.sup.StopAll() },
 	}
+}
+
+// startAll starts every service, each once its dependencies are healthy. Quitting stops the
+// services, which ends a wait, so it needs no context of its own.
+func (m model) startAll() error {
+	return m.sup.StartAll(context.Background())
 }
 
 // confirm kills the service that K picked if the answer is y, and drops the kill otherwise.
