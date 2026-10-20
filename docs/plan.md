@@ -41,7 +41,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `openapi` | Generate the public JSON APIs from OpenAPI specs | Dropped (#8 closed, decision 43) |
 | `code-first` | Record decision 43: the public JSON APIs stay hand-written | Done (#9) |
 | `web-scaffold` | The Svelte app in `apps/web`, its toolchain and the web gates (decision 44) | Done (#10) |
-| `visual-identity` | Replace §7 with the new visual identity (decision 45) | In progress |
+| `visual-identity` | Replace §7 with the new visual identity (decision 45) | Done (#11) |
+| `time-worklogs` | Record how time is logged on Jira and what the Time module does (decision 46) | In progress |
 | `web-service` | A Go `web` service serves the built app; the gateway sends every path outside `/api` to it | Planned |
 | `home-shell` | The Home page's frame per §7: tokens for both themes, fonts, grain, top bar, header and hero | Planned |
 | `home-feed` | The "Needs you today" card, from `/api/home` | Planned |
@@ -70,7 +71,7 @@ Inputs from the user:
 
 - Devices: iPhone and MacBook; the host is a Mac.
 - No paid Obsidian Sync; obsidian-git is used today. Notes must be editable and must render wikilinks, embeds, callouts and LaTeX.
-- Jira Cloud and Bitbucket Cloud are reachable without a VPN. Work tokens on the personal Mac are OK. Time is logged on the Jira tickets, probably through Clockwork (decision 40).
+- Jira Cloud and Bitbucket Cloud are reachable without a VPN. Work tokens on the personal Mac are OK. Time is logged on the Jira tickets as standard Jira worklogs; Clockwork writes them too (decision 46).
 - Notifications go to the phone (push), the Mac and the browser.
 - Reminder rule: a PR open for more than 24 h without the required approvals → remind at 10:00 and 15:00 on workdays, with snooze.
 - Copilot Business sits on a separate work GitHub account.
@@ -87,7 +88,7 @@ Verified 2026-10-17 unless marked.
 | Vault sync | ✅ trade-offs | **Chosen: iCloud Drive** (Obsidian's recommended iPhone option; vault in `iCloud Drive/Obsidian/<vault>`; host Mac on the same Apple ID, vault folder set to *Keep Downloaded*) + server-side git snapshots with `--git-dir` outside iCloud. Runner-up: keep git, swap obsidian-git on the iPhone for the GitSync app | iCloud: the same note edited offline on two devices → one silently wins (recoverable via TextEdit "Keep Both"); latency unverified. obsidian-git on iOS: the author calls it "very unstable", with open iOS bugs (Vinzent03/obsidian-git#1012, Vinzent03/obsidian-git#1166). LiveSync: iOS needs trusted HTTPS → clashes with LAN-only. Obsidian Headless Sync: paid + beta data-loss issues → excluded |
 | Jira Cloud | ✅ | Basic `email:api_token`; `GET/POST /rest/api/3/search/jql` (the old `/search` is removed); request `fields` explicitly; `nextPageToken` paging | Token expiry ≤ 365 d → rotate; webhooks are admin-only → poll; an employer IP allowlist would block |
 | Bitbucket Cloud | ✅ | Scoped Atlassian API token (app passwords died 2026-07-28), host `api.bitbucket.org`. Mine: `GET /2.0/workspaces/{ws}/pullrequests/{me}?state=OPEN`. Reviewing: per repo `pullrequests?q=reviewers.uuid="{uuid}" AND state="OPEN"`. Approvals: PR detail `participants[]`; `/activity` for the last reviewer action | No cross-repo "reviewing" endpoint; 1,000 req/h → cache + incremental scan; webhooks need repo admin → poll |
-| Time tracking | ⏳ to verify | Time is logged on the Jira tickets, probably through Clockwork. The user will share a repo that shows how | Replaces Tempo (decision 40); the Tempo research of 2026-10-17 no longer applies |
+| Time tracking, verified 2026-10-20 | ✅ | Standard Jira worklogs over REST v3 with the Jira token, as the user's own tool does. Read: my `accountId` from `GET /rest/api/3/myself`; the issues from `search/jql` with `worklogAuthor = currentUser() AND worklogDate >= "<from>" AND worklogDate < "<to>"`; then per issue `GET /rest/api/3/issue/{key}/worklog` with `startedAfter` and `startedBefore` (UNIX ms) and `startAt` paging, keeping my own. Write: `POST /rest/api/3/issue/{key}/worklog` with `started` and `timeSpentSeconds`. None of these is deprecated. Clockwork's worklogs are standard Jira worklogs, so Bakhyard and Clockwork see the same hours | Time tracking must be enabled; writing needs the Browse projects and Work on issues permissions. `worklogAuthor` is in Atlassian's Data Center field reference but not the Cloud one, though it works on Jira Cloud today; the documented fallback, `GET /rest/api/3/worklog/updated` + `POST /rest/api/3/worklog/list`, scans every worklog the token can see. JQL searches only an issue's 1,000 most recent worklogs. By default a new worklog emails the issue's watchers (`notifyUsers`) and reduces the remaining estimate (`adjustEstimate=auto`). Tempo is not used (decision 40) |
 | PR reminders | ✅ | Own scheduler + rule engine. "Required approvals" is a per-repo setting | Auto-detection via the branch restrictions API is unverified (may need admin) |
 | Push (iPhone / Mac / browser) | ✅ | (a) Web Push: iOS 16.4+ Home Screen PWA + Safari/Chrome on the MacBook. Needs HTTPS → `tailscale serve` (free, valid cert, no inbound ports). (b) Pushover: $4.99 once per platform (iOS, Desktop), 10k msg/month, `priority=2` repeats until acknowledged, no HTTPS needed | The browser Notification API needs a secure context (LAN `http://192.168…` fails). `osascript`/terminal-notifier only notify the host Mac, not the MacBook. ntfy: self-hosting is Docker-only on macOS and the iPhone shows "New message" off-LAN; public ntfy.sh = topic-as-password, 250 msg/day, iOS app "a little buggy" |
 | GitHub | ✅ | `GET /search/issues`: `is:pr is:open author:@me`, `is:pr is:open review-requested:@me`, `is:issue is:open assignee:@me`; 30 req/min | A fine-grained PAT covers one owner; the Notifications API needs a classic PAT |
@@ -101,7 +102,7 @@ Verified 2026-10-17 unless marked.
 ```
 iPhone PWA ─┐                              ┌── Jira / Bitbucket / GitHub / Exophase / IGDB (poll)
 MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac (services supervised by the cockpit, §4)
-            │                              ├── SQLite per service (todos, timers, caches, push subscriptions, sessions)
+            │                              ├── SQLite per service (todos, caches, push subscriptions, sessions)
             │                              ├── vault dir (iCloud Drive) ◀── iCloud ──▶ Obsidian (MacBook, iPhone)
             │                              ├── copilot CLI runtime (SDK, JSON-RPC, loopback)
             └◀── Web Push ◀── APNs/FCM ◀── notify
@@ -155,7 +156,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 | Service | Tables (planned) |
 | --- | --- |
 | todos | `todos` (+ `jira_key`) |
-| time | `time_entries` (todo/Jira, start, end, `worklog_id`, sync state) |
+| time | none of its own: the worklogs stay in Jira |
 | pulls | `pr_state` (PR id, first_seen, approvals, required, last_activity, snooze_until, last_reminded_slot), `reminder_rules` |
 | notify | `push_subscriptions` |
 | planner | `copilot_sessions` (id, title, status, note_path) |
@@ -943,8 +944,10 @@ Every item is pending. The service an item lands in is in brackets.
 - `pr-reminders` [pulls → notify via JetStream]. Needs `bitbucket-prs`, `notifications`.
   - The §3 reminder rule, with snooze (2 h / tomorrow / until updated), mark as nudged, and dedupe per slot.
 - `time-tracking` [time]. Needs `todos-jira`.
-  - A start/stop timer per todo or Jira ticket that logs the time on the ticket, plus the week's totals.
-  - How the time is logged (Clockwork or Jira's own worklogs) is settled from the user's example repo (decision 40).
+  - Reads and writes standard Jira worklogs (§2, decision 46). No timers: Clockwork already has them inside Jira.
+  - A day report: the hours I logged on each of the last 7 days, with every weekday that has none marked as missing, plus the week's total against the target.
+  - Fill a missing day: pick one of my open tickets (assigned to me, not done) and the hours. Bakhyard shows the worklog it will add, starting at 09:00 local time, and writes it only after I confirm.
+  - Attention items: today's hours until they're logged, and each missing weekday.
 
 **Phase 4: GitHub**
 
@@ -1040,6 +1043,7 @@ Made on 2026-10-18 at the restart (v1.3). The rules themselves live in [AGENTS.m
 Made on 2026-10-20:
 
 45. **Visual identity**: §7 replaces the first look, which was measured from a screenshot of a third-party dashboard. The user picked three other third-party sites as references, and the style is now soft neo-brutalism with editorial type: square cards with 1 px borders and hard offset shadows; Space Grotesk, Instrument Serif and JetBrains Mono; a paper grain; monochrome ink with no accent colour; and light and dark themes from the start, following the OS. The first look's fonts and icon library are dropped, and the few icons are our own inline SVGs. Plain CSS custom properties stay (decision 21).
+46. **Time tracking with Jira worklogs**: time is logged as standard Jira worklogs, through Jira's REST API v3 (§2), as the user's own tool does. Clockwork writes standard worklogs too, so Bakhyard and Clockwork see the same hours. The Time module shows a day report and fills missing days after a preview, as the user's tool does. It has no timers, which Clockwork already provides. The `time` service keeps no table of its own, because the worklogs stay in Jira. Settles the open part of 40.
 
 ## 10. Risks
 
@@ -1096,7 +1100,7 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - how iCloud sync behaves
   - Exophase blocking the polling
   - rounds of visual polish
-  - surprises in the external APIs (logging time on Jira, Bitbucket required approvals)
+  - surprises in the external APIs (Bitbucket required approvals)
 
 ## 12. Open questions
 
@@ -1104,7 +1108,6 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 - Google's authorized-domain step for `<tailnet>.ts.net` is only indirectly confirmed (spike).
 - Does the Google login stay inside the iPhone Home Screen app (spike)?
 - Can Bitbucket's required approvals be detected automatically, or are they configured per repo by hand?
-- Is time logged on the Jira tickets through Clockwork or through Jira's own worklogs (the user's example repo)?
 - iCloud sync latency between the host and the devices (spike).
 - Which HTTP client gets Exophase JSON reliably (spike)?
 - Does Copilot plan mode work with the built-in tools restricted (spike)?
@@ -1124,6 +1127,12 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - Business terms: https://github.com/customer-terms/general-terms
   - CLI admin policy: https://docs.github.com/en/copilot/how-tos/copilot-cli/administer-copilot-cli-for-your-enterprise
 - Jira search/jql: https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/ (CHANGE-2598)
+- Jira worklogs:
+  - REST API: https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-worklogs/
+  - OpenAPI spec, for parameters and deprecations: https://developer.atlassian.com/cloud/jira/platform/swagger-v3.v3.json
+  - JQL fields on Jira Cloud (`worklogDate`): https://support.atlassian.com/jira-software-cloud/docs/jql-fields/
+  - JQL fields on Data Center (`worklogAuthor`): https://confluence.atlassian.com/jirasoftwareserver/advanced-searching-fields-reference-939938743.html
+  - Clockwork writes standard Jira worklogs (its FAQ): https://www.herocoders.com/products/jira-time-tracking/clockwork-pro
 - Bitbucket API tokens: https://support.atlassian.com/bitbucket-cloud/docs/using-api-tokens/ (CHANGE-3222, CHANGE-2368)
 - GitHub search: https://docs.github.com/en/rest/search/search#search-issues-and-pull-requests
 - Push and HTTPS:
