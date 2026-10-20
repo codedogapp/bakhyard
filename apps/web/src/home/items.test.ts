@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { countNote, dueLabel, itemHref } from './items';
+import { countNote, dueLabel, itemCount, itemHref, itemNoun } from './items';
 
 describe('dueLabel', () => {
   const now = new Date('2026-10-20T01:00:00Z');
@@ -35,6 +35,28 @@ describe('dueLabel', () => {
 
   test('reads a due time with an offset', () => {
     expect(dueLabel('2026-10-20T13:00:00+09:00', now)).toBe('in 3 hours');
+  });
+});
+
+describe('itemNoun', () => {
+  test.each([
+    { count: 0, want: 'items' },
+    { count: 1, want: 'item' },
+    { count: 2, want: 'items' },
+  ])('says "$want" after $count', ({ count, want }) => {
+    expect(itemNoun(count)).toBe(want);
+  });
+});
+
+describe('itemCount', () => {
+  const items = [{ app: 'time' }, { app: 'pulls' }, { app: 'time' }] as const;
+
+  test.each([
+    { app: 'time', want: 2 },
+    { app: 'pulls', want: 1 },
+    { app: 'notes', want: 0 },
+  ] as const)('counts $want items for $app', ({ app, want }) => {
+    expect(itemCount(items, app)).toBe(want);
   });
 });
 

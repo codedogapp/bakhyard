@@ -1,18 +1,14 @@
+import { appHref, apps } from './apps';
+
 interface NavItem {
   label: string;
   href: string;
 }
 
-// Each app's page is named after its service (plan §4.3).
+/** Home, then every app. */
 export const navItems: readonly NavItem[] = [
   { label: 'Home', href: '/' },
-  { label: 'Notes', href: '/notes' },
-  { label: 'Todos', href: '/todos' },
-  { label: 'PRs', href: '/pulls' },
-  { label: 'Time', href: '/time' },
-  { label: 'GitHub', href: '/github' },
-  { label: 'Games', href: '/games' },
-  { label: 'Planner', href: '/planner' },
+  ...apps.map((app) => ({ label: app.label, href: appHref(app.id) })),
 ];
 
 /** Whether the page at path belongs to the item at href, its own pages included. Home is "/" alone. */

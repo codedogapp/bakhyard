@@ -1,17 +1,26 @@
 <script lang="ts">
-let { title, accent, note }: { title: string; accent: string; note?: string } = $props();
+import type { Snippet } from 'svelte';
+
+let { title, accent, note, children }: { title: string; accent: string; note?: string; children: Snippet } = $props();
 </script>
 
-<div class="section-head">
-  <!-- The space sits inside the braces, so Svelte adds no `?? ''` fallback that no test can reach. -->
-  <h2>{`${title} `}<em>{accent}</em></h2>
-  {#if note}
-    <p class="note">{note}</p>
-  {/if}
-</div>
+<section class="section">
+  <div class="head">
+    <!-- The space sits inside the braces, so Svelte adds no `?? ''` fallback that no test can reach. -->
+    <h2>{`${title} `}<em>{accent}</em></h2>
+    {#if note}
+      <p class="note">{note}</p>
+    {/if}
+  </div>
+  {@render children()}
+</section>
 
 <style>
-.section-head {
+.section {
+  padding: 0 var(--page-padding) 64px;
+}
+
+.head {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
@@ -45,7 +54,11 @@ em {
 }
 
 @media (max-width: 700px) {
-  .section-head {
+  .section {
+    padding-bottom: 48px;
+  }
+
+  .head {
     margin-bottom: 24px;
   }
 

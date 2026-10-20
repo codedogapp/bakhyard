@@ -49,8 +49,9 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `home-header` | The top bar's time and city, the header with the wordmark and the nav, and the focus outline | Done (#19) |
 | `home-name` | `home` serves `name` from `BAKHYARD_NAME`, falling back to "there" (§4.11) | Done (#20) |
 | `home-hero` | The hero (date, greeting and summary) and the top bar's Online or Offline (decision 49) | Done (#21) |
-| `home-feed` | The "Needs you today" card, from `/api/home`, with rows that link to their app (decision 50) | In progress |
-| `home-apps` | The "Your apps" grid and the weekly hours bar | Planned |
+| `home-feed` | The "Needs you today" card, from `/api/home`, with rows that link to their app (decision 50) | Done (#22) |
+| `home-apps` | The "Your apps" grid: a card per app that links to its page, with its count of items | In progress |
+| `home-week` | The "This week" card with the weekly hours bar, and the section head's text link to Time | Planned |
 | `home-phone` | The phone and tablet frame per §7: the bottom tab bar and safe areas | Planned |
 
 After these: the cockpit, then the product phases (§8.2), each split into steps.
@@ -499,7 +500,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 - `fetch('/api/home')`, with hand-written types (decision 43) that declare only the fields the app reads.
 - It loads the Home at once, then every 60 s while the page is visible and again whenever it becomes visible, as TanStack Query does by default. Only the latest request's answer applies, so a slow answer never overwrites a newer one.
 - A failed load (the gateway's 503, or no network) keeps the last Home on screen, and the top bar says "Offline · as of 01:10" (§7). The client sets no timeout of its own: a hung upstream is for the gateway's timeouts (decision 41).
-- A small pushState router. Pages other than Home show "Coming soon" for now. Until it arrives, the nav's plain links load each page in full, and every path shows the same page with its app marked in the nav.
+- A small pushState router. Pages other than Home show "Coming soon" for now. Until it arrives, the plain links in the nav and on the app cards load each page in full, and every path shows the same page with its app marked in the nav.
 
 **Dev loop**: `mise run dev` runs Vite on `:5173` with `/api` proxied to the gateway on `:8080`.
 
@@ -799,7 +800,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 - Right: a summary in `--ink-muted`, at most 390 px wide (ref): "6 things need you today. 2 are late." With no items: "All clear today." On phones it sits 20 px under the greeting.
 - Until the first load succeeds, the greeting has no name ("Good evening.") and there is no summary.
 
-**Section head**: a 1 px `--ink` rule on top with 13 px of space under it (ref), then the title on the left and a mono note or a text link on the right, aligned to the bottom, with 30 px below (24 on phones) (ref). A note that doesn't fit beside the title wraps under it.
+**Section head**: a 1 px `--ink` rule on top with 13 px of space under it (ref), then the title on the left and a mono note or a text link on the right, aligned to the bottom, with 30 px below (24 on phones) (ref). A note that doesn't fit beside the title wraps under it. Each section has 64 px of space below it (48 on phones).
 
 - One word of the title is the serif accent: "Needs you *today*", "Your *apps*", "This *week*".
 - **Text link**: 14 px, with a 1 px `--ink-muted` underline 5 px below the text (ref) that turns `--ink` on hover, and an arrow after it.
@@ -807,10 +808,10 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 **Card**: `--surface`, a 1 px `--rule` border, 20 px of padding, and a hard shadow: `box-shadow: var(--offset) var(--offset) 0 var(--shadow)` (ref).
 
 - A card that is a link, on hover: the border turns `--ink`, and the shadow grows to `--offset-hover` in `--shadow-strong` while the card lifts 2 px (ref).
-- Pressed: the card moves 2 px down and to the right, and its shadow shrinks by the same, like a key going down.
+- Pressed: the card moves 2 px down and to the right, and its shadow, in `--shadow-strong`, shrinks by as much, to 4 px, like a key going down.
 - Transitions: 150 ms on transform, shadow and border colour, and none under `prefers-reduced-motion` (ref). On touch screens (`hover: none`) cards don't lift.
 
-**"Needs you today"**: the section head's note reads "6 items · most urgent first" ("1 item" for one), and there is no note without items. Below it, one card with no padding holds a row per item, in the server's order (§4.11), split by 1 px `--rule` lines. The section has 64 px of space below it (48 on phones).
+**"Needs you today"**: the section head's note reads "6 items · most urgent first" ("1 item" for one), and there is no note without items. Below it, one card with no padding holds a row per item, in the server's order (§4.11), split by 1 px `--rule` lines.
 
 - A row is at least 64 px tall, with padding of 10 by 20 px: a mono source label ("Bitbucket") in a 120 px left column; the title (16 / 500) over the detail (14, `--ink-muted`); on the right, a late item's Late chip, then the due time in mono. On phones the source label shares the first line with the chip and the due time, and the title and detail sit under them. A long word in the title or detail breaks rather than widen the page.
 - The due time is relative, built with `Intl.RelativeTimeFormat` (en-GB, `numeric: 'always'`, so a day ago reads "1 day ago", never a "yesterday" that may not match the calendar): "now" within half a minute, then minutes under an hour, hours under a day and days beyond, each rounded to the nearest with halves away from zero: "in 3 hours", "2 hours ago", "in 5 days". It moves on at each minute with the page's one clock, which the top bar and the greeting share. Whether an item is late comes only from the server's `late`, refreshed by each poll (decision 49).
@@ -820,9 +821,10 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 **Chip**: mono 10 px uppercase, padding 3 by 6 px, a 1 px `--ink` border. Late is an ink fill with `--paper` text. Colour is never used.
 
-**"Your apps"**: a grid of 4 columns on desktop, 3 on tablets and 2 on phones (ref), with a 24 px gap (12 px on phones).
+**"Your apps"**: a grid of 4 columns on desktop, 3 on tablets and 2 on phones (ref), with a 24 px gap (12 px on phones). The cards in a row share its height.
 
-- Each app is one card, all of it a link. A mono number ("01") at the top left and an arrow at the top right. Then how many of the app's items are in "Needs you today", as a big number with a mono "items" label; a zero shows in `--ink-muted`. Then the name as a card title, and a one-line description in `--ink-muted`.
+- Each app is one card, all of it a link to the app's page, the same path as in the nav. A mono number ("01") at the top left in `--ink-muted` and a → arrow at the top right, both hidden from screen readers. Then, 32 px down, how many of the app's items are in "Needs you today": a big number with a mono label, "item" for one and "items" otherwise; a zero shows in `--ink-muted`. Then the name as a card title (an `h3`), and a one-line description in `--ink-muted`, which wraps on phones.
+- The grid is how you reach the apps, so it shows before the first load succeeds too, without counts; the counts appear with the first load.
 
 **"This week"**: a card with the logged hours as a big number ("31.5 / 40 h"), a mono "Logged on Jira" label, and a bar 8 px tall with square ends: an `--ink` fill on an `--fill` track. The section head links to Time. Without a week (the time service is down, §4.11), the card says "Hours unavailable" in `--ink-muted`.
 
