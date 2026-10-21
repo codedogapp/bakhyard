@@ -64,13 +64,14 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `cockpit-wait` | The cockpit starts a service only once the services it depends on are healthy | Dropped (#35 closed, decision 61) |
 | `cockpit-logs` | Each service's log in the TUI | Dropped: process-compose has it (decision 61) |
 | `cockpit-restart` | A service that crashes restarts with backoff | Dropped: process-compose has it (decision 61) |
-| `process-compose` | process-compose runs the services in place of the cockpit, which is removed (decision 61) | In progress |
+| `process-compose` | process-compose runs the services in place of the cockpit, which is removed (decision 61) | Done (#36) |
+| `spike-https-push` | The Phase 0 spike (§8.2): HTTPS through `tailscale serve`, the identity headers, Web Push and Google sign-in, tested on the iPhone and the Mac; the findings are in §2, §3 and §10 (decisions 62 to 65) | Done (#38) |
 
 After these: the product phases (§8.2), each split into steps.
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and process-compose's detached mode and API server (§4.9).
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does. Each service's port is written twice in `process-compose.yaml`, in its `BAKHYARD_LISTEN` and its probe, and the gateway's `BAKHYARD_PEERS` repeats home's and web's; a check could keep them in step. Nothing checks that every address is on the loopback, though nothing should listen on the LAN (§3).
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The app has no favicon yet, so every page load logs a 404 for `/favicon.ico`; the icons could come early, before the rest of the PWA manifest (§8.2 `frontend-shell`). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does. Each service's port is written twice in `process-compose.yaml`, in its `BAKHYARD_LISTEN` and its probe, and the gateway's `BAKHYARD_PEERS` repeats home's and web's; a check could keep them in step. Nothing checks that every address is on the loopback, though nothing should listen on the LAN (§3). Pushover could join Web Push as a second notification channel, for alerts that repeat until acknowledged (§2, decision 64).
 
 ## 1. Goal and scope
 
@@ -107,9 +108,9 @@ Verified 2026-10-17 unless marked.
 | Bitbucket Cloud | ✅ | Scoped Atlassian API token (app passwords died 2026-07-28), host `api.bitbucket.org`. Mine: `GET /2.0/workspaces/{ws}/pullrequests/{me}?state=OPEN`. Reviewing: per repo `pullrequests?q=reviewers.uuid="{uuid}" AND state="OPEN"`. Approvals: PR detail `participants[]`; `/activity` for the last reviewer action | No cross-repo "reviewing" endpoint; 1,000 req/h → cache + incremental scan; webhooks need repo admin → poll |
 | Time tracking, verified 2026-10-20 | ✅ | Standard Jira worklogs over REST v3 with the Jira token, as the user's own tool does. Read: my `accountId` from `GET /rest/api/3/myself`; the issues from `search/jql` with `worklogAuthor = currentUser() AND worklogDate >= "<from>" AND worklogDate < "<to>"`; then per issue `GET /rest/api/3/issue/{key}/worklog` with `startedAfter` and `startedBefore` (UNIX ms) and `startAt` paging, keeping my own. Write: `POST /rest/api/3/issue/{key}/worklog` with `started` and `timeSpentSeconds`. None of these is deprecated. Clockwork's worklogs are standard Jira worklogs, so Bakhyard and Clockwork see the same hours | Time tracking must be enabled; writing needs the Browse projects and Work on issues permissions. `worklogAuthor` is in Atlassian's Data Center field reference but not the Cloud one, though it works on Jira Cloud today; the documented fallback, `GET /rest/api/3/worklog/updated` + `POST /rest/api/3/worklog/list`, scans every worklog the token can see. JQL searches only an issue's 1,000 most recent worklogs. By default a new worklog emails the issue's watchers (`notifyUsers`) and reduces the remaining estimate (`adjustEstimate=auto`). Tempo is not used (decision 40) |
 | PR reminders | ✅ | Own scheduler + rule engine. "Required approvals" is a per-repo setting | Auto-detection via the branch restrictions API is unverified (may need admin) |
-| Push (iPhone / Mac / browser) | ✅ | (a) Web Push: iOS 16.4+ Home Screen PWA + Safari/Chrome on the MacBook. Needs HTTPS → `tailscale serve` (free, valid cert, no inbound ports). (b) Pushover: $4.99 once per platform (iOS, Desktop), 10k msg/month, `priority=2` repeats until acknowledged, no HTTPS needed | The browser Notification API needs a secure context (LAN `http://192.168…` fails). `osascript`/terminal-notifier only notify the host Mac, not the MacBook. ntfy: self-hosting is Docker-only on macOS and the iPhone shows "New message" off-LAN; public ntfy.sh = topic-as-password, 250 msg/day, iOS app "a little buggy" |
+| Push (iPhone / Mac / browser), tested on the devices 2026-10-21 | ✅ | **Web Push** (VAPID) through `tailscale serve` (free, valid cert, no inbound ports), sent by the spike's throwaway server. iPhone (iOS 27.0.1) Home Screen PWA, through `web.push.apple.com`: the push service answers 201 in 140–730 ms, usually about 170, and the notification shows 0.4–1 s after the send (three times about 2 s) with the app open, in the background or swiped away. A tap brings the app to the front, or launches it in standalone mode if it was closed. Mac Safari 26.4, also through `web.push.apple.com`, within 0.75 s, with the tab open or closed; a tap opens a window. Brave on the Mac, through Google's `fcm.googleapis.com`, within 0.3 s. FCM answers 410 "push subscription has unsubscribed or expired." once a subscription is revoked. Alternative: Pushover ($4.99 once per platform, 10k msg/month, `priority=2` repeats until acknowledged, no HTTPS needed), now an idea (decision 64) | On the iPhone only the Home Screen app can subscribe: a Safari tab has neither `PushManager` nor the Notification API. Brave needs two switches: "Use Google services for push messaging" (brave://settings/privacy), off by default, without which `subscribe()` fails with "AbortError: Registration failed - push service error"; and Brave's notification permission in macOS, without which `showNotification` succeeds and nothing shows. Chromium's push goes through Google's FCM, which sees the metadata; the payload is end-to-end encrypted. `webpush-go` v1.4.0 ignores `VapidExpiration` (its JWT always expires after 12 h), prepends `mailto:` unless the subscriber starts with `https:`, pads payloads to 4,096 bytes, and requires `golang-jwt/jwt/v5` v5.2.1 (GO-2025-3553) and `x/crypto` v0.31.0. The Notification API needs a secure context (LAN `http://192.168…` fails). `osascript`/terminal-notifier only notify the host Mac, not the MacBook. ntfy: self-hosting is Docker-only on macOS and the iPhone shows "New message" off-LAN; public ntfy.sh = topic-as-password, 250 msg/day, iOS app "a little buggy" |
 | GitHub | ✅ | `GET /search/issues`: `is:pr is:open author:@me`, `is:pr is:open review-requested:@me`, `is:issue is:open assignee:@me`; 30 req/min | A fine-grained PAT covers one owner; the Notifications API needs a classic PAT |
-| Sign-in (one email), verified 2026-10-18 | ✅ Google · ❌ Apple (cost) | Google redirect URIs need HTTPS and a host on the public suffix list. `ts.net` is a PSL private suffix, and there is no reachability rule (the browser delivers the callback). Testing mode with `openid email profile`: no 7-day expiry, no warning screen. Tailscale Serve identity headers (spoofed copies stripped); Tailscale login providers include Google and Apple | Google lets ANY account finish sign-in → the app pins `sub`. The authorized-domain step for `<tailnet>.ts.net` is only indirectly confirmed. Apple needs a $99/yr developer account; `ts.net` acceptance unknown; its form_post callback breaks Lax cookies. The iOS Home Screen app may hand the login off to Safari (separate cookie jar) → device test |
+| Sign-in (one email), verified 2026-10-18, tested on the devices 2026-10-21 | ✅ Google · ❌ Apple (cost) | Google redirect URIs need HTTPS and a host on the public suffix list. `ts.net` is a PSL private suffix, and there is no reachability rule (the browser delivers the callback). Testing mode with `openid email profile`: no 7-day expiry, no warning screen. Google accepted the `ts.net` redirect URI for an External app in Testing mode and asked for no authorized domain or verification. From the iPhone Home Screen app (iOS 27.0.1), Google's pages open inside the app and the callback lands in standalone mode, in the app's own cookie jar; a popup (`window.open`) works too. The session survives closing and reopening the app. The callback is a cross-site top-level GET, so `SameSite=Lax` cookies arrive with it. Tailscale Serve identity headers: `Tailscale-User-Login` and `Tailscale-User-Name` arrive, and copies sent by the client are replaced; Tailscale login providers include Google and Apple | Google lets ANY account finish sign-in → the app pins `sub`. Apple needs a $99/yr developer account; `ts.net` acceptance unknown; its form_post callback breaks Lax cookies. A later iOS may hand the login off to Safari, whose cookie jar is separate (§10) |
 | Copilot planner | ✅ (spike first) | Copilot SDK **GA 2026-06-02** (v1.0.22). Go `github.com/github/copilot-sdk/go` (needs the `copilot` CLI: `brew install --cask copilot-cli`); Java is official too (`com.github:copilot-sdk-java`, Java 17+). Plan mode: `AgentMode: plan` + `OnExitPlanModeRequest` → plan markdown; custom tools; `AvailableTools`; permission handler. Per-client `GitHubToken` → identity separate from the personal GitHub token | **Work Business seat**: needs an admin Copilot CLI policy; the GitHub Customer Agreement licenses seats "only for Customer's internal business purposes"; usage draws employer credits → needs employer OK, otherwise personal Copilot Free/Pro. SSO orgs → `copilot login --device-code`; a possible `*.ghe.com` tenant → `--host`. Env precedence `COPILOT_GITHUB_TOKEN` > `GH_TOKEN` > `GITHUB_TOKEN` (keep the personal token out of the Copilot process). Billing = token-based AI credits. Plan mode + restricted tools combination unverified. GitHub Models retired 2026-07-30 |
 | Backloggd | ⚠️ partial | **No public API** (request open since 2023, no developer reply; no export). ✅ Official **reviews RSS** `https://backloggd.com/u/{user}/reviews/rss/` (last 20 reviews: title, rating, link, date, cover): 200, no bot check. Playing/backlog/wishlist pages: **Anubis PoW challenge** for every server client (tested). Card markup per public code: `div.game-cover[game_id] > a[href=/games/{slug}/] … img[alt]` | ToS: "access the Website through the interface we provide" → automated Anubis solving (Playwright / PoW solvers exist) conflicts. Low-risk path: capture from my own browser (bookmarklet / iOS Shortcut) → push to the dashboard. IGDB API (free for non-commercial use, Twitch app credentials) for metadata and covers |
 | Exophase | ⚠️ partial | **No documented API.** Internal JSON works without login: `api.exophase.com/public/player/{playerId}/games?page=N&environment=&sort=1&showHidden=0` (title, platform, playtime, earned/total awards, %, last played) + `/public/player/{servicePlayerId}/game/{master_id}/earned`. Player IDs: one for the account, one per linked platform (Nintendo, PSN) | **A Cloudflare challenge (403) blocks curl, Node and headless Chrome** from the home network → server polling is fragile and gets round a bot check. robots.txt only disallows `/search`; the ToS has no scraping clause. `card.exophase.com` images are not challenged (copy the exact card URL from the Exophase UI). Fallback: browser capture. ⚠️ The public profile HTML contains personal data → never fetch or store the raw page |
@@ -130,6 +131,10 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
   - A LaunchAgent with `KeepAlive` runs process-compose, which supervises every service. A user session is needed for iCloud and the Keychain.
   - Same Apple ID as the iPhone and the MacBook; the vault folder is set to *Keep Downloaded*.
 - **Network**: Tailscale on the host, the MacBook and the iPhone. `tailscale serve` publishes `https://<host>.<tailnet>.ts.net` → the gateway on `127.0.0.1:8080`. Nothing listens on the LAN.
+  - On the host, Tailscale is the Homebrew formula: the open-source `tailscaled` as a root LaunchDaemon, up at boot before any login, with no GUI and no auto-update (decision 62).
+  - Funnel works on the formula (not on the two apps), so `tailscale serve status` must show the tailnet only.
+  - Serve's certificate comes from Let's Encrypt and lasts 90 days. Tailscale's docs say a certificate that isn't installed as files, as with Serve, renews by itself; no renewal has been watched yet.
+  - On the formula, MagicDNS answers through `/etc/resolver/` files: check a name with `dscacheutil -q host -a name …`, not `dig`, which skips them.
 - **Backend**: Go services (§4). Secrets live in the macOS Keychain. Each integration service owns its adapters: poll → cache a snapshot in its own SQLite → diff → publish change events and feed the notification rules.
 - **Frontend**:
   - Svelte 5 + Vite + TypeScript SPA, installed as a PWA (manifest, service worker, Web Push).
@@ -141,7 +146,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
   - One session per plan; deny-by-default permission handler; built-in shell and write tools excluded.
   - The service, not the agent, writes the plan to `Plans/YYYY-MM-DD-<slug>.md` with frontmatter.
   - Per-session credit limit.
-- **Notifications** (notify service): channel abstraction → Web Push to the iPhone Home Screen PWA and the MacBook browser; a Pushover adapter is optional later; in-app notification centre.
+- **Notifications** (notify service): Web Push only (decision 64), to the iPhone Home Screen PWA and to Safari on the MacBook, or Brave with Google's push service switched on (§2). A device is forgotten when its push service answers 404 or 410. In-app notification centre.
 - **Games** (games service):
   - Backloggd = a manual list in the dashboard (playing / backlog / wishlist / played). Games are added via IGDB search (title, cover, platforms) and link to `backloggd.com/games/{igdb-slug}/`. The official reviews RSS is polled automatically.
   - Exophase = hourly poll of the internal JSON (`/public/player/{accountId}/games?page=1&environment=&sort=1&showHidden=0`), daily `/earned` for recently played games. The HTTP client is picked in the spike. On a 403 or challenge: exponential backoff, keep the last good data, show a "stale" badge, fall back to the card image.
@@ -149,7 +154,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 - **Vault writes** (notes service, conflict-safe): new notes get unique names; edit only if the mtime/hash is unchanged since the read; temp file + atomic rename; skip notes modified elsewhere in the last few minutes; never touch `.obsidian/`.
 - **Auth** (enforced at the gateway; one person, two locks):
   1. **Tailscale identity**:
-     - The gateway listens on `127.0.0.1` only; `tailscale serve` adds `Tailscale-User-Login` and strips spoofed copies.
+     - The gateway listens on `127.0.0.1` only; `tailscale serve` adds `Tailscale-User-Login` and replaces copies sent by the client (tested 2026-10-21). It also sets `X-Forwarded-For` (the client's tailnet IP), `X-Forwarded-Host` and `X-Forwarded-Proto: https`.
      - Require the login to equal the allowed email (Tailscale account created via Google, or Apple).
      - Check that `Host` is our `ts.net` name.
      - No identity headers (tagged devices, Funnel) → reject.
@@ -159,10 +164,10 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
      - Scopes `openid email`; the consent screen app stays in "Testing" (no 7-day expiry for basic scopes).
      - Google does NOT enforce the test-user list → allow only `email_verified` + the allowed email at first login, then pin `sub` and match on `sub` afterwards.
      - Callback `https://<host>.<tailnet>.ts.net/auth/google/callback`; Google never needs to reach it.
+     - The callback is a cross-site top-level GET: the `SameSite=Lax` cookies arrive with it, and `CrossOriginProtection` always allows GET. It creates a session, so `state`, PKCE and the nonce are what protect it.
   3. **Session**:
      - `__Host-` cookie, Secure, HttpOnly, SameSite=Lax, sliding ~30 days; sessions stored in SQLite.
      - CSRF protection via Go's `http.CrossOriginProtection`.
-  4. **iPhone PWA fallback**: if the Google redirect escapes to Safari (Home Screen apps keep a separate cookie jar), use the Tailscale identity alone on that device, or enroll a passkey later.
 
 **Polling defaults**: Jira 5 min; Bitbucket mine 5 min, review scan 15 min (repo list daily); GitHub 5 min; logged time 15 min + on demand; Backloggd reviews RSS 2 h; Exophase games hourly, `/earned` daily; IGDB on demand (cached).
 
@@ -883,7 +888,7 @@ Superseded by the steps in §0 (v1.3). The v1.2 first-slice tasks went to the ar
 
 ### 8.2 Product phases
 
-Every item is pending. The service an item lands in is in brackets.
+Every item is pending unless it says done. The service an item lands in is in brackets.
 
 **Phase 0: spikes (prove the risky parts first)**
 
@@ -898,10 +903,10 @@ Every item is pending. The service an item lands in is in brackets.
   - Test that a server write reaches the iPhone and the MacBook, and the latency.
   - Test an offline double-edit conflict, dataless files and the FSEvents watcher.
   - Test a host reboot with auto-login.
-- `spike-https-push` [gateway, notify]:
+- `spike-https-push` [gateway, notify]: done (#38). The findings are in §2 (Push, Sign-in), §3 (Network, Notifications, Auth) and §10; decisions 62 to 65.
   - `tailscale serve` with a valid ts.net certificate, and a minimal PWA on the iPhone Home Screen.
   - Web Push (VAPID) to the iPhone and the Mac browser, also with the app closed.
-  - Test the Google OIDC redirect from inside the Home Screen app: does it stay in the app or hand off to Safari, and which cookie jar gets the session?
+  - Test the Google OIDC redirect from inside the Home Screen app: does it stay in the app or hand off to Safari, and which cookie jar gets the session? It stays in the app, and the app's own jar gets the session.
   - Check that `Tailscale-User-Login` is present.
 - `spike-games-access` [games]:
   - Find a Go HTTP approach that reliably gets Exophase JSON from the host: std `net/http` with browser headers first, then TLS-fingerprint clients such as `bogdanfinn/tls-client` or curl-impersonate (to be verified).
@@ -922,7 +927,6 @@ Every item is pending. The service an item lands in is in brackets.
   - Implement §3 Auth: a Tailscale-identity middleware, Google OIDC, `sub` pinning, `__Host-` session cookie, CSRF protection.
   - A sign-in page in the §7 style.
   - Setup notes for the Google Cloud OAuth client (External, Testing).
-  - The iPhone PWA fallback.
 - `frontend-shell` [web]. Needs `scaffold-repo`.
   - SPA shell per §7: tokens for both themes, self-hosted fonts, the paper grain, our own inline SVG icons.
   - Components: top bar, header nav, hero, section head, card, list rows, chips, app cards, hours bar, buttons.
@@ -935,7 +939,7 @@ Every item is pending. The service an item lands in is in brackets.
   - Each module registers its provider as it lands. Partly done in the first slice (contracts, demo data).
 - `deploy-launchd`. Needs `backend-foundation`.
   - A LaunchAgent (`KeepAlive`) that runs process-compose (§4.9), plus a build-and-deploy script.
-  - Host setup notes: auto-login, no sleep, `tailscale serve`, copilot CLI install.
+  - Host setup notes: auto-login, no sleep, the Tailscale formula and `tailscale serve` (decision 62), copilot CLI install.
 
 **Phase 2: notes**
 
@@ -963,9 +967,9 @@ Every item is pending. The service an item lands in is in brackets.
   - Review requests via the per-repo `reviewers.uuid` query, cached (1,000 req/h).
   - Approvals from the PR participants; `/activity` for the last reviewer action.
 - `notifications` [notify]. Needs `backend-foundation`, `frontend-shell`, `spike-https-push`.
-  - Channel abstraction:
-    - Web Push (VAPID; iPhone Home Screen PWA, MacBook Safari/Chrome; HTTPS via `tailscale serve`);
-    - and/or Pushover (iOS + Desktop, `priority=2` for nags).
+  - Web Push only (VAPID; decision 64): to the iPhone Home Screen PWA and to Safari on the MacBook, or Brave with Google's push service on (§2); HTTPS via `tailscale serve`.
+  - Forget a device when its push service answers 404 or 410.
+  - The Go sender is still to pick: the spike's `webpush-go` v1.4.0 works, with the caveats in §2.
   - In-app notification centre and deep links.
   - Never put tokens in payloads.
 - `pr-reminders` [pulls → notify via JetStream]. Needs `bitbucket-prs`, `notifications`.
@@ -1090,6 +1094,11 @@ Made on 2026-10-21:
 
 61. **process-compose instead of the cockpit**: the user's choice, to keep things simple. [process-compose](https://github.com/F1bonacc1/process-compose) runs the services from `process-compose.yaml` (§4.9), and `tools/cockpit` and `services.toml` are removed, with the Go modules only the cockpit used (Bubble Tea, Lip Gloss, Bubbles and go-toml). It already has what the cockpit's last three steps were to build: the gateway starts once home's and web's health checks pass, the TUI shows each service's output, and a service that exits or fails its checks restarts. Its TUI starts, stops and restarts each service and shows its status, health, CPU and memory, as the cockpit's did. Every service restarts after 1 s with no limit: process-compose counts a service's restarts from its own start, with no time window, until a restart by hand resets the count, so any limit would one day leave a long-running service down. A service stopped by hand stays stopped, and a service that exits no longer stops the others, which replaces 55. A stop is SIGTERM, then SIGKILL after 10 s; that needs `shutdown.timeout_seconds`, since without it process-compose never sends SIGKILL. Its API server stays off, because its default address is the gateway's. The services' environment is unchanged (56), now written in `process-compose.yaml`, and `internal/env` only reads it. Replaces 13, and the cockpit parts of 54 to 60.
 
+62. **Tailscale on the host: the Homebrew formula**: the user's choice. The host runs the open-source `tailscaled` from the `tailscale` formula, as a root LaunchDaemon (`sudo brew services start tailscale`), so it is up at boot before any login, which neither Tailscale app can be. It has no GUI and doesn't update itself: updates are `brew upgrade tailscale`, then `sudo brew services restart tailscale`, by hand, as Renovate can't see them. Unlike the apps it can run Funnel, so `tailscale serve status` must show the tailnet only; Funnel's requests carry no identity headers, so the gateway would reject them anyway (§3). The spike ran on it.
+63. **No sign-in fallback on the iPhone**: the user's choice. On iOS 27 Google's sign-in stays inside the Home Screen app, and the session lands in the app's own cookie jar (§2), so the fallback to the Tailscale identity alone is dropped from §3 and `auth-signin`. §10 keeps the risk that a later iOS changes this.
+64. **Web Push only**: the user's choice. The notify service sends Web Push alone, with no channel abstraction and no Pushover adapter: Web Push reached the iPhone and the Mac in every state the spike tried (§2). Pushover, whose alerts can repeat until acknowledged, is now an idea (§0).
+65. **Spikes live outside the repo**: the user's choice, an exception to AGENTS.md's "Stay in the repo". A spike's code is throwaway: it lives in `../bakhyard-spikes/<name>/`, next to the repo, and is never committed. Its findings reach the repo through a docs PR on the spike's `step/<id>` branch. AGENTS.md has the rule.
+
 ## 10. Risks
 
 - **Exophase polling** (accepted by the user): undocumented endpoints behind a Cloudflare bot check may break or get blocked at any time. Mitigations: hourly at most, backoff, last-good cache, "stale" badge, card-image fallback. Backloggd's manual list carries no scraping risk.
@@ -1100,8 +1109,10 @@ Made on 2026-10-21:
 - **Rate limits**: Bitbucket 1,000 req/h; GitHub search 30 req/min.
 - **Copilot SDK**: some parts are experimental (mode RPCs, `sessionLimits`); employer-managed settings can override the local config.
 - **Sign-in**:
-  - Google login inside the iPhone Home Screen app is unverified on iOS 18/26 (conflicting reports). The fallback is the Tailscale identity alone, or a passkey.
+  - Google's login stays inside the iPhone Home Screen app on iOS 27 (§2). A later iOS may hand it to Safari again, whose cookie jar is separate; then the iPhone would rely on the Tailscale identity alone, or a passkey (decision 63).
   - HTTPS certificates publish the machine and tailnet names in public Certificate Transparency logs.
+- **Push in Brave**: Brave sends Web Push through Google's FCM only when "Use Google services for push messaging" is on, which it isn't by default, and shows nothing until macOS allows its notifications (§2). Safari needs neither.
+- **Tailscale updates by hand**: the formula on the host doesn't update itself and Renovate can't see it (decision 62), so a security fix waits for a `brew upgrade`. It can run Funnel, unlike the apps; the gateway's identity check rejects Funnel's requests (§3). No renewal of Serve's 90-day certificate has been watched yet.
 - **Microservices overhead**: about a dozen processes for one user, plus sockets, a supervisor and contracts to maintain. The effort goes up by about 25–40% (§11). Mitigated by process-compose, the kit and the contract checks.
 - **Bleeding-edge toolchain**:
   - TypeScript 7 relies on svelte-check's `--tsgo` mode, which has open issues, and TypeScript 6 must stay installed alongside until svelte-check supports TypeScript 7 directly.
@@ -1142,7 +1153,6 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 - **Without an agent**: solo by hand takes roughly 1.5–2× as long.
 - **MVP**: the first useful slice is Phases 0–2 plus Jira todos, Bitbucket PRs and reminders, at ≈ 8–12 d (before the microservices overhead).
 - **Main uncertainties**:
-  - sign-in and push quirks in the iPhone PWA
   - how iCloud sync behaves
   - Exophase blocking the polling
   - rounds of visual polish
@@ -1151,8 +1161,7 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 ## 12. Open questions
 
 - For the first service-to-service call: grpc-go or connect-go, and which connect-go v2 ecosystem modules (OpenTelemetry interceptors, validation) exist (decision 43)?
-- Google's authorized-domain step for `<tailnet>.ts.net` is only indirectly confirmed (spike).
-- Does the Google login stay inside the iPhone Home Screen app (spike)?
+- Which Mac is the host? The spike ran on the MacBook, standing in for it.
 - Can Bitbucket's required approvals be detected automatically, or are they configured per repo by hand?
 - iCloud sync latency between the host and the devices (spike).
 - Which HTTP client gets Exophase JSON reliably (spike)?
@@ -1184,6 +1193,10 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 - Push and HTTPS:
   - Web Push on iOS: https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/
   - Tailscale serve: https://tailscale.com/kb/1312/serve
+  - Tailscale's three macOS variants: https://tailscale.com/docs/concepts/macos-variants
+  - Tailscale HTTPS certificates and their renewal: https://tailscale.com/docs/how-to/set-up-https-certificates
+  - Brave's push default: `browser/gcm_driver/brave_gcm_utils.cc` in brave/brave-core, and brave/brave-browser#41930
+  - Website notifications on the Mac: https://support.apple.com/guide/safari/customize-website-notifications-sfri40734/mac
   - ntfy on iOS: https://docs.ntfy.sh/config/#ios-instant-notifications
   - Pushover: https://pushover.net/pricing, https://pushover.net/api
 - Games:
