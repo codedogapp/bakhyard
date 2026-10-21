@@ -66,6 +66,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `cockpit-restart` | A service that crashes restarts with backoff | Dropped: process-compose has it (decision 61) |
 | `process-compose` | process-compose runs the services in place of the cockpit, which is removed (decision 61) | Done (#36) |
 | `spike-https-push` | The Phase 0 spike (§8.2): HTTPS through `tailscale serve`, the identity headers, Web Push and Google sign-in, tested on the iPhone and the Mac; the findings are in §2, §3 and §10 (decisions 62 to 65) | Done (#38) |
+| `spike-games-access` | The Phase 0 spike (§8.2): which HTTP client reads Exophase's JSON, IGDB's token, search and covers, and the Backloggd reviews RSS; the findings are in §2, §3 and §10 (decisions 66 to 68) | Done (#39) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -82,7 +83,7 @@ Modules:
 1. **Notes**: live render and edit of the Obsidian vault. The vault stays in sync on the MacBook and the iPhone.
 2. **Work**: custom todos linked to Jira tickets; Bitbucket PRs (mine and review requests); time tracking on the Jira tickets; "nudge reviewers" reminders.
 3. **GitHub**: my open PRs, review requests and assigned issues, across all owners and orgs.
-4. **Games**: Backloggd "currently playing" (plus extras where feasible); Exophase stats.
+4. **Games**: what I'm playing (the games played in the last 14 days) and their stats, from Exophase, with IGDB covers. No Backloggd (decision 66).
 5. **Copilot planner**: plan-mode chat with Copilot; the result is saved as a note in the vault.
 
 Inputs from the user:
@@ -112,13 +113,14 @@ Verified 2026-10-17 unless marked.
 | GitHub | ✅ | `GET /search/issues`: `is:pr is:open author:@me`, `is:pr is:open review-requested:@me`, `is:issue is:open assignee:@me`; 30 req/min | A fine-grained PAT covers one owner; the Notifications API needs a classic PAT |
 | Sign-in (one email), verified 2026-10-18, tested on the devices 2026-10-21 | ✅ Google · ❌ Apple (cost) | Google redirect URIs need HTTPS and a host on the public suffix list. `ts.net` is a PSL private suffix, and there is no reachability rule (the browser delivers the callback). Testing mode with `openid email profile`: no 7-day expiry, no warning screen. Google accepted the `ts.net` redirect URI for an External app in Testing mode and asked for no authorized domain or verification. From the iPhone Home Screen app (iOS 27.0.1), Google's pages open inside the app and the callback lands in standalone mode, in the app's own cookie jar; a popup (`window.open`) works too. The session survives closing and reopening the app. The callback is a cross-site top-level GET, so `SameSite=Lax` cookies arrive with it. Tailscale Serve identity headers: `Tailscale-User-Login` and `Tailscale-User-Name` arrive, and copies sent by the client are replaced; Tailscale login providers include Google and Apple | Google lets ANY account finish sign-in → the app pins `sub`. Apple needs a $99/yr developer account; `ts.net` acceptance unknown; its form_post callback breaks Lax cookies. A later iOS may hand the login off to Safari, whose cookie jar is separate (§10) |
 | Copilot planner | ✅ (spike first) | Copilot SDK **GA 2026-06-02** (v1.0.22). Go `github.com/github/copilot-sdk/go` (needs the `copilot` CLI: `brew install --cask copilot-cli`); Java is official too (`com.github:copilot-sdk-java`, Java 17+). Plan mode: `AgentMode: plan` + `OnExitPlanModeRequest` → plan markdown; custom tools; `AvailableTools`; permission handler. Per-client `GitHubToken` → identity separate from the personal GitHub token | **Work Business seat**: needs an admin Copilot CLI policy; the GitHub Customer Agreement licenses seats "only for Customer's internal business purposes"; usage draws employer credits → needs employer OK, otherwise personal Copilot Free/Pro. SSO orgs → `copilot login --device-code`; a possible `*.ghe.com` tenant → `--host`. Env precedence `COPILOT_GITHUB_TOKEN` > `GH_TOKEN` > `GITHUB_TOKEN` (keep the personal token out of the Copilot process). Billing = token-based AI credits. Plan mode + restricted tools combination unverified. GitHub Models retired 2026-07-30 |
-| Backloggd | ⚠️ partial | **No public API** (request open since 2023, no developer reply; no export). ✅ Official **reviews RSS** `https://backloggd.com/u/{user}/reviews/rss/` (last 20 reviews: title, rating, link, date, cover): 200, no bot check. Playing/backlog/wishlist pages: **Anubis PoW challenge** for every server client (tested). Card markup per public code: `div.game-cover[game_id] > a[href=/games/{slug}/] … img[alt]` | ToS: "access the Website through the interface we provide" → automated Anubis solving (Playwright / PoW solvers exist) conflicts. Low-risk path: capture from my own browser (bookmarklet / iOS Shortcut) → push to the dashboard. IGDB API (free for non-commercial use, Twitch app credentials) for metadata and covers |
-| Exophase | ⚠️ partial | **No documented API.** Internal JSON works without login: `api.exophase.com/public/player/{playerId}/games?page=N&environment=&sort=1&showHidden=0` (title, platform, playtime, earned/total awards, %, last played) + `/public/player/{servicePlayerId}/game/{master_id}/earned`. Player IDs: one for the account, one per linked platform (Nintendo, PSN) | **A Cloudflare challenge (403) blocks curl, Node and headless Chrome** from the home network → server polling is fragile and gets round a bot check. robots.txt only disallows `/search`; the ToS has no scraping clause. `card.exophase.com` images are not challenged (copy the exact card URL from the Exophase UI). Fallback: browser capture. ⚠️ The public profile HTML contains personal data → never fetch or store the raw page |
+| Backloggd, re-checked 2026-10-21 | ⚠️ partial, not used (decision 66) | **No public API** (request open since 2023, no developer reply; no export). ✅ Official **reviews RSS** `https://backloggd.com/u/{user}/reviews/rss/` (the last 20 reviews): 200 `application/rss+xml`, no bot check; 404 for an unknown user. Per public code that parses it, an item has the title "Name (Year) - ★★★★½", the review's link, `pubDate`, the review text, `backloggd:user_rating` (0–10) and the IGDB cover, but no game slug; the cover's id leads back to the IGDB game through `/v4/covers`. Game pages use IGDB's slugs (9 of 10 checked) | Playing, backlog and wishlist pages: an **Anubis proof-of-work challenge** for every client tried (Go's default, a browser's and an honest user agent). ToS: "You agree to access the Website through the interface we provide" → solving the challenge (Playwright, PoW solvers) conflicts. The RSS carries reviews only, and the user writes none |
+| Exophase, tested 2026-10-21 | ✅ undocumented | **No documented API.** Internal JSON, no login: `api.exophase.com/public/player/{playerProfileId}/games?page=N&environment=&sort=1&showHidden=0`, 50 games a page, last played first; past the last page `{"success":false}`. Per game: `meta.title`, `meta.environment_slug` (`psn`, `nintendo`), `meta.platforms`, `playtime`, `earned_awards`, `total_awards`, `percent`, `lastplayed_utc` (Unix seconds), and banners on `m.exophase.com` (127×70 and smaller). `/public/player/{master_playerid}/game/{master_id}/earned?last=0`, from each game's per-platform ids, lists a PSN game's trophies with icons and unlock times, but no names. Go's `net/http` with a browser's or an honest user agent (`bakhyard/0.1 (+https://github.com/codedogapp/bakhyard)`) gets the JSON in 200–900 ms, and so does `bogdanfinn/tls-client` v1.16.0 (Chrome 152, Safari iOS 26) | **Cloudflare challenges** (403, `cf-mitigated: challenge`) Go's default user agent, a bare `Mozilla/5.0` and curl (on macOS, with any headers). The rule may change at any time, and how long the honest user agent keeps working is unmeasured (decision 67). Nintendo games carry playtime only: no trophies, and `/earned` answers `{"success":false}`. robots.txt only disallows `/search`; the ToS has no scraping clause. Images on `m.exophase.com` and `card.exophase.com` aren't challenged, but the card's URL isn't built from the profile id (`card.exophase.com/2/0/{playerProfileId}.png` is a 1×1 GIF). ⚠️ The public profile HTML contains personal data → never fetch or store the raw page |
+| IGDB, tested 2026-10-21 | ✅ | Twitch client credentials: `POST https://id.twitch.tv/oauth2/token` with a form body → an app token that lasts about 58 days. Search: `POST https://api.igdb.com/v4/games` with `Client-ID` and `Authorization: Bearer`, and an Apicalypse body; results by relevance, in 200–800 ms. `where game_type = (0,2,4,8,9,10,11) & version_parent = null` keeps main games, expansions, remakes, remasters, expanded games and ports, and drops editions, DLC and packs (`game_type` replaces the deprecated `category`). Of 15 recent Exophase titles, whose case, subtitles and numerals often differ from IGDB's, the filtered search's top result was right for 14; an unfiltered exact-name search found the 15th, a game typed Update (14). Covers: `https://images.igdb.com/igdb/image/upload/t_cover_big/{image_id}.jpg`, a 264×374 JPEG of about 24 KB; IGDB prefers apps to store and serve its data | Free for non-commercial use, under the Twitch Developer Service Agreement; 4 req/s and 8 open requests. A re-release can match its original. Slugs carry collision suffixes (`hades--1`), and a record merged into another leaves its old slug and cover dead. Twitch asks apps that keep an OAuth session to validate their token at start and hourly; whether that covers app tokens is unclear |
 
 ## 3. Product architecture
 
 ```
-iPhone PWA ─┐                              ┌── Jira / Bitbucket / GitHub / Exophase / IGDB (poll)
+iPhone PWA ─┐                              ┌── Jira / Bitbucket / GitHub (poll); Exophase / IGDB (on request)
 MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac (services supervised by process-compose, §4)
             │                              ├── SQLite per service (todos, caches, push subscriptions, sessions)
             │                              ├── vault dir (iCloud Drive) ◀── iCloud ──▶ Obsidian (MacBook, iPhone)
@@ -147,9 +149,11 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
   - The service, not the agent, writes the plan to `Plans/YYYY-MM-DD-<slug>.md` with frontmatter.
   - Per-session credit limit.
 - **Notifications** (notify service): Web Push only (decision 64), to the iPhone Home Screen PWA and to Safari on the MacBook, or Brave with Google's push service switched on (§2). A device is forgotten when its push service answers 404 or 410. In-app notification centre.
-- **Games** (games service):
-  - Backloggd = a manual list in the dashboard (playing / backlog / wishlist / played). Games are added via IGDB search (title, cover, platforms) and link to `backloggd.com/games/{igdb-slug}/`. The official reviews RSS is polled automatically.
-  - Exophase = hourly poll of the internal JSON (`/public/player/{accountId}/games?page=1&environment=&sort=1&showHidden=0`), daily `/earned` for recently played games. The HTTP client is picked in the spike. On a 403 or challenge: exponential backoff, keep the last good data, show a "stale" badge, fall back to the card image.
+- **Games** (games service), from Exophase alone (decision 66):
+  - "Playing" is the games last played in the last 14 days, from Exophase's games list, which also gives each game's playtime, trophies and percentage (Nintendo: playtime only). `/earned` isn't used.
+  - Fetched on request, not polled (decision 67): the service answers from its cache, and refetches the list in the background once the cache is more than an hour old (stale-while-revalidate).
+  - The HTTP client is Go's `net/http` with an honest user agent that names Bakhyard and links its repo; Cloudflare challenges Go's default one (§2). If challenges start, `bogdanfinn/tls-client` is the plan B. On a 403, a challenge or a 429: exponential backoff, keep the last good data, show a "stale" badge.
+  - Covers come from IGDB (decision 68): each title is matched once, with a filtered search and an exact-name fallback, and the match is cached.
   - Never fetch or store profile HTML (it contains PII).
 - **Vault writes** (notes service, conflict-safe): new notes get unique names; edit only if the mtime/hash is unchanged since the read; temp file + atomic rename; skip notes modified elsewhere in the last few minutes; never touch `.obsidian/`.
 - **Auth** (enforced at the gateway; one person, two locks):
@@ -169,7 +173,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
      - `__Host-` cookie, Secure, HttpOnly, SameSite=Lax, sliding ~30 days; sessions stored in SQLite.
      - CSRF protection via Go's `http.CrossOriginProtection`.
 
-**Polling defaults**: Jira 5 min; Bitbucket mine 5 min, review scan 15 min (repo list daily); GitHub 5 min; logged time 15 min + on demand; Backloggd reviews RSS 2 h; Exophase games hourly, `/earned` daily; IGDB on demand (cached).
+**Polling defaults**: Jira 5 min; Bitbucket mine 5 min, review scan 15 min (repo list daily); GitHub 5 min; logged time 15 min + on demand. Not polled: Exophase (on request, cached for an hour) and IGDB (on demand, cached).
 
 **Default reminder rule**: PR `OPEN`, not a draft, age > 24 h, approvals < required (per repo) → notify at 10:00 and 15:00 Mon–Fri (local time zone). Actions: open the PR, snooze (2 h / tomorrow / until the PR is updated), mark as nudged. Skip if snoozed or already sent in this slot.
 
@@ -182,7 +186,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 | pulls | `pr_state` (PR id, first_seen, approvals, required, last_activity, snooze_until, last_reminded_slot), `reminder_rules` |
 | notify | `push_subscriptions` |
 | planner | `copilot_sessions` (id, title, status, note_path) |
-| games | `games` (igdb_id, title, slug, cover_url, platform, status, started_at, finished_at, notes), `game_stats` (source, payload, fetched_at, stale) |
+| games | `covers` (title, igdb_id, image_id, matched_at); the last good games list in `integration_cache` |
 | gateway | `sessions` (sign-in) |
 | every integration service | `integration_cache` (source, key, json, fetched_at), `settings` |
 
@@ -232,7 +236,7 @@ flowchart LR
         end
     end
 
-    apis["Jira, Bitbucket, GitHub,<br/>Exophase, IGDB, Backloggd RSS"]
+    apis["Jira, Bitbucket, GitHub,<br/>Exophase, IGDB"]
     vault[("Obsidian vault<br/>iCloud Drive")]
     copilot["copilot CLI"]
 
@@ -262,7 +266,7 @@ flowchart LR
 | pulls | Bitbucket pull requests and reviewer nudges | unix socket | nats | bitbucket-prs, pr-reminders |
 | time | Time tracking on the Jira tickets | unix socket | nats | time-tracking |
 | github | GitHub pull requests, reviews and issues | unix socket | nats | github-widgets |
-| games | Backloggd and Exophase | unix socket | nats | games-backloggd, games-exophase |
+| games | Recent games and stats from Exophase, with IGDB covers | unix socket | nats | games-exophase |
 | planner | Copilot plans saved to the vault | unix socket | nats | copilot-planner |
 | notify (later) | Web Push and the notification centre | unix socket | nats | notifications |
 
@@ -873,7 +877,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 | 03 | Pull requests | Bitbucket PRs and reviewer nudges |
 | 04 | Time | Hours logged on the Jira tickets |
 | 05 | GitHub | PRs, reviews and issues across owners |
-| 06 | Games | Backloggd and Exophase |
+| 06 | Games | Recent games and stats from Exophase |
 | 07 | Planner | Copilot plans saved to the vault |
 
 "This week" shows the time logged on Jira against the weekly target: 31h 30m of 40h in the demo data.
@@ -908,11 +912,11 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Web Push (VAPID) to the iPhone and the Mac browser, also with the app closed.
   - Test the Google OIDC redirect from inside the Home Screen app: does it stay in the app or hand off to Safari, and which cookie jar gets the session? It stays in the app, and the app's own jar gets the session.
   - Check that `Tailscale-User-Login` is present.
-- `spike-games-access` [games]:
-  - Find a Go HTTP approach that reliably gets Exophase JSON from the host: std `net/http` with browser headers first, then TLS-fingerprint clients such as `bogdanfinn/tls-client` or curl-impersonate (to be verified).
-  - Run it hourly for a few days; if it's unreliable, fall back to the card image plus manual stats.
-  - Validate IGDB auth (Twitch client credentials) and search.
-  - Parse the Backloggd reviews RSS (`https://backloggd.com/u/{user}/reviews/rss/`).
+- `spike-games-access` [games]: done (#39). The findings are in §2 (Backloggd, Exophase, IGDB), §3 (Games) and §10; decisions 66 to 68.
+  - Find a Go HTTP approach that reliably gets Exophase JSON from the host: std `net/http` with browser headers first, then TLS-fingerprint clients such as `bogdanfinn/tls-client` or curl-impersonate. Std `net/http` gets it with any browser's or an honest user agent; only Go's default one is challenged. `tls-client` gets it too.
+  - Run it hourly for a few days; if it's unreliable, fall back to the card image plus manual stats. Skipped by the user's choice: Exophase is fetched on request instead, with `tls-client` as the plan B, and the card image is dropped (decision 67).
+  - Validate IGDB auth (Twitch client credentials) and search. Both work, and a title search finds the cover (decision 68).
+  - Parse the Backloggd reviews RSS (`https://backloggd.com/u/{user}/reviews/rss/`). It parses, but Backloggd is dropped (decision 66).
 
 **Phase 1: foundation**
 
@@ -988,16 +992,12 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 5: games**
 
-- `games-backloggd` [games]. Needs `frontend-shell`, `spike-games-access`.
-  - Manual list (playing / backlog / wishlist / played).
-  - IGDB search to add games (title, cover, platforms; 4 req/s; covers cached). Each game links to `backloggd.com/games/{igdb-slug}/`.
-  - Reviews RSS polled every 2 h → a recent reviews and ratings widget.
-  - No automated fetching of bot-walled pages.
 - `games-exophase` [games]. Needs `frontend-shell`, `spike-games-access`.
-  - Hourly games poll with the client chosen in the spike.
-  - Daily `/earned` for recently played games (the Nintendo and PSN player IDs).
-  - Widgets: recently played, playtime, trophies/% per platform (Nintendo is playtime only).
-  - Backoff, last-good cache, stale badge, card-image fallback.
+  - Exophase's games list on request, cached for an hour, refetched in the background once older (decision 67).
+  - Widgets: the games played in the last 14 days, with playtime and trophies and % per game (Nintendo is playtime only).
+  - IGDB covers matched by title and cached (decision 68); the Twitch app token is cached and renewed before it expires.
+  - An honest user agent; `tls-client` if challenges start. Backoff, last-good cache, stale badge.
+  - The Games card's description in the app becomes §7's.
   - Never fetch or store profile HTML.
 
 **Phase 6: Copilot**
@@ -1009,7 +1009,7 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 7: hardening**
 
-- `hardening-docs`. Needs `auth-signin`, `copilot-planner`, `deploy-launchd`, `games-backloggd`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`.
+- `hardening-docs`. Needs `auth-signin`, `copilot-planner`, `deploy-launchd`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`.
   - Vault snapshots and SQLite backups.
   - Token-expiry reminders (Jira ≤ 365 d).
   - Structured logs and per-widget error states.
@@ -1098,11 +1098,14 @@ Made on 2026-10-21:
 63. **No sign-in fallback on the iPhone**: the user's choice. On iOS 27 Google's sign-in stays inside the Home Screen app, and the session lands in the app's own cookie jar (§2), so the fallback to the Tailscale identity alone is dropped from §3 and `auth-signin`. §10 keeps the risk that a later iOS changes this.
 64. **Web Push only**: the user's choice. The notify service sends Web Push alone, with no channel abstraction and no Pushover adapter: Web Push reached the iPhone and the Mac in every state the spike tried (§2). Pushover, whose alerts can repeat until acknowledged, is now an idea (§0).
 65. **Spikes live outside the repo**: the user's choice, an exception to AGENTS.md's "Stay in the repo". A spike's code is throwaway: it lives in `../bakhyard-spikes/<name>/`, next to the repo, and is never committed. Its findings reach the repo through a docs PR on the spike's `step/<id>` branch. AGENTS.md has the rule.
+66. **Games from Exophase alone**: the user's choices. Bakhyard doesn't integrate Backloggd: no list kept in the dashboard, no reviews RSS (the user writes no reviews) and no capture from the browser. Its playing page sits behind a bot check for every client the spike tried, and its terms ask for access "through the interface we provide" (§2). "Playing" now means the games last played in the last 14 days, from Exophase's games list, which also gives each game's playtime, trophies and percentage. So `/earned`, whose trophies have icons but no names, isn't used. The Games card's description becomes "Recent games and stats from Exophase" (§7), in the app with `games-exophase`. Replaces 5.
+67. **Exophase on request**: the user's choices. No timer polls Exophase: the games service answers from its cache, and refetches the games list in the background once the cache is more than an hour old (stale-while-revalidate). It uses Go's `net/http` with an honest user agent, which Cloudflare let through where it challenged Go's default one (§2). The spike's three days of hourly polling were skipped, so how long that holds is unknown; if challenges start, `bogdanfinn/tls-client`, which also got through, is the plan B. On a block the page keeps the last good data with a "stale" badge. The card-image fallback is dropped, as the card's URL couldn't be found. Replaces 6, whose risk the user still accepts.
+68. **IGDB covers**: the user's choice. The games show IGDB's covers (264×374) rather than Exophase's banners (127×70). The service matches each title once, with a search filtered to main games, expansions, remakes, remasters, expanded games and ports, and an unfiltered exact-name search as the fallback, and caches the match. In the spike, the filtered search's top result was right for 14 of 15 recent titles, and the fallback found the 15th (§2).
 
 ## 10. Risks
 
-- **Exophase polling** (accepted by the user): undocumented endpoints behind a Cloudflare bot check may break or get blocked at any time. Mitigations: hourly at most, backoff, last-good cache, "stale" badge, card-image fallback. Backloggd's manual list carries no scraping risk.
-- **IGDB**: free for non-commercial use only; 4 req/s.
+- **Exophase** (accepted by the user): undocumented endpoints behind a Cloudflare bot check may break or get blocked at any time. Today Cloudflare challenges Go's default user agent and lets an honest one through; that rule may change, and nobody has measured how long it holds (decision 67). Mitigations: fetched only on request and at most hourly, backoff, last-good cache, "stale" badge, `tls-client` as the plan B.
+- **IGDB**: free for non-commercial use only; 4 req/s. A title can match the wrong release, such as the original of a re-release, and a record merged into another leaves its old slug and cover dead, so a cached match can go stale.
 - **iCloud quirks** (dataless files, duplicate conflict copies) → covered by the spike and the snapshots.
 - **Employer policy**: Copilot org billing, IP allowlists, token handling.
 - **Token expiry**: Jira ≤ 365 d, org PAT lifetime policies → expiry tracking and reminders.
@@ -1164,7 +1167,6 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 - Which Mac is the host? The spike ran on the MacBook, standing in for it.
 - Can Bitbucket's required approvals be detected automatically, or are they configured per repo by hand?
 - iCloud sync latency between the host and the devices (spike).
-- Which HTTP client gets Exophase JSON reliably (spike)?
 - Does Copilot plan mode work with the built-in tools restricted (spike)?
 
 ## 13. Sources
@@ -1203,7 +1205,10 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - Backloggd reviews RSS (changelog 1.4.3): https://backloggd.com/changelog/
   - Backloggd ToS: https://backloggd.com/about/terms-of-service/
   - Backloggd API request: https://github.com/backloggd-manager/backloggd-issue-tracker/issues/33
-  - IGDB: https://api-docs.igdb.com
+  - Backloggd reviews RSS items, as parsed in public code: minipps/aggregato (`tests/fixtures/backloggd/reviews.rss`), saultyevil/slashbot
+  - IGDB: https://api-docs.igdb.com, with its game types (https://api-docs.igdb.com/#game-type), rate limits (https://api-docs.igdb.com/#rate-limits) and FAQ on caching (https://api-docs.igdb.com/#business-related-faq)
+  - Twitch app tokens: https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#client-credentials-grant-flow, and their validation: https://dev.twitch.tv/docs/authentication/validate-tokens/
+  - tls-client: https://github.com/bogdanfinn/tls-client
   - Exophase internal endpoints, as used in public code: trentnbauer/QueueUp (`exophaseClient.ts`), justin-delano/PlayniteAchievements (`ExophasePublicApiClient.cs`)
 - Sign-in:
   - Google redirect rules: https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation
