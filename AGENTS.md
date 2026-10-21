@@ -12,6 +12,7 @@ The canonical rules for everyone who works on Bakhyard: the user and the coding 
 - **Ask, don't assume.** When something isn't decided here or in the plan, ask the user, then record the answer in the right file.
 - **Verify facts.** Check versions, APIs and tool options against their source (registry, docs, `--help`) before using them. Never guess.
 - **Stay in the repo.** Don't change anything outside it without the user's OK.
+- **Spikes live outside the repo**, with the user's standing OK. A spike's code is throwaway: it lives in `../bakhyard-spikes/<name>/`, next to the repo, and is never committed. Its findings reach the repo through a docs PR on the spike's `step/<id>` branch.
 
 ## Pipeline
 
