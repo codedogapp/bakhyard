@@ -1,6 +1,7 @@
 package signin_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -170,4 +172,34 @@ func (g *fakeGoogle) noLeaks(t *testing.T, logs string) {
 			t.Errorf("the log has %q:\n%s", value, logs)
 		}
 	}
+}
+
+// fakeSessions stands in for the session store. It starts each session with a new token, unless
+// err is set.
+type fakeSessions struct {
+	mu     sync.Mutex
+	tokens []string
+	err    error
+}
+
+func (s *fakeSessions) Start(context.Context) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.err != nil {
+		return "", s.err
+	}
+
+	token := rand.Text()
+	s.tokens = append(s.tokens, token)
+
+	return token, nil
+}
+
+// started returns the tokens of the sessions started so far.
+func (s *fakeSessions) started() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return slices.Clone(s.tokens)
 }

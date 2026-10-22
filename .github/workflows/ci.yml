@@ -17,6 +17,24 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The Go tests need a Postgres to run against (docs/setup.md). It lives as long as the job,
+    # and only the job reaches it, so it trusts every connection.
+    services: &services
+      postgres:
+        image: postgres:18-alpine@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5
+        env:
+          POSTGRES_USER: bakhyard_test
+          POSTGRES_DB: bakhyard_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env: &env
+      BAKHYARD_TEST_DATABASE: postgres://bakhyard_test@localhost:5432/bakhyard_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -32,6 +50,8 @@ jobs:
     name: SonarQube Cloud
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services: *services
+    env: *env
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -72,6 +72,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `biome-lockfile` | Biome leaves `pnpm-lock.yaml` alone: Biome 2.6 formats YAML, and the lockfile is pnpm's to write | Done (#44) |
 | `auth-tailscale` | The gateway lets in only the user's Tailscale login, on the ts.net name that `tailscale serve` publishes; every other request but `/healthz` gets a 403 (decisions 76 and 77) | Done (#45) |
 | `signin-google` | The gateway signs the user in with Google and lets through only their own verified email, with the client secret from the Keychain; it keeps no session yet (decisions 78 to 80) | Done (#46) |
+| `signin-session` | Each sign-in starts a session in the gateway's own Postgres database and gives the browser its cookie; nothing checks it yet (decisions 81 and 82) | Done (#47) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -175,25 +176,26 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
      - `/healthz` stays open, because process-compose's probe calls the gateway directly.
      - The two variables are personal, so they live in `mise.local.toml`. The gateway doesn't start without them.
      - No bypass: a browser reaches the app only through `https://<host>.<tailnet>.ts.net`, even on the host, where `127.0.0.1:8080` answers 403.
-  2. **Google sign-in (OIDC)**, in four steps (decision 78). `signin-google` built the flow; `signin-session` makes it a lock, and `signin-pin` and `signout` follow.
+  2. **Google sign-in (OIDC)**, in five steps (decision 78). `signin-google` built the flow and `signin-session` starts a session at each sign-in; `signin-lock` makes it a lock, and `signin-pin` and `signout` follow.
      - `go-oidc/v3` 3.21.0 + `x/oauth2` 0.37.0, auth-code flow with PKCE. Google's endpoints are fixed in code, from its discovery document, so the gateway starts without reaching Google. Every call to Google gets a 10 s timeout.
      - `GET /auth/google/login` keeps a new `state`, nonce and PKCE verifier in the gateway's memory for 10 minutes, and redirects to Google with the scopes `openid email` and `prompt=select_account`.
-     - `GET /auth/google/callback` takes the login for its `state` once, exchanges the code with the verifier, verifies the ID token (signature, issuer, audience, expiry) and compares its nonce, which go-oidc leaves to us. It lets through only `email_verified` true with an `email` equal to `BAKHYARD_GOOGLE_EMAIL`, exactly, as with the Tailscale login: it logs `signed in` and redirects to `/`. Anything else, Google's `error` included, gets a plain-text 403 and a logged reason. The code, the tokens and the secret are never logged.
-     - Both routes sit behind the Tailscale lock. There's no sign-in page: once `signin-session` adds the lock, a page load without a session goes straight to Google.
+     - `GET /auth/google/callback` takes the login for its `state` once, exchanges the code with the verifier, verifies the ID token (signature, issuer, audience, expiry) and compares its nonce, which go-oidc leaves to us. It lets through only `email_verified` true with an `email` equal to `BAKHYARD_GOOGLE_EMAIL`, exactly, as with the Tailscale login: it starts a session, logs `signed in` and redirects to `/`. Anything else, Google's `error` included, gets a plain-text 403 and a logged reason, and no session. The code, the tokens and the secret are never logged.
+     - Both routes sit behind the Tailscale lock. There's no sign-in page: once `signin-lock` adds the lock, a page load without a session goes straight to Google.
      - The client ID comes from `BAKHYARD_GOOGLE_CLIENT_ID`, and the client secret from the login Keychain, read once when the gateway starts (decision 79). `docs/setup.md` has the setup.
      - The consent screen app stays in "Testing" (no 7-day expiry for basic scopes).
      - Google does NOT enforce the test-user list → allow only `email_verified` + the allowed email at first login, then pin `sub` and match on `sub` afterwards (`signin-pin`).
      - Callback `https://<host>.<tailnet>.ts.net/auth/google/callback`; Google never needs to reach it.
      - The callback is a cross-site top-level GET: the `SameSite=Lax` cookies arrive with it, and `CrossOriginProtection` always allows GET. It creates a session, so `state`, PKCE and the nonce are what protect it.
   3. **Session**:
-     - `__Host-` cookie, Secure, HttpOnly, SameSite=Lax, sliding ~30 days; sessions stored in Postgres (decision 80).
+     - Each sign-in starts a session: a random token of at least 128 bits from `crypto/rand`, which the browser keeps in the cookie `__Host-session` (Secure, HttpOnly, SameSite=Lax, Path=/) for 7 days. The gateway's database keeps only the token's SHA-256 and its expiry, and deletes the expired sessions whenever it starts one. If storing fails, the callback answers 500 and sets no cookie (decision 82).
+     - Sliding: from `signin-lock` on, each use renews the session for 7 days.
      - CSRF protection via Go's `http.CrossOriginProtection`.
 
 **Polling defaults**: Jira 5 min; Bitbucket mine 5 min, review scan 15 min (repo list daily); GitHub 5 min; logged time 15 min + on demand. Not polled: Exophase (on request, cached for an hour) and IGDB (on demand, cached).
 
 **Default reminder rule**: PR `OPEN`, not a draft, age > 24 h, approvals < required (per repo) → notify at 10:00 and 15:00 Mon–Fri (local time zone). Actions: open the PR, snooze (2 h / tomorrow / until the PR is updated), mark as nudged. Skip if snoozed or already sent in this slot.
 
-**Data**: Postgres (decision 80): the user's own PostgreSQL 18, in Docker on the host, with goose for the migrations. Each service owns its tables, and no service reads another's. How each one keeps to its own, with a database or a schema per service, is settled with `signin-session`, the first step that stores anything.
+**Data**: Postgres (decision 80): the user's own PostgreSQL 18, in Docker on the host, with goose for the migrations. Each service owns its tables, and no service reads another's: each has a database and a role of its own, and runs its migrations, embedded in its binary, when it starts (decision 81). The tests run against a real Postgres (decision 82).
 
 | Service | Tables (planned) |
 | --- | --- |
@@ -303,7 +305,7 @@ flowchart LR
 - Sets or forwards `X-Request-Id`.
 - Security headers, including CSP `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'`. `data:` covers the images and fonts Vite inlines (§4.12).
 - CSRF protection via `http.NewCrossOriginProtection()`.
-- Sign-in (§3 Auth) is enforced here: the Tailscale identity since `auth-tailscale`, and Google sign-in from `signin-session` on. `signin-google` built its flow, under `/auth/google/` (decision 78).
+- Sign-in (§3 Auth) is enforced here: the Tailscale identity since `auth-tailscale`, and Google sign-in from `signin-lock` on. `signin-google` built its flow, under `/auth/google/` (decision 78), and `signin-session` its sessions.
 
 ### 4.5 Contracts
 
@@ -349,6 +351,7 @@ Other rules:
 > - Each service inherits process-compose's whole environment, with two variables from `process-compose.yaml` on top (§4.9): `BAKHYARD_LISTEN`, the address it listens on, and `BAKHYARD_PEERS`, `name=tcp://host:port,…` for the services it calls, which only the gateway has. So home's `BAKHYARD_NAME` comes from the shell or `mise.local.toml`, not from `process-compose.yaml` (decision 56).
 > - Addresses are `tcp://host:port` only, with a host and a port from 1 to 65535. The root `internal/env` reads both variables. A service that lacks one it needs, or can't read it, exits 1 and says which, such as `BAKHYARD_PEERS has no peer "home"`.
 > - The gateway also needs `BAKHYARD_TAILSCALE_LOGIN`, `BAKHYARD_HOST`, `BAKHYARD_GOOGLE_CLIENT_ID` and `BAKHYARD_GOOGLE_EMAIL` (§3 Auth). They're personal, so they come from `mise.local.toml`, like home's `BAKHYARD_NAME`, and the gateway exits 1 with `<variable> is not set` without any of them. It also reads the Google client secret from the login Keychain when it starts, and exits 1 with `read the Google client secret: …` when the item is missing or empty, or `security` fails (decision 79). `docs/setup.md` lists every local setting.
+> - The gateway's database comes from a third variable in `process-compose.yaml`, `BAKHYARD_DATABASE`: its URL without the password, which the gateway reads from the login Keychain (decision 81). The gateway exits 1 with `BAKHYARD_DATABASE is not set` or `read the database password: …` without them, and with `reach the database: …` or `migrate the database: …` when Postgres doesn't answer within 10 s or a migration fails.
 > - Every service starts through the root `internal/service`: it reads the address, builds the service's routes, and serves them with the root `internal/server`, with a 5 s `ReadHeaderTimeout`. On SIGTERM or Ctrl-C the server stops accepting connections and gives the requests in flight 8 s to finish; the service then exits 0 if they all did, and 1 if not. A service's `main.go` holds only its routes, and logs the error that ends it.
 > - Every service answers its health check, `GET /healthz`, on its `listen`, through the root `internal/health`: 200 with `{"status":"ok"}` as `application/json`. HEAD gets the same headers, and any other method a 405 with `Allow: GET`. The gateway answers its own rather than pass it to web, so no service's `/healthz` is reachable from outside (decision 60).
 > - The other variables, unix sockets, the other ops endpoints (`/readyz`, `/metrics`), and every shutdown step below other than `http.Server.Shutdown`, wait for the steps that need them.
@@ -941,16 +944,17 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Repo, Go modules, web app, lint and test setup, README skeleton, config example.
   - Mostly covered by the first slice. Left: README, config example, the GitHub remote.
 - `backend-foundation`: split (decision 76). Each piece comes with the first step that needs it, and the steps that waited for it no longer do:
-  - Postgres, with goose for the migrations (decision 80): `signin-session`, for the gateway's sessions.
+  - Postgres, with goose for the migrations (decision 80): done in `signin-session` (#47), for the gateway's sessions, with a database per service (decision 81).
   - Secrets from the Keychain: done in `signin-google` (#46), for the OAuth client secret (decision 79).
   - Configuration: environment variables (§4.7), each with its first user.
   - A scheduler: the first service that polls.
   - The integration cache: the first service that caches what it fetches.
   - Live updates beyond polling: the step that needs them (decision 49).
-- `auth-signin` [gateway]. Needs `spike-https-push`. Implements §3 Auth in five steps (decisions 77 and 78):
+- `auth-signin` [gateway]. Needs `spike-https-push`. Implements §3 Auth in six steps (decisions 77 and 78):
   - `auth-tailscale`: done (#45). The Tailscale lock.
   - `signin-google`: done (#46). The Google sign-in flow, which checks who the user is but keeps no session; the client secret from the Keychain (decision 79); the setup notes in `docs/setup.md`.
-  - `signin-session`: Postgres and goose (decision 80), the `__Host-` session cookie, and the lock over everything but `/healthz` and `/auth/`. A page load without a session goes to Google; any other request gets a 401, on which the app reloads.
+  - `signin-session`: done (#47). Postgres and goose (decisions 80 and 81), and a session with its `__Host-` cookie at each sign-in (decision 82).
+  - `signin-lock`: the lock over everything but `/healthz` and `/auth/`, which renews the session on use. A page load without a session goes to Google; any other request gets a 401, on which the app reloads.
   - `signin-pin`: pin `sub` at the first sign-in, then match on it.
   - `signout`: `POST /auth/logout`, CSRF protection with `http.CrossOriginProtection`, and a button.
 - `frontend-shell` [web]. Needs `scaffold-repo`.
@@ -965,7 +969,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Each module registers its provider as it lands. Partly done in the first slice (contracts, demo data).
 - `deploy-launchd`.
   - A LaunchAgent (`KeepAlive`) that runs process-compose (§4.9), plus a build-and-deploy script.
-  - Host setup notes: auto-login (FileVault off, §3), no sleep, *Keep Downloaded* on the vault folder (decision 70), the Tailscale formula and `tailscale serve` (decision 62), the gateway's settings in `mise.local.toml` and its Google client secret in the Keychain (`docs/setup.md`), and the Copilot token in the Keychain (decision 73).
+  - Host setup notes: auto-login (FileVault off, §3), no sleep, *Keep Downloaded* on the vault folder (decision 70), the Tailscale formula and `tailscale serve` (decision 62), the gateway's settings in `mise.local.toml` and its Google client secret and database password in the Keychain (`docs/setup.md`), and the Copilot token in the Keychain (decision 73).
 
 **Phase 2: notes, read-only (decision 69)**
 
@@ -1138,9 +1142,11 @@ Made on 2026-10-22:
 75. **Plans on claude-opus-5.5, with no credit cap**: the user's choices. The planner asks for claude-opus-5.5, which cost about 8.8 credits (about $0.09) for a short plan, where the default, claude-sonnet-5.5, cost 3.8 (§2). There's no per-session cap: `SessionLimits`, which is experimental, isn't used, and the organisation's budget is the only limit.
 76. **Foundation with its first user**: the user's choice. `backend-foundation` is no longer a step of its own. Building SQLite, the Keychain, a scheduler and a cache before anything used them would break AGENTS.md's rule that infrastructure arrives only when a step needs it. Each piece comes with the first step that needs it (§8.2), inside that service, and moves to the root `internal/` once a second service needs it. Configuration stays environment variables (§4.7). The first step after the split is `auth-tailscale`, the first slice of `auth-signin`, which needs none of the pieces.
 77. **The Tailscale lock**: the user's choices. The gateway lets in only the login in `BAKHYARD_TAILSCALE_LOGIN`, on the ts.net name in `BAKHYARD_HOST`. Both are personal, so they live in `mise.local.toml`, and the gateway doesn't start without them. Every other request but `/healthz` gets a plain-text 403 and reaches no service (§3 Auth). There's no bypass for local use: the browser goes through `tailscale serve`, even on the host. A process on the host can still forge both headers by calling `127.0.0.1:8080` directly; Google sign-in, the second lock, covers that (§10).
-78. **Google sign-in in four steps, with no sign-in page**: the user's choices. The rest of `auth-signin` lands as `signin-google`, `signin-session`, `signin-pin` and `signout` (§8.2). The lock that `signin-session` adds covers everything but `/healthz` and `/auth/`: a page load without a session goes straight to Google, so Bakhyard has no sign-in page of its own, and §8.2's "sign-in page in the §7 style" is dropped. The one Google account let in is in `BAKHYARD_GOOGLE_EMAIL`, a local setting; it's the account behind the Tailscale login. The OAuth client from `spike-https-push` is reused, as it already has the callback URL, with a new secret: Google shows a secret only when it's made.
+78. **Google sign-in in five steps, with no sign-in page**: the user's choices. The rest of `auth-signin` lands as `signin-google`, `signin-session`, `signin-lock`, `signin-pin` and `signout` (§8.2); `signin-session` was split in two to keep each step small. The lock that `signin-lock` adds covers everything but `/healthz` and `/auth/`: a page load without a session goes straight to Google, so Bakhyard has no sign-in page of its own, and §8.2's "sign-in page in the §7 style" is dropped. The one Google account let in is in `BAKHYARD_GOOGLE_EMAIL`, a local setting; it's the account behind the Tailscale login. The OAuth client from `spike-https-push` is reused, as it already has the callback URL, with a new secret: Google shows a secret only when it's made.
 79. **Secrets through macOS's `security` tool**: the user's choice. The gateway reads the Google client secret from the login Keychain (service `bakhyard`, account `google-client-secret`) by running `/usr/bin/security find-generic-password -w` itself, once, when it starts. A library such as go-keyring runs the same tool on macOS, and adds Windows and D-Bus code that Bakhyard doesn't need. By default an item trusts the program that created it, so `security` reads an item that `security add-generic-password` made without a prompt. The read has no timeout: if macOS does ask, the gateway waits for the answer. The reader lives in the gateway, and moves to the root `internal/` when the planner needs it for its token (decision 73). gosec flags running a program with arguments that aren't constants (G204), and Google's token URL in a field called `TokenURL` (G101); each has a `//nolint` with its reason, which the user approved.
 80. **Postgres instead of SQLite**: the user's choice. The services keep their data in the user's own PostgreSQL 18, which runs in Docker on the host, rather than in a SQLite file each, and goose runs the migrations. Each service still owns its tables, and no service reads another's (§3 Data). `signin-session`, the first step that stores anything, settles how the gateway connects, how each service keeps to its own data, and how CI tests against Postgres.
+81. **A database and a role per service**: the user's choice. Each service gets a database of its own on the user's Postgres, owned by a role of its own, so no service can read another's data (§3 Data); a schema per service in one database was the other option. The gateway's are both `bakhyard_gateway`. Its URL, without the password, is in `BAKHYARD_DATABASE`, set in `process-compose.yaml`, and the password is in the login Keychain (service `bakhyard`, account `postgres-gateway`), read with decision 79's reader. At start the gateway connects with a pgx v5 pool, waiting at most 10 s, and runs its goose migrations, embedded in its binary. The database code lives in the gateway, and moves to the root `internal/` when a second service needs it (decision 76).
+82. **Sessions of 7 days, and tests on a real Postgres**: the user's choices. A session lasts 7 days, renewed on use from `signin-lock` on, in place of the ~30 days first planned (§3 Auth). The database keeps only each token's SHA-256, and starting a session deletes the expired ones, so there's no cleanup job. The tests run against a real Postgres rather than a fake: locally a test role and database on the user's Postgres, with the URL in `BAKHYARD_TEST_DATABASE` in `mise.local.toml`; in CI a `postgres:18-alpine` service container, pinned by digest for Renovate to update. Each test gets an empty schema of its own, dropped when it ends, so tests run side by side. Without the variable the tests fail and say how to set it up; they don't skip.
 
 ## 10. Risks
 
@@ -1152,7 +1158,7 @@ Made on 2026-10-22:
 - **Rate limits**: Bitbucket 1,000 req/h; GitHub search 30 req/min.
 - **Copilot SDK**: the SDK and the `copilot` CLI must move together, as each SDK release names its CLI version and checks the protocol (decision 74). `Usage.GetMetrics` is experimental; `SessionLimits` and the mode RPCs, also experimental, aren't used. The CLI writes the session's `plan.md` without asking the permission handler, and a later CLI could allow more by itself, so the tool allowlist and the empty working directory stay as well (§3). Employer-managed settings can override the local config.
 - **Sign-in**:
-  - Until `signin-session` makes Google sign-in a lock (decision 78), the Tailscale identity is the only one, and any process on the host passes it by calling `127.0.0.1:8080` with a forged `Tailscale-User-Login` and the ts.net `Host` (tested 2026-10-22). Tailscale's docs warn of the same: listening on the loopback only limits forgery to the host's own processes (decision 77).
+  - Until `signin-lock` makes Google sign-in a lock (decision 78), the Tailscale identity is the only one, and any process on the host passes it by calling `127.0.0.1:8080` with a forged `Tailscale-User-Login` and the ts.net `Host` (tested 2026-10-22). Tailscale's docs warn of the same: listening on the loopback only limits forgery to the host's own processes (decision 77).
   - Google's login stays inside the iPhone Home Screen app on iOS 27 (§2). A later iOS may hand it to Safari again, whose cookie jar is separate; then the iPhone would rely on the Tailscale identity alone, or a passkey (decision 63).
   - HTTPS certificates publish the machine and tailnet names in public Certificate Transparency logs.
 - **Push in Brave**: Brave sends Web Push through Google's FCM only when "Use Google services for push messaging" is on, which it isn't by default, and shows nothing until macOS allows its notifications (§2). Safari needs neither.

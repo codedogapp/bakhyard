@@ -24,7 +24,7 @@ const (
 )
 
 func TestTheLoginGoesToGoogle(t *testing.T) {
-	flow, _ := newFlow(t, signin.Google())
+	flow := newFlow(t, signin.Google())
 
 	target := login(t, flow)
 	if got := target.Scheme + "://" + target.Host + target.Path; got != google {
@@ -57,11 +57,19 @@ func TestTheLoginGoesToGoogle(t *testing.T) {
 // google is where Google signs the user in.
 const google = "https://accounts.google.com/o/oauth2/v2/auth"
 
-// newFlow returns the routes of a sign-in flow with provider's endpoints, and its log.
-func newFlow(t *testing.T, provider oidc.ProviderConfig) (http.Handler, *bytes.Buffer) {
+// testFlow is a sign-in flow's routes, with its log and its sessions.
+type testFlow struct {
+	http.Handler
+
+	logs     *bytes.Buffer
+	sessions *fakeSessions
+}
+
+// newFlow returns a sign-in flow with provider's endpoints.
+func newFlow(t *testing.T, provider oidc.ProviderConfig) *testFlow {
 	t.Helper()
 
-	var logs bytes.Buffer
+	flow := &testFlow{logs: new(bytes.Buffer), sessions: new(fakeSessions)}
 
 	router := chi.NewRouter()
 	signin.New(signin.Settings{
@@ -70,9 +78,10 @@ func newFlow(t *testing.T, provider oidc.ProviderConfig) (http.Handler, *bytes.B
 		ClientSecret: secret,
 		Email:        email,
 		Host:         host,
-	}, slog.New(slog.NewTextHandler(&logs, nil))).Register(router)
+	}, flow.sessions, slog.New(slog.NewTextHandler(flow.logs, nil))).Register(router)
+	flow.Handler = router
 
-	return router, &logs
+	return flow
 }
 
 // login starts a login at flow and returns where it sends the browser.
@@ -108,16 +117,25 @@ func callback(t *testing.T, flow http.Handler, query url.Values) *httptest.Respo
 	return rec
 }
 
-// refused fails t unless rec is a 403 and logs give reason for it.
-func refused(t *testing.T, rec *httptest.ResponseRecorder, logs *bytes.Buffer, reason string) {
+// refused brings Google's answer, query, back to flow, and fails t unless flow refuses it: a 403
+// without a cookie, no session started, and reason in the log.
+func refused(t *testing.T, flow *testFlow, query url.Values, reason string) {
 	t.Helper()
+
+	before := len(flow.sessions.started())
+	rec := callback(t, flow, query)
 
 	if rec.Code != http.StatusForbidden || rec.Body.String() != "Forbidden\n" {
 		t.Errorf("got %d %q, want 403 Forbidden", rec.Code, rec.Body)
 	}
 
-	line := `level=WARN msg="refused a sign-in" reason=`
-	if !strings.Contains(logs.String(), line) || !strings.Contains(logs.String(), reason) {
+	cookies, started := rec.Header().Values("Set-Cookie"), len(flow.sessions.started())-before
+	if len(cookies) != 0 || started != 0 {
+		t.Errorf("got the cookies %q and %d sessions, want none", cookies, started)
+	}
+
+	logs, line := flow.logs.String(), `level=WARN msg="refused a sign-in" reason=`
+	if !strings.Contains(logs, line) || !strings.Contains(logs, reason) {
 		t.Errorf("got the log %q, want %s… with %q", logs, line, reason)
 	}
 }

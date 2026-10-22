@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -50,7 +51,7 @@ func TestTheSignInRoutesServeGETAndHEADOnly(t *testing.T) {
 }
 
 func TestTheGatewayNeedsTheClientSecret(t *testing.T) {
-	vars := gatewayEnv("http://127.0.0.1:2")
+	vars, _ := gatewayEnv(t, "http://127.0.0.1:2")
 	locked := errors.New("the Keychain is locked")
 
 	_, err := routes(
@@ -62,14 +63,13 @@ func TestTheGatewayNeedsTheClientSecret(t *testing.T) {
 	}
 }
 
-// keychainWith returns a fake Keychain reader that has only the gateway's client secret, secret.
-func keychainWith(t *testing.T, secret string) passwordReader {
-	t.Helper()
-
+// keychainWith returns a fake Keychain reader that has only items, by account, under the
+// service bakhyard.
+func keychainWith(items map[string]string) passwordReader {
 	return func(_ context.Context, service, account string) (string, error) {
-		if service != "bakhyard" || account != "google-client-secret" {
-			t.Errorf("read the Keychain item %s/%s, want bakhyard/google-client-secret",
-				service, account)
+		secret, ok := items[account]
+		if service != "bakhyard" || !ok {
+			return "", fmt.Errorf("no Keychain item %s/%s", service, account)
 		}
 
 		return secret, nil
