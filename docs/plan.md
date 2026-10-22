@@ -67,6 +67,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `process-compose` | process-compose runs the services in place of the cockpit, which is removed (decision 61) | Done (#36) |
 | `spike-https-push` | The Phase 0 spike (§8.2): HTTPS through `tailscale serve`, the identity headers, Web Push and Google sign-in, tested on the iPhone and the Mac; the findings are in §2, §3 and §10 (decisions 62 to 65) | Done (#38) |
 | `spike-games-access` | The Phase 0 spike (§8.2): which HTTP client reads Exophase's JSON, IGDB's token, search and covers, and the Backloggd reviews RSS; the findings are in §2, §3 and §10 (decisions 66 to 68) | Done (#39) |
+| `spike-vault-sync` | The Phase 0 spike (§8.2): how the host reads the vault in place from iCloud, notices changes and reads notes macOS has offloaded; the findings are in §2, §3 and §10 (decisions 69 to 71) | Done (#40) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -80,7 +81,7 @@ One user. The host is an always-on home **Mac** on the LAN. Clients are a **MacB
 
 Modules:
 
-1. **Notes**: live render and edit of the Obsidian vault. The vault stays in sync on the MacBook and the iPhone.
+1. **Notes**: the Obsidian vault, rendered read-only on the MacBook and the iPhone, with a Sync button that picks up changes. Editing comes later (decision 69).
 2. **Work**: custom todos linked to Jira tickets; Bitbucket PRs (mine and review requests); time tracking on the Jira tickets; "nudge reviewers" reminders.
 3. **GitHub**: my open PRs, review requests and assigned issues, across all owners and orgs.
 4. **Games**: what I'm playing (the games played in the last 14 days) and their stats, from Exophase, with IGDB covers. No Backloggd (decision 66).
@@ -89,7 +90,7 @@ Modules:
 Inputs from the user:
 
 - Devices: iPhone and MacBook; the host is a Mac.
-- No paid Obsidian Sync; obsidian-git is used today. Notes must be editable and must render wikilinks, embeds, callouts and LaTeX.
+- No paid Obsidian Sync; the vault syncs through iCloud (Desktop & Documents), and obsidian-git is used today. Notes must render wikilinks, embeds, callouts and LaTeX. Viewing them is enough for now; editing comes later (decision 69).
 - Jira Cloud and Bitbucket Cloud are reachable without a VPN. Work tokens on the personal Mac are OK. Time is logged on the Jira tickets as standard Jira worklogs; Clockwork writes them too (decision 46).
 - Notifications go to the phone (push), the Mac and the browser.
 - Reminder rule: a PR open for more than 24 h without the required approvals → remind at 10:00 and 15:00 on workdays, with snooze.
@@ -104,7 +105,7 @@ Verified 2026-10-17 unless marked.
 | Feature | Verdict | How / evidence | Caveats |
 |---|---|---|---|
 | Vault render + edit | ✅ | Server reads and writes `.md`; the frontend renders with unified/remark: `@flowershow/remark-wiki-link` 4.0.0, `rehype-callouts` 2.2.0, `remark-math` + KaTeX/MathJax, `@quartz-community/remark-obsidian` 1.1.0 | `![[note]]` embeds need our own resolver. Go's `goldmark-obsidian` lacks callouts and highlights → render in the TS frontend |
-| Vault sync | ✅ trade-offs | **Chosen: iCloud Drive** (Obsidian's recommended iPhone option; vault in `iCloud Drive/Obsidian/<vault>`; host Mac on the same Apple ID, vault folder set to *Keep Downloaded*) + server-side git snapshots with `--git-dir` outside iCloud. Runner-up: keep git, swap obsidian-git on the iPhone for the GitSync app | iCloud: the same note edited offline on two devices → one silently wins (recoverable via TextEdit "Keep Both"); latency unverified. obsidian-git on iOS: the author calls it "very unstable", with open iOS bugs (Vinzent03/obsidian-git#1012, Vinzent03/obsidian-git#1166). LiveSync: iOS needs trusted HTTPS → clashes with LAN-only. Obsidian Headless Sync: paid + beta data-loss issues → excluded |
+| Vault sync, tested 2026-10-22 | ✅ read-only (decisions 69 to 71) | **iCloud Drive, in place**: the vault stays in `~/Documents`, which Desktop & Documents syncs, and the host Mac, on the same Apple ID, reads it there; the iPhone views notes through Bakhyard. Tested on a MacBook (macOS 26.4.1, Optimize Mac Storage on): two files uploaded on icloud.com had arrived by the time the user reported the upload, so within seconds, as placeholders (dataless), with their original birth time and mtime. *Keep Downloaded* on the folder (Finder) downloaded a placeholder within about 1 s, and a later arrival by itself about 2 s after it came. Go's `os.ReadFile` on an offloaded 20 KB note blocked 0.9–1.2 s, downloaded it and returned it whole, with no setup; `stat` and `WalkDir` don't download, and show the full size. Offloading and downloading leave size and mtime unchanged. A `WalkDir` with a stat of each file takes 3 ms for the user's vault and about 20 ms for 5,000 files. fsnotify v1.10.1 (kqueue) and `fsnotify/fsevents` v0.2.0 (FSEvents) both saw local saves within milliseconds | Obsidian's iOS app needs the vault in `iCloud Drive/Obsidian` ("If your vault is in a different location, you may experience syncing issues"), so the iPhone can't open this one. After a reboot nothing syncs until someone logs in, and FileVault turns auto-login off (§3). kqueue holds every watched file open, so iCloud can't offload it ("currently in use by an application"), and doesn't watch recursively. FSEvents needs cgo and macOS, while CI runs on Linux; its Go library is marked unstable (last release 2024), and its flags mislead: an append showed Created, Modified and Xattr at once, a file iCloud delivers shows as Renamed, and a folder rename names only the folder. iCloud touches a written file's metadata 1–1.5 s later. Reading while offline is untested. iCloud isn't a backup (Obsidian: "Syncing is not a backup"). With edits (Phase 6), the same note edited offline on two devices → one silently wins (recoverable via TextEdit "Keep Both"). The ways compared on 2026-10-17 to sync the vault to Obsidian on the iPhone (`iCloud Drive/Obsidian`, git with the GitSync app, LiveSync, Headless Sync) no longer apply |
 | Jira Cloud | ✅ | Basic `email:api_token`; `GET/POST /rest/api/3/search/jql` (the old `/search` is removed); request `fields` explicitly; `nextPageToken` paging | Token expiry ≤ 365 d → rotate; webhooks are admin-only → poll; an employer IP allowlist would block |
 | Bitbucket Cloud | ✅ | Scoped Atlassian API token (app passwords died 2026-07-28), host `api.bitbucket.org`. Mine: `GET /2.0/workspaces/{ws}/pullrequests/{me}?state=OPEN`. Reviewing: per repo `pullrequests?q=reviewers.uuid="{uuid}" AND state="OPEN"`. Approvals: PR detail `participants[]`; `/activity` for the last reviewer action | No cross-repo "reviewing" endpoint; 1,000 req/h → cache + incremental scan; webhooks need repo admin → poll |
 | Time tracking, verified 2026-10-20 | ✅ | Standard Jira worklogs over REST v3 with the Jira token, as the user's own tool does. Read: my `accountId` from `GET /rest/api/3/myself`; the issues from `search/jql` with `worklogAuthor = currentUser() AND worklogDate >= "<from>" AND worklogDate < "<to>"`; then per issue `GET /rest/api/3/issue/{key}/worklog` with `startedAfter` and `startedBefore` (UNIX ms) and `startAt` paging, keeping my own. Write: `POST /rest/api/3/issue/{key}/worklog` with `started` and `timeSpentSeconds`. None of these is deprecated. Clockwork's worklogs are standard Jira worklogs, so Bakhyard and Clockwork see the same hours | Time tracking must be enabled; writing needs the Browse projects and Work on issues permissions. `worklogAuthor` is in Atlassian's Data Center field reference but not the Cloud one, though it works on Jira Cloud today; the documented fallback, `GET /rest/api/3/worklog/updated` + `POST /rest/api/3/worklog/list`, scans every worklog the token can see. JQL searches only an issue's 1,000 most recent worklogs. By default a new worklog emails the issue's watchers (`notifyUsers`) and reduces the remaining estimate (`adjustEstimate=auto`). Tempo is not used (decision 40) |
@@ -123,7 +124,7 @@ Verified 2026-10-17 unless marked.
 iPhone PWA ─┐                              ┌── Jira / Bitbucket / GitHub (poll); Exophase / IGDB (on request)
 MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac (services supervised by process-compose, §4)
             │                              ├── SQLite per service (todos, caches, push subscriptions, sessions)
-            │                              ├── vault dir (iCloud Drive) ◀── iCloud ──▶ Obsidian (MacBook, iPhone)
+            │                              ├── vault dir (iCloud Drive), read only ◀── iCloud ──▶ Obsidian (MacBook)
             │                              ├── copilot CLI runtime (SDK, JSON-RPC, loopback)
             └◀── Web Push ◀── APNs/FCM ◀── notify
 ```
@@ -131,7 +132,8 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 - **Host Mac**:
   - Dedicated macOS user, auto-login, sleep disabled.
   - A LaunchAgent with `KeepAlive` runs process-compose, which supervises every service. A user session is needed for iCloud and the Keychain.
-  - Same Apple ID as the iPhone and the MacBook; the vault folder is set to *Keep Downloaded*.
+  - LaunchAgents and iCloud's File Provider agent load only after a login at the GUI, so after a reboot nothing runs or syncs until someone logs in. Auto-login does that, but macOS turns it off while FileVault is on. The MacBook that stood in for the host in the spikes has FileVault on, so it needs a login by hand after each reboot; whether a dedicated host keeps FileVault is decided with the host (§12).
+  - Same Apple ID as the MacBook, so iCloud brings the vault (decision 70). The vault folder is set to *Keep Downloaded*, or Optimize Mac Storage is off, so notes are on disk when read.
 - **Network**: Tailscale on the host, the MacBook and the iPhone. `tailscale serve` publishes `https://<host>.<tailnet>.ts.net` → the gateway on `127.0.0.1:8080`. Nothing listens on the LAN.
   - On the host, Tailscale is the Homebrew formula: the open-source `tailscaled` as a root LaunchDaemon, up at boot before any login, with no GUI and no auto-update (decision 62).
   - Funnel works on the formula (not on the two apps), so `tailscale serve status` must show the tailnet only.
@@ -140,7 +142,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 - **Backend**: Go services (§4). Secrets live in the macOS Keychain. Each integration service owns its adapters: poll → cache a snapshot in its own SQLite → diff → publish change events and feed the notification rules.
 - **Frontend**:
   - Svelte 5 + Vite + TypeScript SPA, installed as a PWA (manifest, service worker, Web Push).
-  - Notes render with a unified/remark pipeline plus our own embed resolver, backed by the notes service's vault index. CodeMirror 6 editor; KaTeX.
+  - Notes render with a unified/remark pipeline plus our own embed resolver, backed by the notes service's vault index; KaTeX. A Sync button rescans the vault (decision 71). The CodeMirror 6 editor comes with `vault-edit-sync` (decision 69).
   - Live updates by polling `/api/home` (decision 49); SSE when a step needs faster ones.
   - Look and feel per §7. Home = greeting + "Needs you today" feed (attention items from every app) + "Your apps" grid + weekly hours bar.
 - **Copilot** (planner service):
@@ -155,7 +157,8 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
   - The HTTP client is Go's `net/http` with an honest user agent that names Bakhyard and links its repo; Cloudflare challenges Go's default one (§2). If challenges start, `bogdanfinn/tls-client` is the plan B. On a 403, a challenge or a 429: exponential backoff, keep the last good data, show a "stale" badge.
   - Covers come from IGDB (decision 68): each title is matched once, with a filtered search and an exact-name fallback, and the match is cached.
   - Never fetch or store profile HTML (it contains PII).
-- **Vault writes** (notes service, conflict-safe): new notes get unique names; edit only if the mtime/hash is unchanged since the read; temp file + atomic rename; skip notes modified elsewhere in the last few minutes; never touch `.obsidian/`.
+- **Vault reads** (notes service, decision 71): the vault is read in place. There's no file watcher and no polling: the service scans the vault when it starts and when the user presses Sync. A scan is a `WalkDir` with a stat of each file, skipping dot folders such as `.git/` and `.obsidian/`, and re-reads only the notes whose size or mtime differs from the index. It compares for equality, never "newer than": a note iCloud delivers keeps its original mtime.
+- **Vault writes** (notes service, from `vault-edit-sync` in Phase 6, conflict-safe): new notes get unique names; edit only if the mtime/hash is unchanged since the read; temp file + atomic rename; skip notes modified elsewhere in the last few minutes; never touch `.obsidian/`.
 - **Auth** (enforced at the gateway; one person, two locks):
   1. **Tailscale identity**:
      - The gateway listens on `127.0.0.1` only; `tailscale serve` adds `Tailscale-User-Login` and replaces copies sent by the client (tested 2026-10-21). It also sets `X-Forwarded-For` (the client's tailnet IP), `X-Forwarded-Host` and `X-Forwarded-Proto: https`.
@@ -261,7 +264,7 @@ flowchart LR
 | gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home | auth-signin |
 | web | Serves the embedded Svelte build | unix socket | | frontend-shell (PWA parts) |
 | home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner | home-feed |
-| notes | Obsidian vault | unix socket | nats | vault-index-watch, vault-render, vault-edit-sync |
+| notes | Obsidian vault | unix socket | nats | vault-index, vault-render, vault-edit-sync |
 | todos | Todos linked to Jira | unix socket | nats | todos-jira |
 | pulls | Bitbucket pull requests and reviewer nudges | unix socket | nats | bitbucket-prs, pr-reminders |
 | time | Time tracking on the Jira tickets | unix socket | nats | time-tracking |
@@ -872,7 +875,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 | No. | App | Description |
 | --- | --- | --- |
-| 01 | Notes | The Obsidian vault, rendered and editable |
+| 01 | Notes | The Obsidian vault, rendered |
 | 02 | Todos | Todos linked to Jira tickets |
 | 03 | Pull requests | Bitbucket PRs and reviewer nudges |
 | 04 | Time | Hours logged on the Jira tickets |
@@ -902,11 +905,11 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Verify plan mode (`AgentMode: plan` + `OnExitPlanModeRequest`) with the built-in tools restricted.
   - Capture the plan markdown and write it to a test vault folder. Check the credit usage.
   - Confirm the org's Copilot CLI policy.
-- `spike-vault-sync` [notes]:
-  - Set up iCloud on the host Mac: vault in `iCloud Drive/Obsidian/<vault>`, same Apple ID, *Keep Downloaded*, obsidian-git removed from the devices.
-  - Test that a server write reaches the iPhone and the MacBook, and the latency.
-  - Test an offline double-edit conflict, dataless files and the FSEvents watcher.
-  - Test a host reboot with auto-login.
+- `spike-vault-sync` [notes]: done (#40). The findings are in §2 (Vault sync), §3 (Host Mac, Vault reads) and §10; decisions 69 to 71.
+  - Set up iCloud on the host Mac: vault in `iCloud Drive/Obsidian/<vault>`, same Apple ID, *Keep Downloaded*, obsidian-git removed from the devices. Changed: the vault stays in `~/Documents` with obsidian-git, and the iPhone views notes through Bakhyard only (decisions 69 and 70). The same Apple ID and *Keep Downloaded* still apply.
+  - Test that a server write reaches the iPhone and the MacBook, and the latency. Writes wait for edits (decision 69); files uploaded on icloud.com reached the host within seconds.
+  - Test an offline double-edit conflict, dataless files and the FSEvents watcher. The conflict test waits for edits. Offloaded notes read fine, about 1 s late. FSEvents and kqueue both see local saves at once, but neither is used: a Sync button rescans the vault (decision 71).
+  - Test a host reboot with auto-login. Not run: auto-login is off while FileVault is on, as on the MacBook that stood in for the host, and iCloud and the LaunchAgent wait for a login (§3).
 - `spike-https-push` [gateway, notify]: done (#38). The findings are in §2 (Push, Sign-in), §3 (Network, Notifications, Auth) and §10; decisions 62 to 65.
   - `tailscale serve` with a valid ts.net certificate, and a minimal PWA on the iPhone Home Screen.
   - Web Push (VAPID) to the iPhone and the Mac browser, also with the app closed.
@@ -943,22 +946,18 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Each module registers its provider as it lands. Partly done in the first slice (contracts, demo data).
 - `deploy-launchd`. Needs `backend-foundation`.
   - A LaunchAgent (`KeepAlive`) that runs process-compose (§4.9), plus a build-and-deploy script.
-  - Host setup notes: auto-login, no sleep, the Tailscale formula and `tailscale serve` (decision 62), copilot CLI install.
+  - Host setup notes: auto-login (FileVault off, §3), no sleep, *Keep Downloaded* on the vault folder (decision 70), the Tailscale formula and `tailscale serve` (decision 62), copilot CLI install.
 
-**Phase 2: notes**
+**Phase 2: notes, read-only (decision 69)**
 
-- `vault-index-watch` [notes]. Needs `backend-foundation`, `spike-vault-sync`.
+- `vault-index` [notes]. Needs `backend-foundation`, `spike-vault-sync`.
   - Vault index: titles, aliases and paths for wikilink resolution.
-  - A file watcher that publishes change events.
+  - A scan when the service starts and on request, which re-reads only the notes whose size or mtime changed (§3, decision 71).
   - A safe read API.
-- `vault-render` [web, notes]. Needs `frontend-shell`, `vault-index-watch`.
+- `vault-render` [web, notes]. Needs `frontend-shell`, `vault-index`.
   - unified/remark pipeline: wikilinks (alias/heading/block), `![[note]]` and image embeds via our own resolver, callouts, LaTeX (KaTeX), frontmatter, tasks.
-  - Live refresh on change.
-- `vault-edit-sync` [notes, web]. Needs `vault-render`.
-  - CodeMirror 6 editor.
-  - A save API with the §3 conflict rules; new notes get unique names.
-  - Server-side git snapshots (`--git-dir` outside iCloud) for history and rollback.
-  - A sync adapter for the chosen transport.
+  - A Sync button, on every device, that rescans the vault.
+  - The Notes card's description in the app becomes §7's.
 
 **Phase 3: work**
 
@@ -1000,8 +999,12 @@ Every item is pending unless it says done. The service an item lands in is in br
   - The Games card's description in the app becomes §7's.
   - Never fetch or store profile HTML.
 
-**Phase 6: Copilot**
+**Phase 6: vault edits and Copilot**
 
+- `vault-edit-sync` [notes, web]. Needs `vault-render`. Moved from Phase 2 (decision 69).
+  - CodeMirror 6 editor.
+  - A save API with the §3 conflict rules; new notes get unique names.
+  - Server-side git snapshots (`--git-dir` outside iCloud) for history and rollback.
 - `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`, `vault-edit-sync`.
   - Chat UI with streaming, plan-mode sessions, resume, and plan preview.
   - "Save to Obsidian" writes `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, written by the service.
@@ -1102,11 +1105,17 @@ Made on 2026-10-21:
 67. **Exophase on request**: the user's choices. No timer polls Exophase: the games service answers from its cache, and refetches the games list in the background once the cache is more than an hour old (stale-while-revalidate). It uses Go's `net/http` with an honest user agent, which Cloudflare let through where it challenged Go's default one (§2). The spike's three days of hourly polling were skipped, so how long that holds is unknown; if challenges start, `bogdanfinn/tls-client`, which also got through, is the plan B. On a block the page keeps the last good data with a "stale" badge. The card-image fallback is dropped, as the card's URL couldn't be found. Replaces 6, whose risk the user still accepts.
 68. **IGDB covers**: the user's choice. The games show IGDB's covers (264×374) rather than Exophase's banners (127×70). The service matches each title once, with a search filtered to main games, expansions, remakes, remasters, expanded games and ports, and an unfiltered exact-name search as the fallback, and caches the match. In the spike, the filtered search's top result was right for 14 of 15 recent titles, and the fallback found the 15th (§2).
 
+Made on 2026-10-22:
+
+69. **Notes are read-only for now**: the user's choice. Bakhyard renders the vault and doesn't edit it; edits come later. The iPhone views notes through Bakhyard only, never in Obsidian, so the vault no longer has to live where Obsidian's iOS app needs it (§2). `vault-edit-sync`, with the editor, the write rules (§3) and the server-side git snapshots, moves from Phase 2 to Phase 6, before `copilot-planner`, whose "Save to Obsidian" writes to the vault and so needs it. The Notes card's description becomes "The Obsidian vault, rendered" (§7), in the app with `vault-render`.
+70. **The vault stays where it is**: the user's choice. The vault stays in iCloud, in `~/Documents`, which Desktop & Documents syncs, and the notes service reads it in place. It doesn't move into `iCloud Drive/Obsidian`, and obsidian-git, which the user runs on it, is no longer Bakhyard's concern. The host is on the same Apple ID, and its vault folder is set to *Keep Downloaded*, or Optimize Mac Storage is off, so notes are on disk when read; an offloaded note still reads, about 1 s late (§2). iCloud does the syncing, so `vault-edit-sync` needs no sync adapter; its git snapshots keep their `--git-dir` outside iCloud. Replaces 1.
+71. **A Sync button, no file watcher**: the user's choice. The notes service neither watches nor polls the vault: it scans it when it starts and when the user presses Sync, on any device, and re-reads only the notes whose size or mtime differs from its index (§3). A scan took 3 ms for the user's vault and about 20 ms for 5,000 files. Neither watcher the spike tried fits (§2): fsnotify's kqueue backend holds every watched file open, which stops iCloud from offloading it, and doesn't watch recursively; FSEvents needs cgo and macOS, while CI runs on Linux, its Go library is marked unstable, and its flags can't be trusted, so it would need a scan as well. `vault-index-watch` becomes `vault-index`.
+
 ## 10. Risks
 
 - **Exophase** (accepted by the user): undocumented endpoints behind a Cloudflare bot check may break or get blocked at any time. Today Cloudflare challenges Go's default user agent and lets an honest one through; that rule may change, and nobody has measured how long it holds (decision 67). Mitigations: fetched only on request and at most hourly, backoff, last-good cache, "stale" badge, `tls-client` as the plan B.
 - **IGDB**: free for non-commercial use only; 4 req/s. A title can match the wrong release, such as the original of a re-release, and a record merged into another leaves its old slug and cover dead, so a cached match can go stale.
-- **iCloud quirks** (dataless files, duplicate conflict copies) → covered by the spike and the snapshots.
+- **iCloud**: a note that changed on another device shows up only after the next Sync (decision 71), and one that macOS has offloaded reads about 1 s late. After a reboot nothing syncs until someone logs in, by hand while FileVault is on (§3). Reading while offline is untested. iCloud isn't a backup, so the vault needs one of its own; Bakhyard's git snapshots come only with edits (decision 69). Edits bring back duplicate conflict copies and the case where one of two offline edits silently wins, covered then by the write rules and the snapshots.
 - **Employer policy**: Copilot org billing, IP allowlists, token handling.
 - **Token expiry**: Jira ≤ 365 d, org PAT lifetime policies → expiry tracking and reminders.
 - **Rate limits**: Bitbucket 1,000 req/h; GitHub search 30 req/min.
@@ -1137,26 +1146,25 @@ Made on 2026-10-21:
 
 ## 11. Estimate
 
-A rough estimate, made on 2026-10-18, in focused working days. It assumes an agent writes the code while the user reviews, tests on devices and supplies credentials; 1 day ≈ 6–8 h of session time.
+A rough estimate, made on 2026-10-18, in focused working days. It assumes an agent writes the code while the user reviews, tests on devices and supplies credentials; 1 day ≈ 6–8 h of session time. On 2026-10-22 the notes editor moved from Phase 2 to Phase 6 (decision 69), and its day moved with it.
 
 | Phase | Effort |
 | --- | --- |
 | 0 Spikes (HTTPS + push, iCloud vault, Exophase, IGDB) | 1–2 d (+ a few days of passive Exophase polling) |
 | 1 Foundation (repo, backend core, sign-in, design system, Home, launchd) | 3–5 d |
-| 2 Notes (index/watch, render, editor + safe writes) | 3–4 d |
+| 2 Notes (index, render, Sync button) | 2–3 d |
 | 3 Work (Jira todos, Bitbucket PRs, push, reminders, time tracking) | 4–5 d |
 | 4 GitHub | 0.5 d |
 | 5 Games | 1–2 d |
-| 6 Copilot planner | 1–2 d |
+| 6 Vault edits (editor + safe writes) and Copilot planner | 2–3 d |
 | 7 Hardening + docs | 1 d |
 | **Total (single-binary design)** | **≈ 15–22 d** |
 | **Microservices experiment** (gateway, kit, contracts, process supervision, per-service plumbing) | **about +25–40% → ≈ 19–31 d** |
 
 - **Calendar time** (single-binary figures): full-time ≈ 3–4.5 weeks; at about 10 h/week, ≈ 2.5–3.5 months.
 - **Without an agent**: solo by hand takes roughly 1.5–2× as long.
-- **MVP**: the first useful slice is Phases 0–2 plus Jira todos, Bitbucket PRs and reminders, at ≈ 8–12 d (before the microservices overhead).
+- **MVP**: the first useful slice is Phases 0–2 plus Jira todos, Bitbucket PRs and reminders, at ≈ 7–11 d (before the microservices overhead).
 - **Main uncertainties**:
-  - how iCloud sync behaves
   - Exophase blocking the polling
   - rounds of visual polish
   - surprises in the external APIs (Bitbucket required approvals)
@@ -1164,19 +1172,25 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 ## 12. Open questions
 
 - For the first service-to-service call: grpc-go or connect-go, and which connect-go v2 ecosystem modules (OpenTelemetry interceptors, validation) exist (decision 43)?
-- Which Mac is the host? The spike ran on the MacBook, standing in for it.
+- Which Mac is the host? The spikes ran on the MacBook, standing in for it. It has FileVault on, so it can't log in by itself after a reboot (§3); a dedicated host could turn FileVault off for auto-login.
 - Can Bitbucket's required approvals be detected automatically, or are they configured per repo by hand?
-- iCloud sync latency between the host and the devices (spike).
 - Does Copilot plan mode work with the built-in tools restricted (spike)?
 
 ## 13. Sources
 
 - Obsidian:
   - Headless Sync: https://obsidian.md/help/sync/headless
-  - sync options: https://obsidian.md/help/sync-notes
+  - sync options, with where an iCloud vault must live for the iOS app: https://obsidian.md/help/sync-notes
+  - "Syncing is not a backup": https://obsidian.md/help/backup
   - obsidian-git: https://github.com/Vinzent03/obsidian-git, with iOS issues such as https://github.com/Vinzent03/obsidian-git/issues/1012
   - LiveSync: https://github.com/vrtmrz/obsidian-livesync
   - iCloud conflict report: https://forum.obsidian.md/t/understanding-icloud-sync-issues/78186
+- Vault on the host:
+  - FileVault turns automatic login off: https://support.apple.com/guide/mac-help/change-users-groups-settings-mtusr001/mac
+  - Keep Downloaded: https://support.apple.com/guide/mac-help/work-with-folders-and-files-in-icloud-drive-mchl1a02d711/mac
+  - Aqua agents load only after a login at the GUI: `man launchctl`; iCloud's File Provider agent is one (`LimitLoadToSessionType` in `/System/Library/LaunchAgents/com.apple.FileProvider.plist`)
+  - fsnotify, whose kqueue backend opens a file descriptor for every watched file and has no recursive watch: https://github.com/fsnotify/fsnotify
+  - fsevents, marked unstable: https://github.com/fsnotify/fsevents
 - Copilot:
   - SDK GA: https://github.blog/changelog/2026-06-02-copilot-sdk-is-now-generally-available
   - CLI auth: https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli
