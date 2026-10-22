@@ -38,8 +38,8 @@ type Settings struct {
 	Host string
 }
 
-// Sessions starts the user's sessions: session.Store, or a fake in tests.
-type Sessions interface {
+// SessionStarter starts the user's sessions: session.Store, or a fake in tests.
+type SessionStarter interface {
 	// Start starts a session and returns its token.
 	Start(ctx context.Context) (string, error)
 }
@@ -51,13 +51,13 @@ type Flow struct {
 	client   *http.Client
 	email    string
 	logins   *logins
-	sessions Sessions
+	sessions SessionStarter
 	logger   *slog.Logger
 }
 
 // New returns the sign-in flow for settings, which starts a session in sessions for each
 // sign-in. It reaches Google only when someone signs in.
-func New(settings Settings, sessions Sessions, logger *slog.Logger) *Flow {
+func New(settings Settings, sessions SessionStarter, logger *slog.Logger) *Flow {
 	client := &http.Client{Timeout: googleTimeout}
 	provider := settings.Provider.NewProvider(oidc.ClientContext(context.Background(), client))
 
