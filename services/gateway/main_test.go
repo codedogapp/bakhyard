@@ -94,7 +94,9 @@ func TestTheGatewayRefusesEveryoneElse(t *testing.T) {
 
 	router := gateway(t, web.URL)
 
-	for _, target := range []string{"/", "/notes", "/api/home", "/api/nothing"} {
+	for _, target := range []string{
+		"/", "/notes", "/api/home", "/api/nothing", "/auth/google/login", "/auth/google/callback",
+	} {
 		for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost} {
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, target, nil))
@@ -106,12 +108,15 @@ func TestTheGatewayRefusesEveryoneElse(t *testing.T) {
 	}
 }
 
-func TestTheGatewayNeedsTheLoginAndTheHost(t *testing.T) {
-	for _, name := range []string{"BAKHYARD_TAILSCALE_LOGIN", "BAKHYARD_HOST"} {
+func TestTheGatewayNeedsItsSettings(t *testing.T) {
+	for _, name := range []string{
+		"BAKHYARD_TAILSCALE_LOGIN", "BAKHYARD_HOST",
+		"BAKHYARD_GOOGLE_CLIENT_ID", "BAKHYARD_GOOGLE_EMAIL",
+	} {
 		vars := gatewayEnv("http://127.0.0.1:2")
 		delete(vars, name)
 
-		_, err := routes(func(key string) string { return vars[key] })
+		_, err := routes(func(key string) string { return vars[key] }, keychainWith(t, testSecret))
 		if err == nil || err.Error() != name+" is not set" {
 			t.Errorf("without %s: got %v, want the error %s is not set", name, err, name)
 		}
@@ -142,7 +147,7 @@ func gateway(t *testing.T, webURL string) http.Handler {
 
 	vars := gatewayEnv(webURL)
 
-	router, err := routes(func(key string) string { return vars[key] })
+	router, err := routes(func(key string) string { return vars[key] }, keychainWith(t, testSecret))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +161,9 @@ func gatewayEnv(webURL string) map[string]string {
 	return map[string]string{
 		"BAKHYARD_PEERS": "home=tcp://127.0.0.1:1,web=tcp://" +
 			strings.TrimPrefix(webURL, "http://"),
-		"BAKHYARD_TAILSCALE_LOGIN": testLogin,
-		"BAKHYARD_HOST":            testHost,
+		"BAKHYARD_TAILSCALE_LOGIN":  testLogin,
+		"BAKHYARD_HOST":             testHost,
+		"BAKHYARD_GOOGLE_CLIENT_ID": "client",
+		"BAKHYARD_GOOGLE_EMAIL":     testLogin,
 	}
 }

@@ -1,0 +1,20 @@
+#!/bin/sh
+# A stand-in for macOS's security tool in tests. It answers
+# `find-generic-password -s <service> -a <account> -w` by account, as security would.
+if [ "$#" -ne 6 ] || [ "$1 $2 $4 $6" != "find-generic-password -s -a -w" ]; then
+	echo "security: unexpected arguments: $*" >&2
+	exit 2
+fi
+
+case "$5" in
+found) echo "secret of $3" ;;
+empty) echo ;;
+missing)
+	echo "security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain." >&2
+	exit 44
+	;;
+*)
+	echo "security: SecKeychainSearchCopyNext: User interaction is not allowed." >&2
+	exit 36
+	;;
+esac
