@@ -1,6 +1,6 @@
 # The services that mise run up runs with process-compose (docs/plan.md §4.9). Each one
 # listens on its BAKHYARD_LISTEN, and the gateway finds the others in its BAKHYARD_PEERS (§4.7).
-# Every address is on the loopback: tailscale serve will publish the gateway.
+# Every address is on the loopback: tailscale serve publishes the gateway.
 is_strict: true
 ordered_shutdown: true
 
