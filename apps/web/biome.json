@@ -6,6 +6,9 @@
     "useIgnoreFile": true,
     "defaultBranch": "main"
   },
+  "files": {
+    "includes": ["**", "!pnpm-lock.yaml"]
+  },
   "formatter": {
     "enabled": true,
     "formatWithErrors": false,
