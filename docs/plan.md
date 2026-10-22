@@ -68,6 +68,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `spike-https-push` | The Phase 0 spike (§8.2): HTTPS through `tailscale serve`, the identity headers, Web Push and Google sign-in, tested on the iPhone and the Mac; the findings are in §2, §3 and §10 (decisions 62 to 65) | Done (#38) |
 | `spike-games-access` | The Phase 0 spike (§8.2): which HTTP client reads Exophase's JSON, IGDB's token, search and covers, and the Backloggd reviews RSS; the findings are in §2, §3 and §10 (decisions 66 to 68) | Done (#39) |
 | `spike-vault-sync` | The Phase 0 spike (§8.2): how the host reads the vault in place from iCloud, notices changes and reads notes macOS has offloaded; the findings are in §2, §3 and §10 (decisions 69 to 71) | Done (#40) |
+| `spike-copilot-sdk` | The Phase 0 spike (§8.2): how the planner service signs in to Copilot, runs plan mode with only the tools it needs and receives the plan; the findings are in §2, §3 and §10 (decisions 72 to 75) | Done (#41) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -94,7 +95,7 @@ Inputs from the user:
 - Jira Cloud and Bitbucket Cloud are reachable without a VPN. Work tokens on the personal Mac are OK. Time is logged on the Jira tickets as standard Jira worklogs; Clockwork writes them too (decision 46).
 - Notifications go to the phone (push), the Mac and the browser.
 - Reminder rule: a PR open for more than 24 h without the required approvals → remind at 10:00 and 15:00 on workdays, with snooze.
-- Copilot Business sits on a separate work GitHub account.
+- Copilot Business sits on a separate work GitHub account, on a `*.ghe.com` host (GitHub Enterprise Cloud with data residency). The employer has agreed to its use for the planner (decision 72).
 - Backend in Go or Java. Remote access outside home is not required.
 - Backloggd and Exophase accounts exist; Exophase links Nintendo and PSN. Usernames and player IDs live in local config, not in git.
 
@@ -113,7 +114,7 @@ Verified 2026-10-17 unless marked.
 | Push (iPhone / Mac / browser), tested on the devices 2026-10-21 | ✅ | **Web Push** (VAPID) through `tailscale serve` (free, valid cert, no inbound ports), sent by the spike's throwaway server. iPhone (iOS 27.0.1) Home Screen PWA, through `web.push.apple.com`: the push service answers 201 in 140–730 ms, usually about 170, and the notification shows 0.4–1 s after the send (three times about 2 s) with the app open, in the background or swiped away. A tap brings the app to the front, or launches it in standalone mode if it was closed. Mac Safari 26.4, also through `web.push.apple.com`, within 0.75 s, with the tab open or closed; a tap opens a window. Brave on the Mac, through Google's `fcm.googleapis.com`, within 0.3 s. FCM answers 410 "push subscription has unsubscribed or expired." once a subscription is revoked. Alternative: Pushover ($4.99 once per platform, 10k msg/month, `priority=2` repeats until acknowledged, no HTTPS needed), now an idea (decision 64) | On the iPhone only the Home Screen app can subscribe: a Safari tab has neither `PushManager` nor the Notification API. Brave needs two switches: "Use Google services for push messaging" (brave://settings/privacy), off by default, without which `subscribe()` fails with "AbortError: Registration failed - push service error"; and Brave's notification permission in macOS, without which `showNotification` succeeds and nothing shows. Chromium's push goes through Google's FCM, which sees the metadata; the payload is end-to-end encrypted. `webpush-go` v1.4.0 ignores `VapidExpiration` (its JWT always expires after 12 h), prepends `mailto:` unless the subscriber starts with `https:`, pads payloads to 4,096 bytes, and requires `golang-jwt/jwt/v5` v5.2.1 (GO-2025-3553) and `x/crypto` v0.31.0. The Notification API needs a secure context (LAN `http://192.168…` fails). `osascript`/terminal-notifier only notify the host Mac, not the MacBook. ntfy: self-hosting is Docker-only on macOS and the iPhone shows "New message" off-LAN; public ntfy.sh = topic-as-password, 250 msg/day, iOS app "a little buggy" |
 | GitHub | ✅ | `GET /search/issues`: `is:pr is:open author:@me`, `is:pr is:open review-requested:@me`, `is:issue is:open assignee:@me`; 30 req/min | A fine-grained PAT covers one owner; the Notifications API needs a classic PAT |
 | Sign-in (one email), verified 2026-10-18, tested on the devices 2026-10-21 | ✅ Google · ❌ Apple (cost) | Google redirect URIs need HTTPS and a host on the public suffix list. `ts.net` is a PSL private suffix, and there is no reachability rule (the browser delivers the callback). Testing mode with `openid email profile`: no 7-day expiry, no warning screen. Google accepted the `ts.net` redirect URI for an External app in Testing mode and asked for no authorized domain or verification. From the iPhone Home Screen app (iOS 27.0.1), Google's pages open inside the app and the callback lands in standalone mode, in the app's own cookie jar; a popup (`window.open`) works too. The session survives closing and reopening the app. The callback is a cross-site top-level GET, so `SameSite=Lax` cookies arrive with it. Tailscale Serve identity headers: `Tailscale-User-Login` and `Tailscale-User-Name` arrive, and copies sent by the client are replaced; Tailscale login providers include Google and Apple | Google lets ANY account finish sign-in → the app pins `sub`. Apple needs a $99/yr developer account; `ts.net` acceptance unknown; its form_post callback breaks Lax cookies. A later iOS may hand the login off to Safari, whose cookie jar is separate (§10) |
-| Copilot planner | ✅ (spike first) | Copilot SDK **GA 2026-06-02** (v1.0.22). Go `github.com/github/copilot-sdk/go` (needs the `copilot` CLI: `brew install --cask copilot-cli`); Java is official too (`com.github:copilot-sdk-java`, Java 17+). Plan mode: `AgentMode: plan` + `OnExitPlanModeRequest` → plan markdown; custom tools; `AvailableTools`; permission handler. Per-client `GitHubToken` → identity separate from the personal GitHub token | **Work Business seat**: needs an admin Copilot CLI policy; the GitHub Customer Agreement licenses seats "only for Customer's internal business purposes"; usage draws employer credits → needs employer OK, otherwise personal Copilot Free/Pro. SSO orgs → `copilot login --device-code`; a possible `*.ghe.com` tenant → `--host`. Env precedence `COPILOT_GITHUB_TOKEN` > `GH_TOKEN` > `GITHUB_TOKEN` (keep the personal token out of the Copilot process). Billing = token-based AI credits. Plan mode + restricted tools combination unverified. GitHub Models retired 2026-07-30 |
+| Copilot planner, tested 2026-10-22 | ✅ | Copilot SDK **GA 2026-06-02**; tested with Go `github.com/github/copilot-sdk/go` v1.0.25 and the `copilot` CLI 1.0.102 (Java is official too: `com.github:copilot-sdk-java`, Java 17+). The SDK runs the CLI as a child process and talks JSON-RPC over its stdio. It starts the binary at the path it's given, or a runtime its bundler embeds in the Go binary with `embed` (a 79 MiB archive for macOS arm64); it doesn't search `PATH`. Each SDK release names the CLI version it's built for (`copilotCliVersion`), and the SDK checks the CLI's protocol version (3) when it connects. `GitHubToken` reaches the CLI in a variable of its own, with auto-login off; `BaseDirectory` sets the CLI's `COPILOT_HOME`, which keeps its sessions, logs and config out of `~/.copilot`. A fine-grained PAT owned by the work account, with the Copilot Requests permission, signed in once `COPILOT_GH_HOST` named the account's `*.ghe.com` host (it overrides `GH_HOST` for Copilot alone). Plan mode: `AgentMode: plan` on the message, with `AvailableTools` limited to `ask_user`, `view`, `glob`, `grep`, `create`, `edit` and plan mode's `exit_plan_mode` (the 19 default tools include `bash`, `web_fetch` and sub-agents). The CLI writes the session's own `plan.md` without asking; any other write goes to the permission handler, and a denial reaches the agent as "The user rejected this tool call". The agent's questions arrive through `OnUserInputRequest`. `OnExitPlanModeRequest` brings `PlanContent`, the same text as `Plan.Read`; answering `exit_only` ends the turn. A short plan took 8–15 s and cost 3.8 AI credits on the default model, claude-sonnet-5.5, and 8.8 (about $0.09) on claude-opus-5.5 | Without `create` and `edit` the agent can't write its `plan.md`, and `PlanContent` comes back empty. `GetAuthStatus` returns no login for a token, so it can't confirm whose token it is (the host's `GET /user` can). Classic `ghp_` PATs aren't supported. The CLI takes a token from `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, its Keychain login or `gh auth token`, in that order, so the personal token must stay out of its environment. `SessionLimits` and `Usage.GetMetrics` are experimental. Business: 1,900 AI credits per user per month, pooled across the organisation, then paid usage, on by default; 1 credit = $0.01. The seat needs the organisation's Copilot CLI policy, which lets the CLI run, and the employer's OK, which was given (decision 72); the GitHub Customer Agreement licenses seats "only for Customer's internal business purposes". GitHub Models retired 2026-07-30 |
 | Backloggd, re-checked 2026-10-21 | ⚠️ partial, not used (decision 66) | **No public API** (request open since 2023, no developer reply; no export). ✅ Official **reviews RSS** `https://backloggd.com/u/{user}/reviews/rss/` (the last 20 reviews): 200 `application/rss+xml`, no bot check; 404 for an unknown user. Per public code that parses it, an item has the title "Name (Year) - ★★★★½", the review's link, `pubDate`, the review text, `backloggd:user_rating` (0–10) and the IGDB cover, but no game slug; the cover's id leads back to the IGDB game through `/v4/covers`. Game pages use IGDB's slugs (9 of 10 checked) | Playing, backlog and wishlist pages: an **Anubis proof-of-work challenge** for every client tried (Go's default, a browser's and an honest user agent). ToS: "You agree to access the Website through the interface we provide" → solving the challenge (Playwright, PoW solvers) conflicts. The RSS carries reviews only, and the user writes none |
 | Exophase, tested 2026-10-21 | ✅ undocumented | **No documented API.** Internal JSON, no login: `api.exophase.com/public/player/{playerProfileId}/games?page=N&environment=&sort=1&showHidden=0`, 50 games a page, last played first; past the last page `{"success":false}`. Per game: `meta.title`, `meta.environment_slug` (`psn`, `nintendo`), `meta.platforms`, `playtime`, `earned_awards`, `total_awards`, `percent`, `lastplayed_utc` (Unix seconds), and banners on `m.exophase.com` (127×70 and smaller). `/public/player/{master_playerid}/game/{master_id}/earned?last=0`, from each game's per-platform ids, lists a PSN game's trophies with icons and unlock times, but no names. Go's `net/http` with a browser's or an honest user agent (`bakhyard/0.1 (+https://github.com/codedogapp/bakhyard)`) gets the JSON in 200–900 ms, and so does `bogdanfinn/tls-client` v1.16.0 (Chrome 152, Safari iOS 26) | **Cloudflare challenges** (403, `cf-mitigated: challenge`) Go's default user agent, a bare `Mozilla/5.0` and curl (on macOS, with any headers). The rule may change at any time, and how long the honest user agent keeps working is unmeasured (decision 67). Nintendo games carry playtime only: no trophies, and `/earned` answers `{"success":false}`. robots.txt only disallows `/search`; the ToS has no scraping clause. Images on `m.exophase.com` and `card.exophase.com` aren't challenged, but the card's URL isn't built from the profile id (`card.exophase.com/2/0/{playerProfileId}.png` is a 1×1 GIF). ⚠️ The public profile HTML contains personal data → never fetch or store the raw page |
 | IGDB, tested 2026-10-21 | ✅ | Twitch client credentials: `POST https://id.twitch.tv/oauth2/token` with a form body → an app token that lasts about 58 days. Search: `POST https://api.igdb.com/v4/games` with `Client-ID` and `Authorization: Bearer`, and an Apicalypse body; results by relevance, in 200–800 ms. `where game_type = (0,2,4,8,9,10,11) & version_parent = null` keeps main games, expansions, remakes, remasters, expanded games and ports, and drops editions, DLC and packs (`game_type` replaces the deprecated `category`). Of 15 recent Exophase titles, whose case, subtitles and numerals often differ from IGDB's, the filtered search's top result was right for 14; an unfiltered exact-name search found the 15th, a game typed Update (14). Covers: `https://images.igdb.com/igdb/image/upload/t_cover_big/{image_id}.jpg`, a 264×374 JPEG of about 24 KB; IGDB prefers apps to store and serve its data | Free for non-commercial use, under the Twitch Developer Service Agreement; 4 req/s and 8 open requests. A re-release can match its original. Slugs carry collision suffixes (`hades--1`), and a record merged into another leaves its old slug and cover dead. Twitch asks apps that keep an OAuth session to validate their token at start and hourly; whether that covers app tokens is unclear |
@@ -125,7 +126,7 @@ iPhone PWA ─┐                              ┌── Jira / Bitbucket / GitH
 MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac (services supervised by process-compose, §4)
             │                              ├── SQLite per service (todos, caches, push subscriptions, sessions)
             │                              ├── vault dir (iCloud Drive), read only ◀── iCloud ──▶ Obsidian (MacBook)
-            │                              ├── copilot CLI runtime (SDK, JSON-RPC, loopback)
+            │                              ├── copilot CLI (child process, JSON-RPC over stdio)
             └◀── Web Push ◀── APNs/FCM ◀── notify
 ```
 
@@ -145,11 +146,15 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
   - Notes render with a unified/remark pipeline plus our own embed resolver, backed by the notes service's vault index; KaTeX. A Sync button rescans the vault (decision 71). The CodeMirror 6 editor comes with `vault-edit-sync` (decision 69).
   - Live updates by polling `/api/home` (decision 49); SSE when a step needs faster ones.
   - Look and feel per §7. Home = greeting + "Needs you today" feed (attention items from every app) + "Your apps" grid + weekly hours bar.
-- **Copilot** (planner service):
-  - SDK client with an explicit `GitHubToken` and `COPILOT_HOME`, isolated from the personal GitHub token.
-  - One session per plan; deny-by-default permission handler; built-in shell and write tools excluded.
+- **Copilot** (planner service, decisions 72 to 75):
+  - The work account's Copilot Business seat, on its `*.ghe.com` host. The host's name reaches the CLI as `COPILOT_GH_HOST`; it's a local setting, never in git.
+  - The SDK client gets the token as `GitHubToken`: a fine-grained PAT with the Copilot Requests permission, read from the Keychain. The CLI's environment drops `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` and `GITHUB_TOKEN`, and its `BaseDirectory` is the service's own, so the personal token and the user's own `~/.copilot` stay out of it.
+  - The `copilot` CLI comes from mise, pinned at the version the SDK names; the service passes its path to the SDK.
+  - One session per plan, on claude-opus-5.5, with `AgentMode: plan`. The allowed tools are `ask_user`, `view`, `glob`, `grep`, `create`, `edit` and `exit_plan_mode`. The working directory is empty, and the permission handler denies every request, so the agent writes only the session's `plan.md`, which the CLI allows by itself.
+  - The agent's questions reach `OnUserInputRequest`; the service relays them to the chat and waits for the answer.
+  - The plan arrives with `OnExitPlanModeRequest`; the service keeps `PlanContent` and answers `exit_only`.
   - The service, not the agent, writes the plan to `Plans/YYYY-MM-DD-<slug>.md` with frontmatter.
-  - Per-session credit limit.
+  - No per-session credit cap: the organisation's budget is the only limit.
 - **Notifications** (notify service): Web Push only (decision 64), to the iPhone Home Screen PWA and to Safari on the MacBook, or Brave with Google's push service switched on (§2). A device is forgotten when its push service answers 404 or 410. In-app notification centre.
 - **Games** (games service), from Exophase alone (decision 66):
   - "Playing" is the games last played in the last 14 days, from Exophase's games list, which also gives each game's playtime, trophies and percentage (Nintendo: playtime only). `/earned` isn't used.
@@ -575,7 +580,7 @@ Go libraries for the kit, added with `@latest` (latest on 2026-10-18):
 - Prometheus `client_golang` v1.25.0, `common` v0.72.1.
 - `nats.go` v1.54.0; `nats-server/v2` v2.15.1 (tests).
 
-Later phases: `go-oidc/v3` 3.21.0, `x/oauth2` 0.37.0, Copilot SDK for Go v1.0.x, remark plugins (§2). Re-check all of these when the work starts.
+Later phases: `go-oidc/v3` 3.21.0, `x/oauth2` 0.37.0, Copilot SDK for Go v1.0.25 with the `copilot` CLI 1.0.102 (on 2026-10-22), remark plugins (§2). Re-check all of these when the work starts.
 
 ### 6.2 mise
 
@@ -899,12 +904,12 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 0: spikes (prove the risky parts first)**
 
-- `spike-copilot-sdk` [planner]:
-  - Write a throwaway Go program with the Copilot SDK (`github.com/github/copilot-sdk/go` v1.0.x) and the copilot CLI.
-  - Authenticate the chosen account via an explicit `GitHubToken` or a device-code login (SSO orgs; `--host` for a `*.ghe.com` tenant). Keep the personal `GH_TOKEN`/`GITHUB_TOKEN` out of the process.
-  - Verify plan mode (`AgentMode: plan` + `OnExitPlanModeRequest`) with the built-in tools restricted.
-  - Capture the plan markdown and write it to a test vault folder. Check the credit usage.
-  - Confirm the org's Copilot CLI policy.
+- `spike-copilot-sdk` [planner]: done (#41). The findings are in §2 (Copilot planner), §3 (Copilot) and §10; decisions 72 to 75.
+  - Write a throwaway Go program with the Copilot SDK (`github.com/github/copilot-sdk/go` v1.0.x) and the copilot CLI. Done with v1.0.25 and the CLI 1.0.102.
+  - Authenticate the chosen account via an explicit `GitHubToken` or a device-code login (SSO orgs; `--host` for a `*.ghe.com` tenant). Keep the personal `GH_TOKEN`/`GITHUB_TOKEN` out of the process. A fine-grained PAT as `GitHubToken` signed in once `COPILOT_GH_HOST` named the work account's `*.ghe.com` host; the program dropped `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` and `GITHUB_TOKEN` from the CLI's environment.
+  - Verify plan mode (`AgentMode: plan` + `OnExitPlanModeRequest`) with the built-in tools restricted. It works when the allowed tools include `create` and `edit`, which the agent needs to write its `plan.md`; writes anywhere else ask the permission handler, which denied them.
+  - Capture the plan markdown and write it to a test vault folder. Check the credit usage. The plan arrived in `PlanContent` and went to a test folder with frontmatter. A short plan cost 3.8 credits on claude-sonnet-5.5 and 8.8 on claude-opus-5.5.
+  - Confirm the org's Copilot CLI policy. The CLI runs on the work seat, and the employer agreed to its use (decision 72).
 - `spike-vault-sync` [notes]: done (#40). The findings are in §2 (Vault sync), §3 (Host Mac, Vault reads) and §10; decisions 69 to 71.
   - Set up iCloud on the host Mac: vault in `iCloud Drive/Obsidian/<vault>`, same Apple ID, *Keep Downloaded*, obsidian-git removed from the devices. Changed: the vault stays in `~/Documents` with obsidian-git, and the iPhone views notes through Bakhyard only (decisions 69 and 70). The same Apple ID and *Keep Downloaded* still apply.
   - Test that a server write reaches the iPhone and the MacBook, and the latency. Writes wait for edits (decision 69); files uploaded on icloud.com reached the host within seconds.
@@ -946,7 +951,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Each module registers its provider as it lands. Partly done in the first slice (contracts, demo data).
 - `deploy-launchd`. Needs `backend-foundation`.
   - A LaunchAgent (`KeepAlive`) that runs process-compose (§4.9), plus a build-and-deploy script.
-  - Host setup notes: auto-login (FileVault off, §3), no sleep, *Keep Downloaded* on the vault folder (decision 70), the Tailscale formula and `tailscale serve` (decision 62), copilot CLI install.
+  - Host setup notes: auto-login (FileVault off, §3), no sleep, *Keep Downloaded* on the vault folder (decision 70), the Tailscale formula and `tailscale serve` (decision 62), and the Copilot token in the Keychain (decision 73).
 
 **Phase 2: notes, read-only (decision 69)**
 
@@ -1007,14 +1012,17 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Server-side git snapshots (`--git-dir` outside iCloud) for history and rollback.
 - `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`, `vault-edit-sync`.
   - Chat UI with streaming, plan-mode sessions, resume, and plan preview.
+  - The agent's questions shown in the chat, with their choices, and the answers sent back (§3).
   - "Save to Obsidian" writes `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, written by the service.
-  - Deny-by-default tools and spend limits.
+  - The tool allowlist and a deny-by-default permission handler (§3). No credit cap (decision 75).
+  - `copilot` pinned in mise.toml at the CLI version the SDK names; Renovate must update the two together (decision 74). The work host's name as a local setting, and the token from the Keychain (decisions 72 and 73).
+  - Each plan's credits could show from `Usage.GetMetrics`, which is experimental (§10).
 
 **Phase 7: hardening**
 
 - `hardening-docs`. Needs `auth-signin`, `copilot-planner`, `deploy-launchd`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`.
   - Vault snapshots and SQLite backups.
-  - Token-expiry reminders (Jira ≤ 365 d).
+  - Token-expiry reminders (Jira ≤ 365 d, the Copilot PAT).
   - Structured logs and per-widget error states.
   - NATS auth token.
   - README and host setup docs.
@@ -1110,16 +1118,20 @@ Made on 2026-10-22:
 69. **Notes are read-only for now**: the user's choice. Bakhyard renders the vault and doesn't edit it; edits come later. The iPhone views notes through Bakhyard only, never in Obsidian, so the vault no longer has to live where Obsidian's iOS app needs it (§2). `vault-edit-sync`, with the editor, the write rules (§3) and the server-side git snapshots, moves from Phase 2 to Phase 6, before `copilot-planner`, whose "Save to Obsidian" writes to the vault and so needs it. The Notes card's description becomes "The Obsidian vault, rendered" (§7), in the app with `vault-render`.
 70. **The vault stays where it is**: the user's choice. The vault stays in iCloud, in `~/Documents`, which Desktop & Documents syncs, and the notes service reads it in place. It doesn't move into `iCloud Drive/Obsidian`, and obsidian-git, which the user runs on it, is no longer Bakhyard's concern. The host is on the same Apple ID, and its vault folder is set to *Keep Downloaded*, or Optimize Mac Storage is off, so notes are on disk when read; an offloaded note still reads, about 1 s late (§2). iCloud does the syncing, so `vault-edit-sync` needs no sync adapter; its git snapshots keep their `--git-dir` outside iCloud. Replaces 1.
 71. **A Sync button, no file watcher**: the user's choice. The notes service neither watches nor polls the vault: it scans it when it starts and when the user presses Sync, on any device, and re-reads only the notes whose size or mtime differs from its index (§3). A scan took 3 ms for the user's vault and about 20 ms for 5,000 files. Neither watcher the spike tried fits (§2): fsnotify's kqueue backend holds every watched file open, which stops iCloud from offloading it, and doesn't watch recursively; FSEvents needs cgo and macOS, while CI runs on Linux, its Go library is marked unstable, and its flags can't be trusted, so it would need a scan as well. `vault-index-watch` becomes `vault-index`.
+72. **Copilot on the work seat**: the user's choice, with the employer's OK. The planner uses the work account's Copilot Business seat rather than a personal plan. The account lives on GitHub Enterprise Cloud with data residency, on a `*.ghe.com` host, so the CLI needs the host's name in `COPILOT_GH_HOST`; the name is a local setting and stays out of git. The organisation's settings apply: its Copilot CLI policy, the models it allows and its budgets (§10). Replaces 4.
+73. **A fine-grained PAT in the Keychain**: the user's choice. The planner signs in with a fine-grained PAT owned by the work account, with the Copilot Requests permission and read-only access to public repositories, kept in the macOS Keychain and passed to the SDK as `GitHubToken`. The CLI's environment drops `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` and `GITHUB_TOKEN`, so the personal token never reaches it, and its `BaseDirectory` keeps its state apart from the user's own `~/.copilot` (§3). The PAT expires, so the token-expiry reminders cover it (§8.2 `hardening-docs`).
+74. **The CLI pinned with the SDK**: the user's choice. mise installs `copilot`, pinned exactly in mise.toml at the CLI version the SDK release names (1.0.102 for v1.0.25), and the service passes its path to the SDK. It's the one mise tool pinned exactly; the others follow `latest` (§10). The SDK's bundler, which embeds the CLI in the Go binary, isn't used, nor is Homebrew's cask, which updates itself. The SDK checks the CLI's protocol version when it connects, so a mismatch fails at start; Renovate must update the two together.
+75. **Plans on claude-opus-5.5, with no credit cap**: the user's choices. The planner asks for claude-opus-5.5, which cost about 8.8 credits (about $0.09) for a short plan, where the default, claude-sonnet-5.5, cost 3.8 (§2). There's no per-session cap: `SessionLimits`, which is experimental, isn't used, and the organisation's budget is the only limit.
 
 ## 10. Risks
 
 - **Exophase** (accepted by the user): undocumented endpoints behind a Cloudflare bot check may break or get blocked at any time. Today Cloudflare challenges Go's default user agent and lets an honest one through; that rule may change, and nobody has measured how long it holds (decision 67). Mitigations: fetched only on request and at most hourly, backoff, last-good cache, "stale" badge, `tls-client` as the plan B.
 - **IGDB**: free for non-commercial use only; 4 req/s. A title can match the wrong release, such as the original of a re-release, and a record merged into another leaves its old slug and cover dead, so a cached match can go stale.
 - **iCloud**: a note that changed on another device shows up only after the next Sync (decision 71), and one that macOS has offloaded reads about 1 s late. After a reboot nothing syncs until someone logs in, by hand while FileVault is on (§3). Reading while offline is untested. iCloud isn't a backup, so the vault needs one of its own; Bakhyard's git snapshots come only with edits (decision 69). Edits bring back duplicate conflict copies and the case where one of two offline edits silently wins, covered then by the write rules and the snapshots.
-- **Employer policy**: Copilot org billing, IP allowlists, token handling.
-- **Token expiry**: Jira ≤ 365 d, org PAT lifetime policies → expiry tracking and reminders.
+- **Employer policy**: the planner runs on the work seat (decision 72), so the organisation's settings govern it. Its Copilot CLI policy, the models it allows, its budgets, an IP allowlist or the PAT lifetime it allows can each change or stop the planner without notice, and so can the employer's agreement.
+- **Token expiry**: Jira ≤ 365 d, org PAT lifetime policies, the Copilot PAT (decision 73) → expiry tracking and reminders.
 - **Rate limits**: Bitbucket 1,000 req/h; GitHub search 30 req/min.
-- **Copilot SDK**: some parts are experimental (mode RPCs, `sessionLimits`); employer-managed settings can override the local config.
+- **Copilot SDK**: the SDK and the `copilot` CLI must move together, as each SDK release names its CLI version and checks the protocol (decision 74). `Usage.GetMetrics` is experimental; `SessionLimits` and the mode RPCs, also experimental, aren't used. The CLI writes the session's `plan.md` without asking the permission handler, and a later CLI could allow more by itself, so the tool allowlist and the empty working directory stay as well (§3). Employer-managed settings can override the local config.
 - **Sign-in**:
   - Google's login stays inside the iPhone Home Screen app on iOS 27 (§2). A later iOS may hand it to Safari again, whose cookie jar is separate; then the iPhone would rely on the Tailscale identity alone, or a passkey (decision 63).
   - HTTPS certificates publish the machine and tailnet names in public Certificate Transparency logs.
@@ -1174,7 +1186,6 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 - For the first service-to-service call: grpc-go or connect-go, and which connect-go v2 ecosystem modules (OpenTelemetry interceptors, validation) exist (decision 43)?
 - Which Mac is the host? The spikes ran on the MacBook, standing in for it. It has FileVault on, so it can't log in by itself after a reboot (§3); a dedicated host could turn FileVault off for auto-login.
 - Can Bitbucket's required approvals be detected automatically, or are they configured per repo by hand?
-- Does Copilot plan mode work with the built-in tools restricted (spike)?
 
 ## 13. Sources
 
@@ -1193,8 +1204,13 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - fsevents, marked unstable: https://github.com/fsnotify/fsevents
 - Copilot:
   - SDK GA: https://github.blog/changelog/2026-06-02-copilot-sdk-is-now-generally-available
-  - CLI auth: https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli
+  - SDK for Go, with the bundler and `BaseDirectory`: https://github.com/github/copilot-sdk/blob/main/go/README.md
+  - CLI releases: https://github.com/github/copilot-cli/releases
+  - CLI auth, with the token types and their order: https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli
+  - `COPILOT_GH_HOST`, `GH_HOST` and `COPILOT_HOME`: `copilot help environment`
   - billing: https://github.blog/changelog/2026-06-01-updates-to-github-copilot-billing-and-plans
+  - billing for organisations, with Business's included credits: https://docs.github.com/en/copilot/concepts/billing-and-usage/organizations-and-enterprises/billing
+  - plans, all of which include the CLI: https://docs.github.com/en/copilot/get-started/plans
   - Business terms: https://github.com/customer-terms/general-terms
   - CLI admin policy: https://docs.github.com/en/copilot/how-tos/copilot-cli/administer-copilot-cli-for-your-enterprise
 - Jira search/jql: https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/ (CHANGE-2598)
