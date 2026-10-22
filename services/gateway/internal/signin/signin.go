@@ -13,6 +13,8 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/oauth2"
+
+	"github.com/codedogapp/bakhyard/services/gateway/internal/session"
 )
 
 const (
@@ -36,6 +38,12 @@ type Settings struct {
 	Host string
 }
 
+// Sessions starts the user's sessions: session.Store, or a fake in tests.
+type Sessions interface {
+	// Start starts a session and returns its token.
+	Start(ctx context.Context) (string, error)
+}
+
 // Flow signs the user in with Google.
 type Flow struct {
 	oauth    oauth2.Config
@@ -43,11 +51,13 @@ type Flow struct {
 	client   *http.Client
 	email    string
 	logins   *logins
+	sessions Sessions
 	logger   *slog.Logger
 }
 
-// New returns the sign-in flow for settings. It reaches Google only when someone signs in.
-func New(settings Settings, logger *slog.Logger) *Flow {
+// New returns the sign-in flow for settings, which starts a session in sessions for each
+// sign-in. It reaches Google only when someone signs in.
+func New(settings Settings, sessions Sessions, logger *slog.Logger) *Flow {
 	client := &http.Client{Timeout: googleTimeout}
 	provider := settings.Provider.NewProvider(oidc.ClientContext(context.Background(), client))
 
@@ -63,6 +73,7 @@ func New(settings Settings, logger *slog.Logger) *Flow {
 		client:   client,
 		email:    settings.Email,
 		logins:   newLogins(),
+		sessions: sessions,
 		logger:   logger,
 	}
 }
@@ -90,7 +101,7 @@ func (f *Flow) login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target, http.StatusFound)
 }
 
-// callback checks Google's answer and lets through only the user.
+// callback checks Google's answer and starts a session for the user only, in a cookie.
 func (f *Flow) callback(w http.ResponseWriter, r *http.Request) {
 	email, err := f.check(r)
 	if err != nil {
@@ -100,6 +111,16 @@ func (f *Flow) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token, err := f.sessions.Start(r.Context())
+	if err != nil {
+		f.logger.ErrorContext(r.Context(), "failed a sign-in", "email", email, "err", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError)
+
+		return
+	}
+
+	http.SetCookie(w, session.Cookie(token))
 	f.logger.InfoContext(r.Context(), "signed in", "email", email)
 	http.Redirect(w, r, "/", http.StatusFound)
 }

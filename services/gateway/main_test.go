@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/codedogapp/bakhyard/services/gateway/internal/databasetest"
 )
 
 func TestTheGatewayAnswersItsHealthCheckItself(t *testing.T) {
@@ -111,12 +113,12 @@ func TestTheGatewayRefusesEveryoneElse(t *testing.T) {
 func TestTheGatewayNeedsItsSettings(t *testing.T) {
 	for _, name := range []string{
 		"BAKHYARD_TAILSCALE_LOGIN", "BAKHYARD_HOST",
-		"BAKHYARD_GOOGLE_CLIENT_ID", "BAKHYARD_GOOGLE_EMAIL",
+		"BAKHYARD_GOOGLE_CLIENT_ID", "BAKHYARD_GOOGLE_EMAIL", "BAKHYARD_DATABASE",
 	} {
-		vars := gatewayEnv("http://127.0.0.1:2")
+		vars, items := gatewayEnv(t, "http://127.0.0.1:2")
 		delete(vars, name)
 
-		_, err := routes(func(key string) string { return vars[key] }, keychainWith(t, testSecret))
+		_, err := routes(func(key string) string { return vars[key] }, keychainWith(items))
 		if err == nil || err.Error() != name+" is not set" {
 			t.Errorf("without %s: got %v, want the error %s is not set", name, err, name)
 		}
@@ -140,14 +142,14 @@ func signedIn(t *testing.T, method, target string) *http.Request {
 	return req
 }
 
-// gateway returns the gateway's routes, with home on a port where nothing listens and web at
-// webURL.
+// gateway returns the gateway's routes, with home on a port where nothing listens, web at
+// webURL and the database in a schema of its own.
 func gateway(t *testing.T, webURL string) http.Handler {
 	t.Helper()
 
-	vars := gatewayEnv(webURL)
+	vars, items := gatewayEnv(t, webURL)
 
-	router, err := routes(func(key string) string { return vars[key] }, keychainWith(t, testSecret))
+	router, err := routes(func(key string) string { return vars[key] }, keychainWith(items))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,15 +157,25 @@ func gateway(t *testing.T, webURL string) http.Handler {
 	return router
 }
 
-// gatewayEnv returns the test gateway's environment, with home on a port where nothing listens
-// and web at webURL.
-func gatewayEnv(webURL string) map[string]string {
-	return map[string]string{
+// gatewayEnv returns the test gateway's environment and Keychain items, with home on a port
+// where nothing listens, web at webURL and the database in a schema of its own.
+func gatewayEnv(t *testing.T, webURL string) (vars, items map[string]string) {
+	t.Helper()
+
+	schema := databasetest.NewSchema(t)
+	vars = map[string]string{
 		"BAKHYARD_PEERS": "home=tcp://127.0.0.1:1,web=tcp://" +
 			strings.TrimPrefix(webURL, "http://"),
 		"BAKHYARD_TAILSCALE_LOGIN":  testLogin,
 		"BAKHYARD_HOST":             testHost,
 		"BAKHYARD_GOOGLE_CLIENT_ID": "client",
 		"BAKHYARD_GOOGLE_EMAIL":     testLogin,
+		"BAKHYARD_DATABASE":         schema.URL,
 	}
+	items = map[string]string{
+		"google-client-secret": testSecret,
+		"postgres-gateway":     schema.Password,
+	}
+
+	return vars, items
 }

@@ -1,5 +1,6 @@
 # The services that mise run up runs with process-compose (docs/plan.md §4.9). Each one
-# listens on its BAKHYARD_LISTEN, and the gateway finds the others in its BAKHYARD_PEERS (§4.7).
+# listens on its BAKHYARD_LISTEN, and the gateway finds the others in its BAKHYARD_PEERS (§4.7)
+# and its database at BAKHYARD_DATABASE, a URL without the password (docs/setup.md).
 # Every address is on the loopback: tailscale serve publishes the gateway.
 is_strict: true
 ordered_shutdown: true
@@ -46,6 +47,7 @@ processes:
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8080
       - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,web=tcp://127.0.0.1:8082
+      - BAKHYARD_DATABASE=postgres://bakhyard_gateway@127.0.0.1:5433/bakhyard_gateway
     depends_on:
       home:
         condition: process_healthy
