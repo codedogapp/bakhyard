@@ -68,7 +68,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `spike-https-push` | The Phase 0 spike (§8.2): HTTPS through `tailscale serve`, the identity headers, Web Push and Google sign-in, tested on the iPhone and the Mac; the findings are in §2, §3 and §10 (decisions 62 to 65) | Done (#38) |
 | `spike-games-access` | The Phase 0 spike (§8.2): which HTTP client reads Exophase's JSON, IGDB's token, search and covers, and the Backloggd reviews RSS; the findings are in §2, §3 and §10 (decisions 66 to 68) | Done (#39) |
 | `spike-vault-sync` | The Phase 0 spike (§8.2): how the host reads the vault in place from iCloud, notices changes and reads notes macOS has offloaded; the findings are in §2, §3 and §10 (decisions 69 to 71) | Done (#40) |
-| `spike-copilot-sdk` | The Phase 0 spike (§8.2): how the planner service signs in to Copilot, runs plan mode with only the tools it needs and receives the plan; the findings are in §2, §3 and §10 (decisions 72 to 75) | Done (#41) |
+| `spike-copilot-sdk` | The Phase 0 spike (§8.2): how the planner service signs in to Copilot, runs plan mode with only the tools it needs and receives the plan; the findings are in §2, §3 and §10 (decisions 72 to 75) | Done (#43) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -904,7 +904,7 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 0: spikes (prove the risky parts first)**
 
-- `spike-copilot-sdk` [planner]: done (#41). The findings are in §2 (Copilot planner), §3 (Copilot) and §10; decisions 72 to 75.
+- `spike-copilot-sdk` [planner]: done (#43). The findings are in §2 (Copilot planner), §3 (Copilot) and §10; decisions 72 to 75.
   - Write a throwaway Go program with the Copilot SDK (`github.com/github/copilot-sdk/go` v1.0.x) and the copilot CLI. Done with v1.0.25 and the CLI 1.0.102.
   - Authenticate the chosen account via an explicit `GitHubToken` or a device-code login (SSO orgs; `--host` for a `*.ghe.com` tenant). Keep the personal `GH_TOKEN`/`GITHUB_TOKEN` out of the process. A fine-grained PAT as `GitHubToken` signed in once `COPILOT_GH_HOST` named the work account's `*.ghe.com` host; the program dropped `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` and `GITHUB_TOKEN` from the CLI's environment.
   - Verify plan mode (`AgentMode: plan` + `OnExitPlanModeRequest`) with the built-in tools restricted. It works when the allowed tools include `create` and `edit`, which the agent needs to write its `plan.md`; writes anywhere else ask the permission handler, which denied them.
