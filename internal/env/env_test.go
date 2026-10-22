@@ -27,6 +27,29 @@ func TestAServiceReadsItsEnvironment(t *testing.T) {
 	}
 }
 
+func TestRequiredReturnsTheValue(t *testing.T) {
+	value, err := env.Required(getenvOf("BAKHYARD_HOST=machine.tailnet.ts.net"), "BAKHYARD_HOST")
+	if err != nil || value != "machine.tailnet.ts.net" {
+		t.Errorf("got %q, %v, want machine.tailnet.ts.net", value, err)
+	}
+}
+
+func TestRequiredRejects(t *testing.T) {
+	tests := map[string]func(string) string{
+		"an unset variable": getenvOf(),
+		"an empty variable": getenvOf("BAKHYARD_HOST="),
+	}
+
+	for name, getenv := range tests {
+		t.Run(name, func(t *testing.T) {
+			value, err := env.Required(getenv, "BAKHYARD_HOST")
+			if err == nil || err.Error() != "BAKHYARD_HOST is not set" {
+				t.Errorf("got %q, %v, want the error BAKHYARD_HOST is not set", value, err)
+			}
+		})
+	}
+}
+
 func TestListenAddressRejects(t *testing.T) {
 	tests := []struct {
 		name, listen, want string

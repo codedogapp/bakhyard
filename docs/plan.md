@@ -70,6 +70,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `spike-vault-sync` | The Phase 0 spike (§8.2): how the host reads the vault in place from iCloud, notices changes and reads notes macOS has offloaded; the findings are in §2, §3 and §10 (decisions 69 to 71) | Done (#40) |
 | `spike-copilot-sdk` | The Phase 0 spike (§8.2): how the planner service signs in to Copilot, runs plan mode with only the tools it needs and receives the plan; the findings are in §2, §3 and §10 (decisions 72 to 75) | Done (#43) |
 | `biome-lockfile` | Biome leaves `pnpm-lock.yaml` alone: Biome 2.6 formats YAML, and the lockfile is pnpm's to write | Done (#44) |
+| `auth-tailscale` | The gateway lets in only the user's Tailscale login, on the ts.net name that `tailscale serve` publishes; every other request but `/healthz` gets a 403 (decisions 76 and 77) | Done (#45) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -136,7 +137,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
   - A LaunchAgent with `KeepAlive` runs process-compose, which supervises every service. A user session is needed for iCloud and the Keychain.
   - LaunchAgents and iCloud's File Provider agent load only after a login at the GUI, so after a reboot nothing runs or syncs until someone logs in. Auto-login does that, but macOS turns it off while FileVault is on. The MacBook that stood in for the host in the spikes has FileVault on, so it needs a login by hand after each reboot; whether a dedicated host keeps FileVault is decided with the host (§12).
   - Same Apple ID as the MacBook, so iCloud brings the vault (decision 70). The vault folder is set to *Keep Downloaded*, or Optimize Mac Storage is off, so notes are on disk when read.
-- **Network**: Tailscale on the host, the MacBook and the iPhone. `tailscale serve` publishes `https://<host>.<tailnet>.ts.net` → the gateway on `127.0.0.1:8080`. Nothing listens on the LAN.
+- **Network**: Tailscale on the host, the MacBook and the iPhone. `tailscale serve` publishes `https://<host>.<tailnet>.ts.net` → the gateway on `127.0.0.1:8080` (`tailscale serve --bg 8080`). Nothing listens on the LAN.
   - On the host, Tailscale is the Homebrew formula: the open-source `tailscaled` as a root LaunchDaemon, up at boot before any login, with no GUI and no auto-update (decision 62).
   - Funnel works on the formula (not on the two apps), so `tailscale serve status` must show the tailnet only.
   - Serve's certificate comes from Let's Encrypt and lasts 90 days. Tailscale's docs say a certificate that isn't installed as files, as with Serve, renews by itself; no renewal has been watched yet.
@@ -166,11 +167,13 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
 - **Vault reads** (notes service, decision 71): the vault is read in place. There's no file watcher and no polling: the service scans the vault when it starts and when the user presses Sync. A scan is a `WalkDir` with a stat of each file, skipping dot folders such as `.git/` and `.obsidian/`, and re-reads only the notes whose size or mtime differs from the index. It compares for equality, never "newer than": a note iCloud delivers keeps its original mtime.
 - **Vault writes** (notes service, from `vault-edit-sync` in Phase 6, conflict-safe): new notes get unique names; edit only if the mtime/hash is unchanged since the read; temp file + atomic rename; skip notes modified elsewhere in the last few minutes; never touch `.obsidian/`.
 - **Auth** (enforced at the gateway; one person, two locks):
-  1. **Tailscale identity**:
-     - The gateway listens on `127.0.0.1` only; `tailscale serve` adds `Tailscale-User-Login` and replaces copies sent by the client (tested 2026-10-21). It also sets `X-Forwarded-For` (the client's tailnet IP), `X-Forwarded-Host` and `X-Forwarded-Proto: https`.
-     - Require the login to equal the allowed email (Tailscale account created via Google, or Apple).
-     - Check that `Host` is our `ts.net` name.
-     - No identity headers (tagged devices, Funnel) → reject.
+  1. **Tailscale identity**, as built in `auth-tailscale` (decision 77):
+     - The gateway listens on `127.0.0.1` only; `tailscale serve` adds `Tailscale-User-Login` and replaces copies sent by the client (tested 2026-10-21). It keeps `Host` as the ts.net name, and also sets `X-Forwarded-For` (the client's tailnet IP), `X-Forwarded-Host` and `X-Forwarded-Proto: https`.
+     - Every request but `/healthz` needs a `Tailscale-User-Login` equal to `BAKHYARD_TAILSCALE_LOGIN` and a `Host` equal to `BAKHYARD_HOST`, the ts.net name, in any case. Any other request gets a plain-text 403 and reaches no service, and the gateway logs the login and host it came with.
+     - Requests through Funnel and from tagged devices carry no identity headers, and a user who accepted a share of the host gets their own login, so all of them get the 403.
+     - `/healthz` stays open, because process-compose's probe calls the gateway directly.
+     - The two variables are personal, so they live in `mise.local.toml`. The gateway doesn't start without them.
+     - No bypass: a browser reaches the app only through `https://<host>.<tailnet>.ts.net`, even on the host, where `127.0.0.1:8080` answers 403.
   2. **Google sign-in (OIDC)**:
      - `go-oidc/v3` 3.21.0 + `x/oauth2` 0.37.0, auth-code flow with PKCE.
      - `state` and `nonce` stored on the server (go-oidc does not check the nonce → we compare it).
@@ -296,7 +299,7 @@ flowchart LR
 - Sets or forwards `X-Request-Id`.
 - Security headers, including CSP `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'`. `data:` covers the images and fonts Vite inlines (§4.12).
 - CSRF protection via `http.NewCrossOriginProtection()`.
-- Later: sign-in (§3 Auth) is enforced here.
+- Sign-in (§3 Auth) is enforced here: the Tailscale identity since `auth-tailscale`, and Google sign-in with the rest of `auth-signin`.
 
 ### 4.5 Contracts
 
@@ -341,6 +344,7 @@ Other rules:
 >
 > - Each service inherits process-compose's whole environment, with two variables from `process-compose.yaml` on top (§4.9): `BAKHYARD_LISTEN`, the address it listens on, and `BAKHYARD_PEERS`, `name=tcp://host:port,…` for the services it calls, which only the gateway has. So home's `BAKHYARD_NAME` comes from the shell or `mise.local.toml`, not from `process-compose.yaml` (decision 56).
 > - Addresses are `tcp://host:port` only, with a host and a port from 1 to 65535. The root `internal/env` reads both variables. A service that lacks one it needs, or can't read it, exits 1 and says which, such as `BAKHYARD_PEERS has no peer "home"`.
+> - The gateway also needs `BAKHYARD_TAILSCALE_LOGIN` and `BAKHYARD_HOST` (§3 Auth). They're personal, so they come from `mise.local.toml`, like home's `BAKHYARD_NAME`, and the gateway exits 1 with `<variable> is not set` without either.
 > - Every service starts through the root `internal/service`: it reads the address, builds the service's routes, and serves them with the root `internal/server`, with a 5 s `ReadHeaderTimeout`. On SIGTERM or Ctrl-C the server stops accepting connections and gives the requests in flight 8 s to finish; the service then exits 0 if they all did, and 1 if not. A service's `main.go` holds only its routes, and logs the error that ends it.
 > - Every service answers its health check, `GET /healthz`, on its `listen`, through the root `internal/health`: 200 with `{"status":"ok"}` as `application/json`. HEAD gets the same headers, and any other method a 405 with `Allow: GET`. The gateway answers its own rather than pass it to web, so no service's `/healthz` is reachable from outside (decision 60).
 > - The other variables, unix sockets, the other ops endpoints (`/readyz`, `/metrics`), and every shutdown step below other than `http.Server.Shutdown`, wait for the steps that need them.
@@ -932,12 +936,14 @@ Every item is pending unless it says done. The service an item lands in is in br
 - `scaffold-repo`:
   - Repo, Go modules, web app, lint and test setup, README skeleton, config example.
   - Mostly covered by the first slice. Left: README, config example, the GitHub remote.
-- `backend-foundation` [kit]. Needs `scaffold-repo`.
-  - Originally: config + Keychain secrets, SQLite + migrations, an HTTP router on 127.0.0.1, an SSE hub, a scheduler, and an integration cache/adapter interface.
-  - In the microservices layout these become kit packages used by each service; Connect server streams replace SSE.
-  - Auth is a separate item (`auth-signin`).
-- `auth-signin` [gateway]. Needs `backend-foundation`, `spike-https-push`.
-  - Implement §3 Auth: a Tailscale-identity middleware, Google OIDC, `sub` pinning, `__Host-` session cookie, CSRF protection.
+- `backend-foundation`: split (decision 76). Each piece comes with the first step that needs it, and the steps that waited for it no longer do:
+  - SQLite with migrations, and secrets from the Keychain: Google sign-in, for the gateway's sessions and the OAuth client secret.
+  - Configuration: environment variables (§4.7), each with its first user.
+  - A scheduler: the first service that polls.
+  - The integration cache: the first service that caches what it fetches.
+  - Live updates beyond polling: the step that needs them (decision 49).
+- `auth-signin` [gateway]. Needs `spike-https-push`.
+  - Implement §3 Auth. Its first slice, `auth-tailscale`, built the Tailscale identity (decision 77); the rest is Google OIDC, `sub` pinning, the `__Host-` session cookie and CSRF protection.
   - A sign-in page in the §7 style.
   - Setup notes for the Google Cloud OAuth client (External, Testing).
 - `frontend-shell` [web]. Needs `scaffold-repo`.
@@ -946,17 +952,17 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Responsive: bottom tab bar below the nav breakpoint, safe areas.
   - PWA manifest (a `theme-color` per scheme) and service worker, live-update client, settings page with a manual theme override.
   - Check against §7 in both themes. The Home steps in §0 build the first part.
-- `home-feed` [home]. Needs `auth-signin`, `backend-foundation`, `frontend-shell`.
+- `home-feed` [home]. Needs `auth-signin`, `frontend-shell`.
   - Attention providers (`AttentionService` in each feature service) aggregated by home and sorted by urgency, with live updates.
   - Home page per §7.
   - Each module registers its provider as it lands. Partly done in the first slice (contracts, demo data).
-- `deploy-launchd`. Needs `backend-foundation`.
+- `deploy-launchd`.
   - A LaunchAgent (`KeepAlive`) that runs process-compose (§4.9), plus a build-and-deploy script.
-  - Host setup notes: auto-login (FileVault off, §3), no sleep, *Keep Downloaded* on the vault folder (decision 70), the Tailscale formula and `tailscale serve` (decision 62), and the Copilot token in the Keychain (decision 73).
+  - Host setup notes: auto-login (FileVault off, §3), no sleep, *Keep Downloaded* on the vault folder (decision 70), the Tailscale formula and `tailscale serve` (decision 62), the gateway's two settings in `mise.local.toml` (decision 77), and the Copilot token in the Keychain (decision 73).
 
 **Phase 2: notes, read-only (decision 69)**
 
-- `vault-index` [notes]. Needs `backend-foundation`, `spike-vault-sync`.
+- `vault-index` [notes]. Needs `spike-vault-sync`.
   - Vault index: titles, aliases and paths for wikilink resolution.
   - A scan when the service starts and on request, which re-reads only the notes whose size or mtime changed (§3, decision 71).
   - A safe read API.
@@ -967,15 +973,15 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 3: work**
 
-- `todos-jira` [todos]. Needs `backend-foundation`, `frontend-shell`.
+- `todos-jira` [todos]. Needs `frontend-shell`.
   - Todo CRUD with linked Jira keys.
   - Poll `/rest/api/3/search/jql` (assigned to me, not done) with explicit fields.
   - Status badges, an inbox for newly assigned tickets, and prompts when a ticket is done.
-- `bitbucket-prs` [pulls]. Needs `backend-foundation`, `frontend-shell`.
+- `bitbucket-prs` [pulls]. Needs `frontend-shell`.
   - Scoped API token on `api.bitbucket.org`. My open PRs per workspace.
   - Review requests via the per-repo `reviewers.uuid` query, cached (1,000 req/h).
   - Approvals from the PR participants; `/activity` for the last reviewer action.
-- `notifications` [notify]. Needs `backend-foundation`, `frontend-shell`, `spike-https-push`.
+- `notifications` [notify]. Needs `frontend-shell`, `spike-https-push`.
   - Web Push only (VAPID; decision 64): to the iPhone Home Screen PWA and to Safari on the MacBook, or Brave with Google's push service on (§2); HTTPS via `tailscale serve`.
   - Forget a device when its push service answers 404 or 410.
   - The Go sender is still to pick: the spike's `webpush-go` v1.4.0 works, with the caveats in §2.
@@ -991,7 +997,7 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 4: GitHub**
 
-- `github-widgets` [github]. Needs `backend-foundation`, `frontend-shell`.
+- `github-widgets` [github]. Needs `frontend-shell`.
   - Search API: my open PRs, review requests and assigned issues across owners.
   - Poll every 5 min within 30 req/min. Token per decision 9.
 
@@ -1123,6 +1129,8 @@ Made on 2026-10-22:
 73. **A fine-grained PAT in the Keychain**: the user's choice. The planner signs in with a fine-grained PAT owned by the work account, with the Copilot Requests permission and read-only access to public repositories, kept in the macOS Keychain and passed to the SDK as `GitHubToken`. The CLI's environment drops `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` and `GITHUB_TOKEN`, so the personal token never reaches it, and its `BaseDirectory` keeps its state apart from the user's own `~/.copilot` (§3). The PAT expires, so the token-expiry reminders cover it (§8.2 `hardening-docs`).
 74. **The CLI pinned with the SDK**: the user's choice. mise installs `copilot`, pinned exactly in mise.toml at the CLI version the SDK release names (1.0.102 for v1.0.25), and the service passes its path to the SDK. It's the one mise tool pinned exactly; the others follow `latest` (§10). The SDK's bundler, which embeds the CLI in the Go binary, isn't used, nor is Homebrew's cask, which updates itself. The SDK checks the CLI's protocol version when it connects, so a mismatch fails at start; Renovate must update the two together.
 75. **Plans on claude-opus-5.5, with no credit cap**: the user's choices. The planner asks for claude-opus-5.5, which cost about 8.8 credits (about $0.09) for a short plan, where the default, claude-sonnet-5.5, cost 3.8 (§2). There's no per-session cap: `SessionLimits`, which is experimental, isn't used, and the organisation's budget is the only limit.
+76. **Foundation with its first user**: the user's choice. `backend-foundation` is no longer a step of its own. Building SQLite, the Keychain, a scheduler and a cache before anything used them would break AGENTS.md's rule that infrastructure arrives only when a step needs it. Each piece comes with the first step that needs it (§8.2), inside that service, and moves to the root `internal/` once a second service needs it. Configuration stays environment variables (§4.7). The first step after the split is `auth-tailscale`, the first slice of `auth-signin`, which needs none of the pieces.
+77. **The Tailscale lock**: the user's choices. The gateway lets in only the login in `BAKHYARD_TAILSCALE_LOGIN`, on the ts.net name in `BAKHYARD_HOST`. Both are personal, so they live in `mise.local.toml`, and the gateway doesn't start without them. Every other request but `/healthz` gets a plain-text 403 and reaches no service (§3 Auth). There's no bypass for local use: the browser goes through `tailscale serve`, even on the host. A process on the host can still forge both headers by calling `127.0.0.1:8080` directly; Google sign-in, the second lock, covers that (§10).
 
 ## 10. Risks
 
@@ -1134,6 +1142,7 @@ Made on 2026-10-22:
 - **Rate limits**: Bitbucket 1,000 req/h; GitHub search 30 req/min.
 - **Copilot SDK**: the SDK and the `copilot` CLI must move together, as each SDK release names its CLI version and checks the protocol (decision 74). `Usage.GetMetrics` is experimental; `SessionLimits` and the mode RPCs, also experimental, aren't used. The CLI writes the session's `plan.md` without asking the permission handler, and a later CLI could allow more by itself, so the tool allowlist and the empty working directory stay as well (§3). Employer-managed settings can override the local config.
 - **Sign-in**:
+  - Until Google sign-in lands, the Tailscale identity is the only lock, and any process on the host passes it by calling `127.0.0.1:8080` with a forged `Tailscale-User-Login` and the ts.net `Host` (tested 2026-10-22). Tailscale's docs warn of the same: listening on the loopback only limits forgery to the host's own processes (decision 77).
   - Google's login stays inside the iPhone Home Screen app on iOS 27 (§2). A later iOS may hand it to Safari again, whose cookie jar is separate; then the iPhone would rely on the Tailscale identity alone, or a passkey (decision 63).
   - HTTPS certificates publish the machine and tailnet names in public Certificate Transparency logs.
 - **Push in Brave**: Brave sends Web Push through Google's FCM only when "Use Google services for push messaging" is on, which it isn't by default, and shows nothing until macOS allows its notifications (§2). Safari needs neither.

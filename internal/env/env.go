@@ -1,5 +1,5 @@
 // Package env reads a service's environment (docs/plan.md §4.7): the address the service listens
-// on, and the addresses of the services it calls, its peers.
+// on, the addresses of the services it calls, its peers, and the settings it can't run without.
 package env
 
 import (
@@ -15,11 +15,21 @@ const (
 	tcpScheme = "tcp://"
 )
 
+// Required returns the value of the variable name, or an error if it is unset or empty.
+func Required(getenv func(string) string, name string) (string, error) {
+	value := getenv(name)
+	if value == "" {
+		return "", fmt.Errorf("%s is not set", name)
+	}
+
+	return value, nil
+}
+
 // ListenAddress returns the host and port to listen on, from BAKHYARD_LISTEN.
 func ListenAddress(getenv func(string) string) (string, error) {
-	listen := getenv(listenVar)
-	if listen == "" {
-		return "", fmt.Errorf("%s is not set", listenVar)
+	listen, err := Required(getenv, listenVar)
+	if err != nil {
+		return "", err
 	}
 
 	addr, err := Address(listen)
