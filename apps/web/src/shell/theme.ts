@@ -40,7 +40,7 @@ export function saveChoice(choice: ThemeChoice): void {
 export function applyChoice(choice: ThemeChoice): void {
   const root = document.documentElement;
   if (choice === 'system') {
-    root.removeAttribute('data-theme');
+    delete root.dataset.theme;
   } else {
     root.dataset.theme = choice;
   }

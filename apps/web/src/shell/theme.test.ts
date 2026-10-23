@@ -38,7 +38,7 @@ test('leaves nothing in storage for System', () => {
   saveChoice('dark');
   saveChoice('system');
 
-  expect(localStorage.length).toBe(0);
+  expect(localStorage).toHaveLength(0);
 });
 
 test('loads an unknown value as System', () => {
