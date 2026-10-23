@@ -59,12 +59,7 @@ func main() {
 }
 
 func routes(getenv func(string) string, password passwordReader) (http.Handler, error) {
-	home, err := env.PeerAddress(getenv, "home")
-	if err != nil {
-		return nil, err
-	}
-
-	web, err := env.PeerAddress(getenv, "web")
+	home, web, err := peers(getenv)
 	if err != nil {
 		return nil, err
 	}
@@ -103,15 +98,38 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 		signingIn.Use(identified)
 		signin.New(settings, sessions, logger).Register(signingIn)
 	})
-	// Everything else needs a session as well. This group is the root router's child, so that its
-	// web fallback, chi's NotFound handler, reaches the root router.
-	router.Group(func(locked chi.Router) {
-		locked.Use(identified, session.Require(sessions, signin.LoginPath, logger))
-		proxy.Register(locked, "home", &url.URL{Scheme: "http", Host: home}, logger)
-		proxy.RegisterFallback(locked, "web", &url.URL{Scheme: "http", Host: web}, logger)
+	// The API needs a session as well (decision 86).
+	router.Group(func(api chi.Router) {
+		api.Use(identified, session.Require(sessions, logger), session.Hide)
+		proxy.Register(api, "home", home, logger)
+		proxy.RegisterUnclaimed(api)
+	})
+	// The app's files hold no data, so they need the Tailscale identity only. This group is the
+	// root router's child, so that its web fallback, chi's NotFound handler, reaches the root router.
+	router.Group(func(app chi.Router) {
+		app.Use(identified, session.Hide)
+		proxy.RegisterFallback(app, "web", web, logger)
 	})
 
 	return router, nil
+}
+
+// peers returns the URLs of home and web, the services that the gateway forwards to.
+func peers(getenv func(string) string) (home, web *url.URL, err error) {
+	homeAddress, err := env.PeerAddress(getenv, "home")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	webAddress, err := env.PeerAddress(getenv, "web")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	home = &url.URL{Scheme: "http", Host: homeAddress}
+	web = &url.URL{Scheme: "http", Host: webAddress}
+
+	return home, web, nil
 }
 
 // googleSettings returns the settings of the flow that signs the user in with Google and sends

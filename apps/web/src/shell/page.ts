@@ -18,6 +18,9 @@ export function pageAt(path: string): Page {
 
 const siteName = 'Bakhyard';
 
+/** The document's title on every path while the user is signed out. */
+export const signedOutTitle = `Signed out · ${siteName}`;
+
 /** The document's title on the page. */
 export function pageTitle(page: Page): string {
   switch (page.kind) {

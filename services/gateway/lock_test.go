@@ -3,71 +3,100 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
-func TestTheGatewayNeedsASessionForEverythingButSigningIn(t *testing.T) {
+func TestTheGatewayNeedsASessionForTheAPIOnly(t *testing.T) {
+	reached := make(chan string, 10)
+
 	web := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		t.Errorf("web got %s %s, want nothing", r.Method, r.URL.Path)
+		reached <- r.Method + " " + r.URL.Path
 	}))
 	t.Cleanup(web.Close)
 
 	router, _ := gateway(t, web.URL)
 
-	// A page load goes to sign in; anything else gets a 401, and reaches no service.
+	// The app's files load without a session, and the app shows its sign-in screen on the API's
+	// 401 (decision 86). An /api path gets the 401 whether a service claims it or not.
 	for _, test := range []struct {
 		method, target string
 		want           int
 	}{
-		{http.MethodGet, "/", http.StatusFound},
-		{http.MethodHead, "/notes", http.StatusFound},
-		{http.MethodGet, "/auth/other", http.StatusFound},
+		{http.MethodGet, "/", http.StatusOK},
+		{http.MethodHead, "/notes", http.StatusOK},
+		{http.MethodGet, "/auth/other", http.StatusOK},
 		{http.MethodGet, "/api/home", http.StatusUnauthorized},
+		{http.MethodPost, "/api/home", http.StatusUnauthorized},
 		{http.MethodGet, "/api/nothing", http.StatusUnauthorized},
-		{http.MethodPost, "/", http.StatusUnauthorized},
+		{http.MethodGet, "/api", http.StatusUnauthorized},
 	} {
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, signedIn(t, test.method, test.target))
 
-		location := rec.Header().Get("Location")
-
-		wrongPlace := test.want == http.StatusFound && location != "/auth/google/login"
-		if rec.Code != test.want || wrongPlace {
+		if rec.Code != test.want || rec.Header().Get("Location") != "" {
 			t.Errorf("%s %s without a session: got %d to %q, want %d",
-				test.method, test.target, rec.Code, location, test.want)
+				test.method, test.target, rec.Code, rec.Header().Get("Location"), test.want)
 		}
+	}
+
+	close(reached)
+
+	var got []string
+	for request := range reached {
+		got = append(got, request)
+	}
+
+	if strings.Join(got, ", ") != "GET /, HEAD /notes, GET /auth/other" {
+		t.Errorf("web got %q, want only the app's paths", got)
 	}
 }
 
-func TestTheGatewayRenewsTheSessionAndKeepsItFromTheServices(t *testing.T) {
+func TestTheGatewayKeepsTheSessionFromTheServices(t *testing.T) {
 	cookies := make(chan string, 1)
+	service := func(name string) *httptest.Server {
+		srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			cookies <- name + " got " + r.Header.Get("Cookie")
+		}))
+		t.Cleanup(srv.Close)
 
-	web := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		cookies <- r.Header.Get("Cookie")
-	}))
-	t.Cleanup(web.Close)
-
-	router, token := gateway(t, web.URL)
-
-	req := withSession(signedIn(t, http.MethodGet, "/notes"), token)
-	req.Header.Add("Cookie", "theme=dark")
-
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	want := "__Host-session=" + token +
-		"; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax"
-	if rec.Code != http.StatusOK || rec.Header().Get("Set-Cookie") != want {
-		t.Errorf("got %d with the cookie %q, want 200 with %q",
-			rec.Code, rec.Header().Get("Set-Cookie"), want)
+		return srv
 	}
+	home, web := service("home"), service("web")
 
-	select {
-	case got := <-cookies:
-		if got != "theme=dark" {
-			t.Errorf("web got the cookies %q, want only theme=dark", got)
+	vars, items := gatewayEnv(t, web.URL)
+	vars["BAKHYARD_PEERS"] = "home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
+		",web=tcp://" + strings.TrimPrefix(web.URL, "http://")
+	router, token := gatewayFrom(t, vars, items)
+
+	// Only the API renews the session; neither the service behind the session lock nor the one
+	// behind the Tailscale lock alone sees it.
+	for _, test := range []struct {
+		target, service string
+		renewed         bool
+	}{
+		{"/api/home", "home", true},
+		{"/notes", "web", false},
+	} {
+		req := withSession(signedIn(t, http.MethodGet, test.target), token)
+		req.Header.Add("Cookie", "theme=dark")
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		renewed := rec.Header().Get("Set-Cookie") != ""
+		if rec.Code != http.StatusOK || renewed != test.renewed {
+			t.Errorf("GET %s: got %d, renewed %t; want 200, renewed %t",
+				test.target, rec.Code, renewed, test.renewed)
 		}
-	default:
-		t.Error("web got nothing, want GET /notes")
+
+		select {
+		case got := <-cookies:
+			if got != test.service+" got theme=dark" {
+				t.Errorf("GET %s: %s, want %s got only theme=dark", test.target, got, test.service)
+			}
+		default:
+			t.Errorf("GET %s: no service got it, want %s", test.target, test.service)
+		}
 	}
 }

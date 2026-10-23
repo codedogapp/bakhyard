@@ -77,6 +77,13 @@ test.each([
   expect(navigate(navigation, fields)).not.toHaveBeenCalled();
 });
 
+test("leaves the gateway's own paths, where signing in starts, to the browser", () => {
+  const { navigation } = followed();
+  const destination = { url: 'http://localhost:3000/auth/google/login' } as NavigationDestination;
+
+  expect(navigate(navigation, { destination })).not.toHaveBeenCalled();
+});
+
 test('leaves navigations to the browser once stopped', () => {
   const { navigation, stop } = followed();
 

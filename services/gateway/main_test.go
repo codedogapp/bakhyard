@@ -52,10 +52,10 @@ func TestTheGatewayForwardsHEADAsHEAD(t *testing.T) {
 	}))
 	t.Cleanup(web.Close)
 
-	router, token := gateway(t, web.URL)
+	router, _ := gateway(t, web.URL)
 
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, withSession(signedIn(t, http.MethodHead, "/notes"), token))
+	router.ServeHTTP(rec, signedIn(t, http.MethodHead, "/notes"))
 
 	select {
 	case request := <-got:
@@ -157,6 +157,14 @@ func gateway(t *testing.T, webURL string) (http.Handler, string) {
 	t.Helper()
 
 	vars, items := gatewayEnv(t, webURL)
+
+	return gatewayFrom(t, vars, items)
+}
+
+// gatewayFrom returns the gateway's routes for the environment vars and the Keychain items, and
+// the token of a session in its database.
+func gatewayFrom(t *testing.T, vars, items map[string]string) (http.Handler, string) {
+	t.Helper()
 
 	router, err := routes(func(key string) string { return vars[key] }, keychainWith(items))
 	if err != nil {

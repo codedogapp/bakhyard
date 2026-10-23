@@ -29,15 +29,19 @@ export interface Home {
   week: Week;
 }
 
+/** The error fetchHome fails with when the gateway answers 401: the user has no session. */
+export class SignedOutError extends Error {
+  override name = 'SignedOutError';
+}
+
 /**
- * Fetches the Home; fails when the gateway can't be reached or answers with an error. Without a
- * session the gateway answers 401: then the page reloads, and the gateway sends that page load to
- * sign in.
+ * Fetches the Home; fails when the gateway can't be reached or answers with an error, and with a
+ * SignedOutError when the user has no session.
  */
 export async function fetchHome(): Promise<Home> {
   const response = await fetch('/api/home');
   if (response.status === 401) {
-    location.reload();
+    throw new SignedOutError('GET /api/home: 401');
   }
   if (!response.ok) {
     throw new Error(`GET /api/home: ${response.status}`);

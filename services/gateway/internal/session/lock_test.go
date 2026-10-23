@@ -20,18 +20,11 @@ func TestTheLockLetsALiveSessionInAndRenewsItsCookie(t *testing.T) {
 	sessions := &fakeSessions{}
 	handler, _, reached := locked(sessions)
 
-	req := request(t, http.MethodGet, "/notes", liveToken)
-	req.Header.Add("Cookie", "theme=dark")
-
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, request(t, http.MethodGet, "/api/home", liveToken))
 
 	if rec.Code != http.StatusOK || len(*reached) != 1 {
 		t.Fatalf("got %d, %d requests passed on; want 200 and the request", rec.Code, len(*reached))
-	}
-
-	if got := (*reached)[0].Header.Get("Cookie"); got != "theme=dark" {
-		t.Errorf("the request passed on has the cookies %q, want only theme=dark", got)
 	}
 
 	want := session.Cookie(liveToken).String()
@@ -44,40 +37,16 @@ func TestTheLockLetsALiveSessionInAndRenewsItsCookie(t *testing.T) {
 	}
 }
 
-func TestTheLockSendsAPageLoadWithoutASessionToSignIn(t *testing.T) {
-	for _, req := range []*http.Request{
-		request(t, http.MethodGet, "/", ""),
-		request(t, http.MethodHead, "/notes", ""),
-		request(t, http.MethodGet, "/", "UNKNOWN"),
-		// Outside the API, even if it starts with its letters.
-		request(t, http.MethodGet, "/apis", ""),
-	} {
-		handler, logs, reached := locked(&fakeSessions{})
-
-		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, req)
-
-		location := rec.Header().Get("Location")
-		if rec.Code != http.StatusFound || location != "/auth/google/login" || len(*reached) != 0 {
-			t.Errorf("%s %s: got %d to %q, want 302 to /auth/google/login",
-				req.Method, req.URL.Path, rec.Code, location)
-		}
-
-		if !strings.Contains(logs.String(), `"msg":"no session"`) {
-			t.Errorf("%s %s: got the logs %s, want no session", req.Method, req.URL.Path, logs)
-		}
-	}
-}
-
-func TestTheLockAnswersAnyOtherRequestWithoutASessionWith401(t *testing.T) {
+func TestTheLockAnswersARequestWithoutASessionWith401(t *testing.T) {
 	for _, req := range []*http.Request{
 		request(t, http.MethodGet, "/api/home", ""),
-		request(t, http.MethodGet, "/api", ""),
+		request(t, http.MethodGet, "/api", "UNKNOWN"),
 		request(t, http.MethodHead, "/api/home", "UNKNOWN"),
-		request(t, http.MethodPost, "/", ""),
-		request(t, http.MethodPost, "/api/home", "UNKNOWN"),
+		request(t, http.MethodPost, "/api/home", ""),
+		// A page load too: the lock no longer sends one to sign in (decision 86).
+		request(t, http.MethodGet, "/", ""),
 	} {
-		handler, _, reached := locked(&fakeSessions{})
+		handler, logs, reached := locked(&fakeSessions{})
 
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
@@ -86,8 +55,12 @@ func TestTheLockAnswersAnyOtherRequestWithoutASessionWith401(t *testing.T) {
 			t.Errorf("%s %s: got %d, want 401", req.Method, req.URL.Path, rec.Code)
 		}
 
-		if rec.Header().Get("Set-Cookie") != "" {
-			t.Errorf("%s %s: got a cookie, want none", req.Method, req.URL.Path)
+		if rec.Header().Get("Set-Cookie") != "" || rec.Header().Get("Location") != "" {
+			t.Errorf("%s %s: got a cookie or a redirect, want neither", req.Method, req.URL.Path)
+		}
+
+		if !strings.Contains(logs.String(), `"msg":"no session"`) {
+			t.Errorf("%s %s: got the logs %s, want no session", req.Method, req.URL.Path, logs)
 		}
 	}
 }
@@ -96,7 +69,7 @@ func TestTheLockAsksTheStoreOnlyAboutAToken(t *testing.T) {
 	sessions := &fakeSessions{}
 	handler, _, _ := locked(sessions)
 
-	handler.ServeHTTP(httptest.NewRecorder(), request(t, http.MethodGet, "/", ""))
+	handler.ServeHTTP(httptest.NewRecorder(), request(t, http.MethodGet, "/api/home", ""))
 
 	if len(sessions.asked) != 0 {
 		t.Errorf("the store renewed %q, want nothing", sessions.asked)
@@ -107,7 +80,7 @@ func TestTheLockFailsWhenTheStoreFails(t *testing.T) {
 	handler, logs, reached := locked(&fakeSessions{err: errors.New("the database is down")})
 
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, request(t, http.MethodGet, "/", liveToken))
+	handler.ServeHTTP(rec, request(t, http.MethodGet, "/api/home", liveToken))
 
 	if rec.Code != http.StatusInternalServerError || len(*reached) != 0 {
 		t.Errorf("got %d, want 500", rec.Code)
@@ -145,7 +118,7 @@ func locked(sessions *fakeSessions) (http.Handler, *bytes.Buffer, *[]*http.Reque
 		*reached = append(*reached, r)
 	})
 
-	return session.Require(sessions, "/auth/google/login", logger)(next), logs, reached
+	return session.Require(sessions, logger)(next), logs, reached
 }
 
 // request returns a request for target, with token in the session cookie unless it's empty.

@@ -8,6 +8,7 @@ test.each<{ connection: Connection; asOf?: string; want: string }>([
   { connection: 'online', asOf: '2026-10-20T01:10:00Z', want: 'Online' },
   { connection: 'offline', asOf: '2026-10-20T01:10:00Z', want: 'Offline · as of 10:10' },
   { connection: 'offline', want: 'Offline' },
+  { connection: 'signed-out', want: 'Signed out' },
 ])('says "$want" when $connection', ({ connection, asOf, want }) => {
   expect(statusLabel(connection, asOf ? new Date(asOf) : undefined)).toBe(want);
 });

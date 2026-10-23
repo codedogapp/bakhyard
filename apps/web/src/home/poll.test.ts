@@ -84,6 +84,21 @@ test.each([
   expect(feeds.at(-1)).toEqual({ connection: 'offline', home: ada, asOf: start });
 });
 
+test('reports signed out with no Home when the user has no session, and online once a load works again', async () => {
+  const feeds = poll();
+  await settle();
+  fetchMock.mockImplementation(async () => new Response(null, { status: 401 }));
+
+  await vi.advanceTimersByTimeAsync(minute);
+
+  expect(feeds.at(-1)).toEqual({ connection: 'signed-out' });
+
+  fetchMock.mockImplementation(async () => Response.json(grace));
+  await vi.advanceTimersByTimeAsync(minute);
+
+  expect(feeds.at(-1)).toEqual({ connection: 'online', home: grace, asOf: new Date(start.getTime() + 2 * minute) });
+});
+
 test('reports offline with no Home when the first load fails', async () => {
   fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
 
