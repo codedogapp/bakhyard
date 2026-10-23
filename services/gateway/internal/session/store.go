@@ -1,5 +1,6 @@
-// Package session keeps the user's sessions (docs/plan.md §3 Auth): each sign-in starts one, and
-// the browser carries its token in a cookie.
+// Package session keeps the user's sessions (docs/plan.md §3 Auth): each sign-in starts one, the
+// browser carries its token in a cookie, and the gateway's second lock lets in only the requests
+// that carry a live one.
 package session
 
 import (
@@ -19,6 +20,11 @@ const lifetime = 7 * 24 * time.Hour
 const startSQL = `
 WITH expired AS (DELETE FROM sessions WHERE expires_at <= now())
 INSERT INTO sessions (token_hash, expires_at) VALUES ($1, now() + $2::interval)`
+
+// renewSQL moves a live session's expiry to a lifetime from now.
+const renewSQL = `
+UPDATE sessions SET expires_at = now() + $2::interval
+WHERE token_hash = $1 AND expires_at > now()`
 
 // Store keeps the sessions in the gateway's database. It stores the SHA-256 of each session's
 // token, never the token.
@@ -43,4 +49,17 @@ func (s *Store) Start(ctx context.Context) (string, error) {
 	}
 
 	return token, nil
+}
+
+// Renew makes the session whose token is token last another week from now, and reports whether it
+// was live: a token that is unknown or expired has no session to renew.
+func (s *Store) Renew(ctx context.Context, token string) (bool, error) {
+	hash := sha256.Sum256([]byte(token))
+
+	tag, err := s.pool.Exec(ctx, renewSQL, hash[:], lifetime)
+	if err != nil {
+		return false, fmt.Errorf("renew a session: %w", err)
+	}
+
+	return tag.RowsAffected() == 1, nil
 }

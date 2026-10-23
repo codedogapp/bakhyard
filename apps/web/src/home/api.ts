@@ -29,9 +29,16 @@ export interface Home {
   week: Week;
 }
 
-/** Fetches the Home; fails when the gateway can't be reached or answers with an error. */
+/**
+ * Fetches the Home; fails when the gateway can't be reached or answers with an error. Without a
+ * session the gateway answers 401: then the page reloads, and the gateway sends that page load to
+ * sign in.
+ */
 export async function fetchHome(): Promise<Home> {
   const response = await fetch('/api/home');
+  if (response.status === 401) {
+    location.reload();
+  }
   if (!response.ok) {
     throw new Error(`GET /api/home: ${response.status}`);
   }
