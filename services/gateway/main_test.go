@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/codedogapp/bakhyard/services/gateway/internal/database"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/databasetest"
+	"github.com/codedogapp/bakhyard/services/gateway/internal/session"
 )
 
 func TestTheGatewayAnswersItsHealthCheckItself(t *testing.T) {
@@ -15,7 +17,7 @@ func TestTheGatewayAnswersItsHealthCheckItself(t *testing.T) {
 	}))
 	t.Cleanup(web.Close)
 
-	router := gateway(t, web.URL)
+	router, _ := gateway(t, web.URL)
 
 	// No login and the loopback's Host, as process-compose's probe sends them.
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
@@ -50,9 +52,10 @@ func TestTheGatewayForwardsHEADAsHEAD(t *testing.T) {
 	}))
 	t.Cleanup(web.Close)
 
+	router, token := gateway(t, web.URL)
+
 	rec := httptest.NewRecorder()
-	request := signedIn(t, http.MethodHead, "/notes")
-	gateway(t, web.URL).ServeHTTP(rec, request)
+	router.ServeHTTP(rec, withSession(signedIn(t, http.MethodHead, "/notes"), token))
 
 	select {
 	case request := <-got:
@@ -70,7 +73,7 @@ func TestTheGatewayLetsTheUserIn(t *testing.T) {
 	}))
 	t.Cleanup(web.Close)
 
-	router := gateway(t, web.URL)
+	router, token := gateway(t, web.URL)
 
 	// Nothing listens where the test gateway's home is, so a 503 means the request reached home's
 	// forwarder. An /api path that no service claims keeps its 404 behind the lock.
@@ -80,7 +83,7 @@ func TestTheGatewayLetsTheUserIn(t *testing.T) {
 		"/api":         http.StatusNotFound,
 	} {
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, signedIn(t, http.MethodGet, target))
+		router.ServeHTTP(rec, withSession(signedIn(t, http.MethodGet, target), token))
 
 		if rec.Code != want {
 			t.Errorf("GET %s: got %d, want %d", target, rec.Code, want)
@@ -94,17 +97,23 @@ func TestTheGatewayRefusesEveryoneElse(t *testing.T) {
 	}))
 	t.Cleanup(web.Close)
 
-	router := gateway(t, web.URL)
+	router, token := gateway(t, web.URL)
 
+	// The Tailscale lock comes first: a session doesn't open it.
 	for _, target := range []string{
 		"/", "/notes", "/api/home", "/api/nothing", "/auth/google/login", "/auth/google/callback",
 	} {
 		for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost} {
-			rec := httptest.NewRecorder()
-			router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, target, nil))
+			for _, req := range []*http.Request{
+				httptest.NewRequestWithContext(t.Context(), method, target, nil),
+				withSession(httptest.NewRequestWithContext(t.Context(), method, target, nil), token),
+			} {
+				rec := httptest.NewRecorder()
+				router.ServeHTTP(rec, req)
 
-			if rec.Code != http.StatusForbidden {
-				t.Errorf("%s %s without a login: got %d, want 403", method, target, rec.Code)
+				if rec.Code != http.StatusForbidden {
+					t.Errorf("%s %s without a login: got %d, want 403", method, target, rec.Code)
+				}
 			}
 		}
 	}
@@ -143,8 +152,8 @@ func signedIn(t *testing.T, method, target string) *http.Request {
 }
 
 // gateway returns the gateway's routes, with home on a port where nothing listens, web at
-// webURL and the database in a schema of its own.
-func gateway(t *testing.T, webURL string) http.Handler {
+// webURL and the database in a schema of its own, and the token of a session in that database.
+func gateway(t *testing.T, webURL string) (http.Handler, string) {
 	t.Helper()
 
 	vars, items := gatewayEnv(t, webURL)
@@ -154,7 +163,26 @@ func gateway(t *testing.T, webURL string) http.Handler {
 		t.Fatal(err)
 	}
 
-	return router
+	pool, err := database.Open(t.Context(), vars[databaseVar], items[databaseAccount])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(pool.Close)
+
+	token, err := session.NewStore(pool).Start(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return router, token
+}
+
+// withSession returns req with token in its session cookie.
+func withSession(req *http.Request, token string) *http.Request {
+	req.AddCookie(session.Cookie(token))
+
+	return req
 }
 
 // gatewayEnv returns the test gateway's environment and Keychain items, with home on a port

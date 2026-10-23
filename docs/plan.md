@@ -74,6 +74,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `signin-google` | The gateway signs the user in with Google and lets through only their own verified email, with the client secret from the Keychain; it keeps no session yet (decisions 78 to 80) | Done (#46) |
 | `signin-session` | Each sign-in starts a session in the gateway's own Postgres database and gives the browser its cookie; nothing checks it yet (decisions 81 and 82) | Done (#47) |
 | `host-laptop` | The host moves from a Mac to an old laptop at home, always on, with single-node k3s; the vault reaches it through git, and its secrets are Kubernetes Secrets (decisions 83 to 85) | Done (#48) |
+| `signin-lock` | Every request but `/healthz` and the sign-in routes needs a live session, which each use renews; a page load without one goes to Google, any other request gets a 401, on which the app reloads, and no service receives the session cookie (decision 86) | Done (#49) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -178,11 +179,11 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host lap
      - `/healthz` stays open, because process-compose's probe calls the gateway directly.
      - The two variables are personal, so they live in `mise.local.toml`. The gateway doesn't start without them.
      - No bypass: a browser reaches the app only through `https://<host>.<tailnet>.ts.net`, even on the host, where `127.0.0.1:8080` answers 403.
-  2. **Google sign-in (OIDC)**, in five steps (decision 78). `signin-google` built the flow and `signin-session` starts a session at each sign-in; `signin-lock` makes it a lock, and `signin-pin` and `signout` follow.
+  2. **Google sign-in (OIDC)**, in six steps (decisions 78 and 86). `signin-google` built the flow, `signin-session` starts a session at each sign-in, and `signin-lock` makes it a lock; `signin-screen`, `signin-pin` and `signout` follow.
      - `go-oidc/v3` 3.21.0 + `x/oauth2` 0.37.0, auth-code flow with PKCE. Google's endpoints are fixed in code, from its discovery document, so the gateway starts without reaching Google. Every call to Google gets a 10 s timeout.
      - `GET /auth/google/login` keeps a new `state`, nonce and PKCE verifier in the gateway's memory for 10 minutes, and redirects to Google with the scopes `openid email` and `prompt=select_account`.
      - `GET /auth/google/callback` takes the login for its `state` once, exchanges the code with the verifier, verifies the ID token (signature, issuer, audience, expiry) and compares its nonce, which go-oidc leaves to us. It lets through only `email_verified` true with an `email` equal to `BAKHYARD_GOOGLE_EMAIL`, exactly, as with the Tailscale login: it starts a session, logs `signed in` and redirects to `/`. Anything else, Google's `error` included, gets a plain-text 403 and a logged reason, and no session. The code, the tokens and the secret are never logged.
-     - Both routes sit behind the Tailscale lock. There's no sign-in page: once `signin-lock` adds the lock, a page load without a session goes straight to Google.
+     - Both routes sit behind the Tailscale lock, and need no session. Since `signin-lock`, a page load without a session goes straight to Google; `signin-screen` replaces that with a sign-in screen in the app (decision 86).
      - The client ID comes from `BAKHYARD_GOOGLE_CLIENT_ID`, and the client secret from the login Keychain, read once when the gateway starts (decision 79). `docs/setup.md` has the setup.
      - The consent screen app stays in "Testing" (no 7-day expiry for basic scopes).
      - Google does NOT enforce the test-user list → allow only `email_verified` + the allowed email at first login, then pin `sub` and match on `sub` afterwards (`signin-pin`).
@@ -190,7 +191,9 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host lap
      - The callback is a cross-site top-level GET: the `SameSite=Lax` cookies arrive with it, and `CrossOriginProtection` always allows GET. It creates a session, so `state`, PKCE and the nonce are what protect it.
   3. **Session**:
      - Each sign-in starts a session: a random token of at least 128 bits from `crypto/rand`, which the browser keeps in the cookie `__Host-session` (Secure, HttpOnly, SameSite=Lax, Path=/) for 7 days. The gateway's database keeps only the token's SHA-256 and its expiry, and deletes the expired sessions whenever it starts one. If storing fails, the callback answers 500 and sets no cookie (decision 82).
-     - Sliding: from `signin-lock` on, each use renews the session for 7 days.
+     - The lock (`signin-lock`, decision 86): behind the Tailscale lock, every request but `/healthz` and the two sign-in routes needs a live session. Without one, a page load (a `GET` or `HEAD` outside `/api`) gets a 302 to `/auth/google/login`, and any other request a plain-text 401, on which the app reloads; a database error gets a plain-text 500 and a logged reason. `signin-screen` narrows the lock to `/api`.
+     - Sliding: each use renews the session for 7 days, in the database and in the cookie.
+     - The session cookie stops at the gateway: it's removed from every request the gateway passes on, so no service sees the token.
      - CSRF protection via Go's `http.CrossOriginProtection`.
 
 **Polling defaults**: Jira 5 min; Bitbucket mine 5 min, review scan 15 min (repo list daily); GitHub 5 min; logged time 15 min + on demand. Not polled: Exophase (on request, cached for an hour) and IGDB (on demand, cached).
@@ -307,7 +310,7 @@ flowchart LR
 - Sets or forwards `X-Request-Id`.
 - Security headers, including CSP `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'`. `data:` covers the images and fonts Vite inlines (§4.12).
 - CSRF protection via `http.NewCrossOriginProtection()`.
-- Sign-in (§3 Auth) is enforced here: the Tailscale identity since `auth-tailscale`, and Google sign-in from `signin-lock` on. `signin-google` built its flow, under `/auth/google/` (decision 78), and `signin-session` its sessions.
+- Sign-in (§3 Auth) is enforced here: the Tailscale identity since `auth-tailscale`, and a Google sign-in's session since `signin-lock` (decision 86). `signin-google` built the flow, under `/auth/google/` (decision 78), and `signin-session` its sessions. The session cookie never reaches a service.
 
 ### 4.5 Contracts
 
@@ -508,7 +511,7 @@ process-compose runs the services on the Mac only, for development; the laptop r
 
 - `fetch('/api/home')`, with hand-written types (decision 43) that declare only the fields the app reads.
 - It loads the Home at once, then every 60 s while the page is visible and again whenever it becomes visible, as TanStack Query does by default. Only the latest request's answer applies, so a slow answer never overwrites a newer one.
-- A failed load (the gateway's 503, or no network) keeps the last Home on screen, and the top bar says "Offline · as of 01:10" (§7). The client sets no timeout of its own: a hung upstream is for the gateway's timeouts (decision 41).
+- A failed load (the gateway's 503, or no network) keeps the last Home on screen, and the top bar says "Offline · as of 01:10" (§7). The client sets no timeout of its own: a hung upstream is for the gateway's timeouts (decision 41). A 401, a session that has ended, reloads the page instead, and the gateway sends that page load to sign in (decision 86).
 - **Pages** (built in `app-pages`, decision 53): the app shows each page in place, through the Navigation API. It intercepts the browser's own navigations (the `navigate` event) and shows the page at the new path: the Home at `/`, an app's page at its path and under it (`/notes/x`), More at `/more`, and "Page not found" anywhere else. The document's title follows the page: "Bakhyard" on the Home, "Time · Bakhyard" on an app's page.
   - The browser handles the rest itself: navigations the API can't intercept (to another origin, or through the history to another document), jumps to an anchor, downloads, form submissions and reloads. A modified click still opens a new tab.
   - The browser updates the URL and the history. Once the new page is in the DOM, it resets focus, so the next Tab starts at the top of the page, and it scrolls to the top, or back to where the page was left on back and forward: the API's defaults.
@@ -952,11 +955,12 @@ Every item is pending unless it says done. The service an item lands in is in br
   - A scheduler: the first service that polls.
   - The integration cache: the first service that caches what it fetches.
   - Live updates beyond polling: the step that needs them (decision 49).
-- `auth-signin` [gateway]. Needs `spike-https-push`. Implements §3 Auth in six steps (decisions 77 and 78):
+- `auth-signin` [gateway]. Needs `spike-https-push`. Implements §3 Auth in seven steps (decisions 77, 78 and 86):
   - `auth-tailscale`: done (#45). The Tailscale lock.
   - `signin-google`: done (#46). The Google sign-in flow, which checks who the user is but keeps no session; the client secret from the Keychain (decision 79); the setup notes in `docs/setup.md`.
   - `signin-session`: done (#47). Postgres and goose (decisions 80 and 81), and a session with its `__Host-` cookie at each sign-in (decision 82).
-  - `signin-lock`: the lock over everything but `/healthz` and `/auth/`, which renews the session on use. A page load without a session goes to Google; any other request gets a 401, on which the app reloads.
+  - `signin-lock`: done (#49). The lock over everything but `/healthz` and `/auth/`, which renews the session on use. A page load without a session goes to Google; any other request gets a 401, on which the app reloads.
+  - `signin-screen` [gateway, web]: the lock narrows to `/api`, so the app's files load with the Tailscale identity alone. On a 401 the app shows a sign-in screen in the §7 style, with a button that starts the sign-in, in place of the redirect and the reload (decision 86).
   - `signin-pin`: pin `sub` at the first sign-in, then match on it.
   - `signout`: `POST /auth/logout`, CSRF protection with `http.CrossOriginProtection`, and a button.
 - `frontend-shell` [web]. Needs `scaffold-repo`.
@@ -1157,6 +1161,7 @@ Made on 2026-10-23:
 83. **The host is an old laptop, always on, with k3s**: the user's choices. The host is no longer an always-on Mac, which the MacBook only stood in for, but an old laptop at home (6 cores, 16 GB of RAM, an SSD) with CachyOS and KDE, which stays the TV PC as well. Single-node k3s runs the services, so `deploy-k3s` replaces `deploy-launchd` (§8.2); the Mac stays the dev machine, with process-compose. The laptop never sleeps. Wake-on-WLAN works, and a magic packet woke it in about 10 s (§2), but waking it on request needs a device at home that is always on to send the packet, and there's none: the router runs its ISP's locked firmware, and the user won't add one. So on AC power KDE never suspends it, and closing the lid does nothing. The user runs the commands on the laptop; agents don't log in to it. Decision 62 now covers only the Mac.
 84. **The vault reaches the host through git**: the user's choice. obsidian-git on the Mac commits the vault and pushes it to its private GitHub repo by itself, and the laptop keeps a clone, read with a read-only deploy key. Sync (decision 71) pulls, then scans; a pull gives a new mtime only to the files it changes, so the scan's equality check still finds them. A note reaches the laptop once the Mac has pushed it and someone presses Sync. iCloud still syncs the vault between the user's Apple devices, but the host no longer needs it: no Apple ID, no *Keep Downloaded* and no login after a reboot. How edits (Phase 6) get back to the Mac is open (§12). Replaces the host's part of 70.
 85. **Kubernetes Secrets on the host**: the user's choice. On the laptop, the services' secrets are Kubernetes Secrets, which the user creates by hand; they never go into git. Kubernetes stores Secrets unencrypted by default, so k3s is installed with `--secrets-encryption`. The Keychain stays on the Mac, for development (decisions 73, 79 and 81). How a service reads a Secret on the laptop, as a file or an environment variable, is settled in `deploy-k3s`, which may give decision 79's reader a second source.
+86. **The session lock, then a sign-in screen in the app**: the user's choice. `signin-lock` built the lock as decision 78 has it. Every request but `/healthz` and the sign-in routes needs a live session. A page load without one gets a 302 to `/auth/google/login`, and any other request a plain-text 401, on which the app reloads, as with the Tailscale lock's 403 (decision 77). The 401 carries no `WWW-Authenticate`, as no standard scheme fits a cookie. Each use renews the session with one `UPDATE` and sets the cookie again, and the gateway removes the cookie from every request it passes on. Tried live, the redirect works on the Mac and in the iPhone Home Screen app, but the user wants a sign-in screen. So `signin-screen` narrows the lock to `/api`, and the app's files, which hold no data, load with the Tailscale identity alone; on a 401 the app shows the screen, with a button that starts the sign-in. Replaces decision 78's "no sign-in page".
 
 ## 10. Risks
 
@@ -1169,7 +1174,7 @@ Made on 2026-10-23:
 - **Rate limits**: Bitbucket 1,000 req/h; GitHub search 30 req/min.
 - **Copilot SDK**: the SDK and the `copilot` CLI must move together, as each SDK release names its CLI version and checks the protocol (decision 74). `Usage.GetMetrics` is experimental; `SessionLimits` and the mode RPCs, also experimental, aren't used. The CLI writes the session's `plan.md` without asking the permission handler, and a later CLI could allow more by itself, so the tool allowlist and the empty working directory stay as well (§3). Employer-managed settings can override the local config.
 - **Sign-in**:
-  - Until `signin-lock` makes Google sign-in a lock (decision 78), the Tailscale identity is the only one, and any process on the host passes it by calling `127.0.0.1:8080` with a forged `Tailscale-User-Login` and the ts.net `Host` (tested 2026-10-22). Tailscale's docs warn of the same: listening on the loopback only limits forgery to the host's own processes (decision 77).
+  - Any process on the host passes the Tailscale lock by calling `127.0.0.1:8080` with a forged `Tailscale-User-Login` and the ts.net `Host` (tested 2026-10-22). Tailscale's docs warn of the same: listening on the loopback only limits forgery to the host's own processes (decision 77). Since `signin-lock`, such a process also needs a live session's token, which only the browser holds, in an HttpOnly cookie that no service behind the gateway receives. Once `signin-screen` narrows the lock to `/api`, it can still read the app's files, which hold no data (decision 86).
   - Google's login stays inside the iPhone Home Screen app on iOS 27 (§2). A later iOS may hand it to Safari again, whose cookie jar is separate; then the iPhone would rely on the Tailscale identity alone, or a passkey (decision 63).
   - HTTPS certificates publish the machine and tailnet names in public Certificate Transparency logs.
 - **Push in Brave**: Brave sends Web Push through Google's FCM only when "Use Google services for push messaging" is on, which it isn't by default, and shows nothing until macOS allows its notifications (§2). Safari needs neither.

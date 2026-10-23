@@ -90,6 +90,7 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 	}
 
 	logger := slog.Default()
+	identified := tailscale.RequireLogin(login, host, logger)
 
 	router := chi.NewRouter()
 	// Answer HEAD wherever GET is served.
@@ -97,11 +98,17 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 	// The gateway's own health check, so /healthz never reaches web (decision 59). It needs no
 	// login: process-compose's probe calls the gateway directly.
 	health.Register(router)
-	router.Group(func(guarded chi.Router) {
-		guarded.Use(tailscale.RequireLogin(login, host, logger))
-		signin.New(settings, sessions, logger).Register(guarded)
-		proxy.Register(guarded, "home", &url.URL{Scheme: "http", Host: home}, logger)
-		proxy.RegisterFallback(guarded, "web", &url.URL{Scheme: "http", Host: web}, logger)
+	// Signing in needs the Tailscale identity only.
+	router.Group(func(signingIn chi.Router) {
+		signingIn.Use(identified)
+		signin.New(settings, sessions, logger).Register(signingIn)
+	})
+	// Everything else needs a session as well. This group is the root router's child, so that its
+	// web fallback, chi's NotFound handler, reaches the root router.
+	router.Group(func(locked chi.Router) {
+		locked.Use(identified, session.Require(sessions, signin.LoginPath, logger))
+		proxy.Register(locked, "home", &url.URL{Scheme: "http", Host: home}, logger)
+		proxy.RegisterFallback(locked, "web", &url.URL{Scheme: "http", Host: web}, logger)
 	})
 
 	return router, nil

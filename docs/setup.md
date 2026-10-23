@@ -105,4 +105,4 @@ Without it, `mise run test` fails and points here. CI runs its own Postgres for 
 
 `mise run up` builds the services and runs them with process-compose. A service that exits restarts after 1 s, so a missing setting or secret shows up in the gateway's log every second until it's fixed.
 
-To sign in, open `https://<machine>.<tailnet>.ts.net/auth/google/login`. A sign-in starts a session and lands on the Home; nothing checks the session until `signin-lock`.
+Open `https://<machine>.<tailnet>.ts.net`. Without a session the gateway sends the page to Google; a sign-in starts a session for 7 days, renewed on each use, and lands on the Home.

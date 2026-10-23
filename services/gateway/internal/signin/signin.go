@@ -19,12 +19,15 @@ import (
 
 const (
 	// basePath holds the flow's routes; Google sends the browser back to its callback.
-	basePath     = "/auth/google"
-	loginPath    = "/login"
-	callbackPath = "/callback"
+	basePath      = "/auth/google"
+	loginRoute    = "/login"
+	callbackRoute = "/callback"
 	// googleTimeout bounds every call to Google.
 	googleTimeout = 10 * time.Second
 )
+
+// LoginPath starts a sign-in. The session lock sends a page load without a session there.
+const LoginPath = basePath + loginRoute
 
 // Settings say which Google client signs the user in, and who the user is.
 type Settings struct {
@@ -66,7 +69,7 @@ func New(settings Settings, sessions SessionStarter, logger *slog.Logger) *Flow 
 			ClientID:     settings.ClientID,
 			ClientSecret: settings.ClientSecret,
 			Endpoint:     provider.Endpoint(),
-			RedirectURL:  "https://" + settings.Host + basePath + callbackPath,
+			RedirectURL:  "https://" + settings.Host + basePath + callbackRoute,
 			Scopes:       []string{oidc.ScopeOpenID, "email"},
 		},
 		verifier: provider.Verifier(&oidc.Config{ClientID: settings.ClientID}),
@@ -83,8 +86,8 @@ func New(settings Settings, sessions SessionStarter, logger *slog.Logger) *Flow 
 // 405 that skips a group's middleware.
 func (f *Flow) Register(router chi.Router) {
 	router.Route(basePath, func(google chi.Router) {
-		google.Get(loginPath, f.login)
-		google.Get(callbackPath, f.callback)
+		google.Get(loginRoute, f.login)
+		google.Get(callbackRoute, f.callback)
 	})
 }
 

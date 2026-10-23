@@ -14,11 +14,11 @@ import (
 const testSecret = "client-secret"
 
 func TestTheGatewaySendsTheUserToGoogle(t *testing.T) {
+	router, _ := gateway(t, "http://127.0.0.1:2")
+
+	// Signing in needs no session.
 	rec := httptest.NewRecorder()
-	gateway(
-		t,
-		"http://127.0.0.1:2",
-	).ServeHTTP(rec, signedIn(t, http.MethodGet, "/auth/google/login"))
+	router.ServeHTTP(rec, signedIn(t, http.MethodGet, "/auth/google/login"))
 
 	target, err := url.Parse(rec.Header().Get("Location"))
 	if rec.Code != http.StatusFound || err != nil || target.Host != "accounts.google.com" {
@@ -34,7 +34,7 @@ func TestTheGatewaySendsTheUserToGoogle(t *testing.T) {
 }
 
 func TestTheSignInRoutesServeGETAndHEADOnly(t *testing.T) {
-	router := gateway(t, "http://127.0.0.1:2")
+	router, _ := gateway(t, "http://127.0.0.1:2")
 
 	// The routes' 405 comes after the lock, which answers 403 without a login.
 	for method, want := range map[string]int{
