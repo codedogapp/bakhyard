@@ -39,3 +39,12 @@ test.each([
     .filter((link) => link.getAttribute('aria-current') === 'page');
   expect(current.map((link) => link.textContent)).toEqual(want);
 });
+
+test('signs out through a form that posts to the gateway', () => {
+  render(Header, { path: '/' });
+
+  const button = within(screen.getByRole('banner')).getByRole('button', { name: 'Sign out' });
+  expect(button).toHaveAttribute('type', 'submit');
+  expect(button.closest('form')).toHaveAttribute('method', 'post');
+  expect(button.closest('form')).toHaveAttribute('action', '/auth/logout');
+});

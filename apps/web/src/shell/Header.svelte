@@ -15,6 +15,10 @@ let { path }: { path: string } = $props();
       {/each}
     </ul>
   </nav>
+  <!-- The gateway ends this device's session and sends the browser to /, where the app shows its sign-in screen. -->
+  <form class="sign-out" method="post" action="/auth/logout">
+    <button type="submit">Sign out</button>
+  </form>
 </header>
 
 <style>
@@ -45,7 +49,24 @@ ul {
   list-style: none;
 }
 
-.nav a {
+/* It stays at the right end where the nav gives way to the tab bar. */
+.sign-out {
+  grid-column: 3;
+  justify-self: end;
+  margin: 0;
+}
+
+.sign-out button {
+  /* The tap target keeps the padding, but the header's row makes room only for the text. */
+  margin-block: -4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+/* Sign out looks like the nav's links. */
+.nav a,
+.sign-out button {
   position: relative;
   display: block;
   padding: 4px 0;
@@ -56,7 +77,8 @@ ul {
   text-transform: uppercase;
 }
 
-.nav a::after {
+.nav a::after,
+.sign-out button::after {
   content: "";
   position: absolute;
   right: 0;
@@ -69,12 +91,14 @@ ul {
 }
 
 .nav a:hover::after,
-.nav a[aria-current="page"]::after {
+.nav a[aria-current="page"]::after,
+.sign-out button:hover::after {
   transform: scaleX(1);
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .nav a::after {
+  .nav a::after,
+  .sign-out button::after {
     transition: transform 250ms ease;
   }
 }

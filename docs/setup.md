@@ -105,7 +105,11 @@ Without it, `mise run test` fails and points here. CI runs its own Postgres for 
 
 `mise run up` builds the services and runs them with process-compose. A service that exits restarts after 1 s, so a missing setting or secret shows up in the gateway's log every second until it's fixed.
 
-Open `https://<machine>.<tailnet>.ts.net`. Without a session the app shows its sign-in screen, whose Sign in button goes to Google; a sign-in starts a session for 7 days, renewed as the app uses it, and lands on the Home.
+Open `https://<machine>.<tailnet>.ts.net`. Without a session the app shows its sign-in screen, whose Sign in button goes to Google; a sign-in starts a session for 7 days, renewed as the app uses it, and lands on the Home. Sign out, at the header's right end, ends the session on that device only (decision 88). To sign out everywhere, for example after losing a phone, delete every session in `psql`, connected to `bakhyard_gateway`:
+
+```sql
+DELETE FROM sessions;
+```
 
 ## The pinned Google account
 

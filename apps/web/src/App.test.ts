@@ -163,6 +163,7 @@ test('shows only the top bar and the sign-in screen while signed out, and the Ho
   expect(screen.getByRole('heading', { level: 1, name: 'Signed out' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/google/login');
   expect(screen.queryByRole('banner')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   expect(document.title).toBe('Signed out · Bakhyard');
 
