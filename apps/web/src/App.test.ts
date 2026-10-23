@@ -153,6 +153,27 @@ test('moves the clock, the greeting and the due times on together', async () => 
   expect(screen.getByText('now')).toBeInTheDocument();
 });
 
+test('shows only the top bar and the sign-in screen while signed out, and the Home once signed in again', async () => {
+  vi.useFakeTimers();
+  vi.mocked(fetch).mockImplementation(async () => new Response(null, { status: 401 }));
+  render(App);
+  await act(() => vi.advanceTimersByTimeAsync(0));
+
+  expect(screen.getByRole('status')).toHaveTextContent('Signed out');
+  expect(screen.getByRole('heading', { level: 1, name: 'Signed out' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/google/login');
+  expect(screen.queryByRole('banner')).not.toBeInTheDocument();
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(document.title).toBe('Signed out · Bakhyard');
+
+  vi.mocked(fetch).mockImplementation(async () => Response.json(home));
+  await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+  expect(screen.getByRole('heading', { level: 1, name: /^Good \w+, Ada\.$/ })).toBeInTheDocument();
+  expect(screen.getByRole('banner')).toBeInTheDocument();
+  expect(document.title).toBe('Bakhyard');
+});
+
 test('stops its clock and its polling when it goes away', async () => {
   vi.useFakeTimers();
   const { unmount } = render(App);

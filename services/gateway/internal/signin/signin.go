@@ -26,9 +26,6 @@ const (
 	googleTimeout = 10 * time.Second
 )
 
-// LoginPath starts a sign-in. The session lock sends a page load without a session there.
-const LoginPath = basePath + loginRoute
-
 // Settings say which Google client signs the user in, and who the user is.
 type Settings struct {
 	// Provider holds Google's endpoints: Google(), or a fake's in tests.

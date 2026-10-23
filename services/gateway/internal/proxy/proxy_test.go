@@ -154,6 +154,7 @@ func forward(
 ) *httptest.ResponseRecorder {
 	router := chi.NewRouter()
 	proxy.Register(router, "home", home, logger)
+	proxy.RegisterUnclaimed(router)
 	proxy.RegisterFallback(router, "web", web, logger)
 
 	rec := httptest.NewRecorder()

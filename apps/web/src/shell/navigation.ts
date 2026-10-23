@@ -20,14 +20,18 @@ export function followNavigation(onPath: (path: string) => Promise<void>): () =>
   return () => listening.abort();
 }
 
+// The gateway serves the paths under /auth/ itself: signing in starts there.
+const authPrefix = '/auth/';
+
 // The browser keeps what it can't intercept (another origin, another document's history entry), a jump to an anchor,
-// a download, a form's submission and a reload, which loads the page afresh.
+// a download, a form's submission, a reload, which loads the page afresh, and the paths under /auth/.
 function isInterceptable(event: NavigateEvent): boolean {
   return (
     event.canIntercept &&
     !event.hashChange &&
     event.downloadRequest === null &&
     event.formData === null &&
-    event.navigationType !== 'reload'
+    event.navigationType !== 'reload' &&
+    !new URL(event.destination.url).pathname.startsWith(authPrefix)
   );
 }

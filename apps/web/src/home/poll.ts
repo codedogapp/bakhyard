@@ -1,11 +1,11 @@
-import { fetchHome, type Home } from './api';
+import { fetchHome, type Home, SignedOutError } from './api';
 
 const POLL_MS = 60_000;
 
-/** Whether the last load reached the Home; "connecting" until the first one ends. */
-export type Connection = 'connecting' | 'online' | 'offline';
+/** Whether the last load reached the Home; "connecting" until the first one ends, and "signed-out" when the user has no session. */
+export type Connection = 'connecting' | 'online' | 'offline' | 'signed-out';
 
-/** What the app knows of the Home: the last one loaded, when it loaded, and whether the last load worked. */
+/** What the app knows of the Home: the last one loaded, when it loaded, and whether the last load worked. Signed out, it knows none. */
 export interface Feed {
   connection: Connection;
   home?: Home;
@@ -15,7 +15,7 @@ export interface Feed {
 /**
  * Loads the Home at once, every minute while the page is visible and whenever it becomes visible again,
  * and reports each result until the returned function is called. Only the latest load counts, and a failed
- * one keeps the last Home.
+ * one keeps the last Home, unless the user has no session.
  */
 export function pollHome(onChange: (feed: Feed) => void): () => void {
   let feed: Feed = { connection: 'connecting' };
@@ -24,11 +24,16 @@ export function pollHome(onChange: (feed: Feed) => void): () => void {
 
   const load = async () => {
     const request = ++latest;
-    const home = await fetchHome().catch(() => undefined);
+    let next: Feed;
+    try {
+      next = { connection: 'online', home: await fetchHome(), asOf: new Date() };
+    } catch (error) {
+      next = error instanceof SignedOutError ? { connection: 'signed-out' } : { ...feed, connection: 'offline' };
+    }
     if (stopped || request !== latest) {
       return;
     }
-    feed = home ? { connection: 'online', home, asOf: new Date() } : { ...feed, connection: 'offline' };
+    feed = next;
     onChange(feed);
   };
 
