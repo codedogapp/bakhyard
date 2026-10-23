@@ -12,6 +12,15 @@ description = "Build the web app into the web service (services/web/dist/app)"
 depends = [":install"]
 run = "pnpm run build"
 
+[tasks.icons]
+description = "Render the app icon's PNGs from public/icon.svg (resvg)"
+tools.resvg = "latest"
+run = [
+  "resvg -w 180 -h 180 public/icon.svg public/apple-touch-icon.png",
+  "resvg -w 192 -h 192 public/icon.svg public/icon-192.png",
+  "resvg -w 512 -h 512 public/icon.svg public/icon-512.png",
+]
+
 [tasks.fmt]
 description = "Format the web code and sort its imports (Biome)"
 depends = [":install"]
