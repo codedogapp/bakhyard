@@ -2,7 +2,7 @@
 
 Version 1.3, 2026-10-18. Replaces v1.2: the first attempt was archived and the build restarted in small, reviewed steps.
 
-Bakhyard is a self-hosted dashboard for one person. It runs on an always-on home Mac and brings together Obsidian notes, work (Jira todos, Bitbucket pull requests, hours logged on Jira, reviewer nudges), GitHub, games and a Copilot planner, used from a MacBook and an iPhone. The name is Bakh + backyard: personal, and it lives at home.
+Bakhyard is a self-hosted dashboard for one person. It runs at home on an always-on laptop with k3s and brings together Obsidian notes, work (Jira todos, Bitbucket pull requests, hours logged on Jira, reviewer nudges), GitHub, games and a Copilot planner, used from a MacBook and an iPhone. The name is Bakh + backyard: personal, and it lives at home.
 
 This document is the source of truth for scope and the work breakdown. How we work (rules, pipeline, quality gates) is canonical in [AGENTS.md](../AGENTS.md). Update the status markers as work lands.
 
@@ -73,6 +73,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `auth-tailscale` | The gateway lets in only the user's Tailscale login, on the ts.net name that `tailscale serve` publishes; every other request but `/healthz` gets a 403 (decisions 76 and 77) | Done (#45) |
 | `signin-google` | The gateway signs the user in with Google and lets through only their own verified email, with the client secret from the Keychain; it keeps no session yet (decisions 78 to 80) | Done (#46) |
 | `signin-session` | Each sign-in starts a session in the gateway's own Postgres database and gives the browser its cookie; nothing checks it yet (decisions 81 and 82) | Done (#47) |
+| `host-laptop` | The host moves from a Mac to an old laptop at home, always on, with single-node k3s; the vault reaches it through git, and its secrets are Kubernetes Secrets (decisions 83 to 85) | Done (#48) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -82,7 +83,7 @@ After these: the product phases (§8.2), each split into steps.
 
 ## 1. Goal and scope
 
-One user. The host is an always-on home **Mac** on the LAN. Clients are a **MacBook** and an **iPhone** (browser and Home Screen PWA). Repo: `codedogapp/bakhyard` (public).
+One user. The host is an old **laptop** at home, always on, with Linux and single-node k3s (decision 83). Clients are a **MacBook**, which is also the dev machine, and an **iPhone** (browser and Home Screen PWA). Repo: `codedogapp/bakhyard` (public).
 
 Modules:
 
@@ -94,8 +95,8 @@ Modules:
 
 Inputs from the user:
 
-- Devices: iPhone and MacBook; the host is a Mac.
-- No paid Obsidian Sync; the vault syncs through iCloud (Desktop & Documents), and obsidian-git is used today. Notes must render wikilinks, embeds, callouts and LaTeX. Viewing them is enough for now; editing comes later (decision 69).
+- Devices: iPhone and MacBook; the host is an old Linux laptop, which is also the TV PC.
+- No paid Obsidian Sync; the vault syncs through iCloud (Desktop & Documents), and obsidian-git on the Mac pushes it to a private GitHub repo, which the host pulls (decision 84). Notes must render wikilinks, embeds, callouts and LaTeX. Viewing them is enough for now; editing comes later (decision 69).
 - Jira Cloud and Bitbucket Cloud are reachable without a VPN. Work tokens on the personal Mac are OK. Time is logged on the Jira tickets as standard Jira worklogs; Clockwork writes them too (decision 46).
 - Notifications go to the phone (push), the Mac and the browser.
 - Reminder rule: a PR open for more than 24 h without the required approvals → remind at 10:00 and 15:00 on workdays, with snooze.
@@ -110,7 +111,7 @@ Verified 2026-10-17 unless marked.
 | Feature | Verdict | How / evidence | Caveats |
 |---|---|---|---|
 | Vault render + edit | ✅ | Server reads and writes `.md`; the frontend renders with unified/remark: `@flowershow/remark-wiki-link` 4.0.0, `rehype-callouts` 2.2.0, `remark-math` + KaTeX/MathJax, `@quartz-community/remark-obsidian` 1.1.0 | `![[note]]` embeds need our own resolver. Go's `goldmark-obsidian` lacks callouts and highlights → render in the TS frontend |
-| Vault sync, tested 2026-10-22 | ✅ read-only (decisions 69 to 71) | **iCloud Drive, in place**: the vault stays in `~/Documents`, which Desktop & Documents syncs, and the host Mac, on the same Apple ID, reads it there; the iPhone views notes through Bakhyard. Tested on a MacBook (macOS 26.4.1, Optimize Mac Storage on): two files uploaded on icloud.com had arrived by the time the user reported the upload, so within seconds, as placeholders (dataless), with their original birth time and mtime. *Keep Downloaded* on the folder (Finder) downloaded a placeholder within about 1 s, and a later arrival by itself about 2 s after it came. Go's `os.ReadFile` on an offloaded 20 KB note blocked 0.9–1.2 s, downloaded it and returned it whole, with no setup; `stat` and `WalkDir` don't download, and show the full size. Offloading and downloading leave size and mtime unchanged. A `WalkDir` with a stat of each file takes 3 ms for the user's vault and about 20 ms for 5,000 files. fsnotify v1.10.1 (kqueue) and `fsnotify/fsevents` v0.2.0 (FSEvents) both saw local saves within milliseconds | Obsidian's iOS app needs the vault in `iCloud Drive/Obsidian` ("If your vault is in a different location, you may experience syncing issues"), so the iPhone can't open this one. After a reboot nothing syncs until someone logs in, and FileVault turns auto-login off (§3). kqueue holds every watched file open, so iCloud can't offload it ("currently in use by an application"), and doesn't watch recursively. FSEvents needs cgo and macOS, while CI runs on Linux; its Go library is marked unstable (last release 2024), and its flags mislead: an append showed Created, Modified and Xattr at once, a file iCloud delivers shows as Renamed, and a folder rename names only the folder. iCloud touches a written file's metadata 1–1.5 s later. Reading while offline is untested. iCloud isn't a backup (Obsidian: "Syncing is not a backup"). With edits (Phase 6), the same note edited offline on two devices → one silently wins (recoverable via TextEdit "Keep Both"). The ways compared on 2026-10-17 to sync the vault to Obsidian on the iPhone (`iCloud Drive/Obsidian`, git with the GitSync app, LiveSync, Headless Sync) no longer apply |
+| Vault sync, tested 2026-10-22 | ✅ read-only (decisions 69 to 71); the host now reads a git clone instead (decision 84) | **iCloud Drive, in place**: the vault stays in `~/Documents`, which Desktop & Documents syncs, and the host Mac, on the same Apple ID, reads it there; the iPhone views notes through Bakhyard. Tested on a MacBook (macOS 26.4.1, Optimize Mac Storage on): two files uploaded on icloud.com had arrived by the time the user reported the upload, so within seconds, as placeholders (dataless), with their original birth time and mtime. *Keep Downloaded* on the folder (Finder) downloaded a placeholder within about 1 s, and a later arrival by itself about 2 s after it came. Go's `os.ReadFile` on an offloaded 20 KB note blocked 0.9–1.2 s, downloaded it and returned it whole, with no setup; `stat` and `WalkDir` don't download, and show the full size. Offloading and downloading leave size and mtime unchanged. A `WalkDir` with a stat of each file takes 3 ms for the user's vault and about 20 ms for 5,000 files. fsnotify v1.10.1 (kqueue) and `fsnotify/fsevents` v0.2.0 (FSEvents) both saw local saves within milliseconds | Obsidian's iOS app needs the vault in `iCloud Drive/Obsidian` ("If your vault is in a different location, you may experience syncing issues"), so the iPhone can't open this one. After a reboot nothing syncs until someone logs in, and FileVault turns auto-login off (§3). kqueue holds every watched file open, so iCloud can't offload it ("currently in use by an application"), and doesn't watch recursively. FSEvents needs cgo and macOS, while CI runs on Linux; its Go library is marked unstable (last release 2024), and its flags mislead: an append showed Created, Modified and Xattr at once, a file iCloud delivers shows as Renamed, and a folder rename names only the folder. iCloud touches a written file's metadata 1–1.5 s later. Reading while offline is untested. iCloud isn't a backup (Obsidian: "Syncing is not a backup"). With edits (Phase 6), the same note edited offline on two devices → one silently wins (recoverable via TextEdit "Keep Both"). The ways compared on 2026-10-17 to sync the vault to Obsidian on the iPhone (`iCloud Drive/Obsidian`, git with the GitSync app, LiveSync, Headless Sync) no longer apply |
 | Jira Cloud | ✅ | Basic `email:api_token`; `GET/POST /rest/api/3/search/jql` (the old `/search` is removed); request `fields` explicitly; `nextPageToken` paging | Token expiry ≤ 365 d → rotate; webhooks are admin-only → poll; an employer IP allowlist would block |
 | Bitbucket Cloud | ✅ | Scoped Atlassian API token (app passwords died 2026-07-28), host `api.bitbucket.org`. Mine: `GET /2.0/workspaces/{ws}/pullrequests/{me}?state=OPEN`. Reviewing: per repo `pullrequests?q=reviewers.uuid="{uuid}" AND state="OPEN"`. Approvals: PR detail `participants[]`; `/activity` for the last reviewer action | No cross-repo "reviewing" endpoint; 1,000 req/h → cache + incremental scan; webhooks need repo admin → poll |
 | Time tracking, verified 2026-10-20 | ✅ | Standard Jira worklogs over REST v3 with the Jira token, as the user's own tool does. Read: my `accountId` from `GET /rest/api/3/myself`; the issues from `search/jql` with `worklogAuthor = currentUser() AND worklogDate >= "<from>" AND worklogDate < "<to>"`; then per issue `GET /rest/api/3/issue/{key}/worklog` with `startedAfter` and `startedBefore` (UNIX ms) and `startAt` paging, keeping my own. Write: `POST /rest/api/3/issue/{key}/worklog` with `started` and `timeSpentSeconds`. None of these is deprecated. Clockwork's worklogs are standard Jira worklogs, so Bakhyard and Clockwork see the same hours | Time tracking must be enabled; writing needs the Browse projects and Work on issues permissions. `worklogAuthor` is in Atlassian's Data Center field reference but not the Cloud one, though it works on Jira Cloud today; the documented fallback, `GET /rest/api/3/worklog/updated` + `POST /rest/api/3/worklog/list`, scans every worklog the token can see. JQL searches only an issue's 1,000 most recent worklogs. By default a new worklog emails the issue's watchers (`notifyUsers`) and reduces the remaining estimate (`adjustEstimate=auto`). Tempo is not used (decision 40) |
@@ -122,29 +123,30 @@ Verified 2026-10-17 unless marked.
 | Backloggd, re-checked 2026-10-21 | ⚠️ partial, not used (decision 66) | **No public API** (request open since 2023, no developer reply; no export). ✅ Official **reviews RSS** `https://backloggd.com/u/{user}/reviews/rss/` (the last 20 reviews): 200 `application/rss+xml`, no bot check; 404 for an unknown user. Per public code that parses it, an item has the title "Name (Year) - ★★★★½", the review's link, `pubDate`, the review text, `backloggd:user_rating` (0–10) and the IGDB cover, but no game slug; the cover's id leads back to the IGDB game through `/v4/covers`. Game pages use IGDB's slugs (9 of 10 checked) | Playing, backlog and wishlist pages: an **Anubis proof-of-work challenge** for every client tried (Go's default, a browser's and an honest user agent). ToS: "You agree to access the Website through the interface we provide" → solving the challenge (Playwright, PoW solvers) conflicts. The RSS carries reviews only, and the user writes none |
 | Exophase, tested 2026-10-21 | ✅ undocumented | **No documented API.** Internal JSON, no login: `api.exophase.com/public/player/{playerProfileId}/games?page=N&environment=&sort=1&showHidden=0`, 50 games a page, last played first; past the last page `{"success":false}`. Per game: `meta.title`, `meta.environment_slug` (`psn`, `nintendo`), `meta.platforms`, `playtime`, `earned_awards`, `total_awards`, `percent`, `lastplayed_utc` (Unix seconds), and banners on `m.exophase.com` (127×70 and smaller). `/public/player/{master_playerid}/game/{master_id}/earned?last=0`, from each game's per-platform ids, lists a PSN game's trophies with icons and unlock times, but no names. Go's `net/http` with a browser's or an honest user agent (`bakhyard/0.1 (+https://github.com/codedogapp/bakhyard)`) gets the JSON in 200–900 ms, and so does `bogdanfinn/tls-client` v1.16.0 (Chrome 152, Safari iOS 26) | **Cloudflare challenges** (403, `cf-mitigated: challenge`) Go's default user agent, a bare `Mozilla/5.0` and curl (on macOS, with any headers). The rule may change at any time, and how long the honest user agent keeps working is unmeasured (decision 67). Nintendo games carry playtime only: no trophies, and `/earned` answers `{"success":false}`. robots.txt only disallows `/search`; the ToS has no scraping clause. Images on `m.exophase.com` and `card.exophase.com` aren't challenged, but the card's URL isn't built from the profile id (`card.exophase.com/2/0/{playerProfileId}.png` is a 1×1 GIF). ⚠️ The public profile HTML contains personal data → never fetch or store the raw page |
 | IGDB, tested 2026-10-21 | ✅ | Twitch client credentials: `POST https://id.twitch.tv/oauth2/token` with a form body → an app token that lasts about 58 days. Search: `POST https://api.igdb.com/v4/games` with `Client-ID` and `Authorization: Bearer`, and an Apicalypse body; results by relevance, in 200–800 ms. `where game_type = (0,2,4,8,9,10,11) & version_parent = null` keeps main games, expansions, remakes, remasters, expanded games and ports, and drops editions, DLC and packs (`game_type` replaces the deprecated `category`). Of 15 recent Exophase titles, whose case, subtitles and numerals often differ from IGDB's, the filtered search's top result was right for 14; an unfiltered exact-name search found the 15th, a game typed Update (14). Covers: `https://images.igdb.com/igdb/image/upload/t_cover_big/{image_id}.jpg`, a 264×374 JPEG of about 24 KB; IGDB prefers apps to store and serve its data | Free for non-commercial use, under the Twitch Developer Service Agreement; 4 req/s and 8 open requests. A re-release can match its original. Slugs carry collision suffixes (`hades--1`), and a record merged into another leaves its old slug and cover dead. Twitch asks apps that keep an OAuth session to validate their token at start and hourly; whether that covers app tokens is unclear |
+| Host sleep and wake, tested 2026-10-23 | ✅ works, not used (decision 83) | **Wake-on-WLAN by magic packet**: the laptop's Intel Wi-Fi lists "wake up on magic packet" (`iw list`), and NetworkManager leaves a device with wake-on-WLAN armed connected through suspend. Armed with `iw phy <phy> wowlan enable magic-packet`, the laptop suspended to RAM (`deep`); a magic packet that the Mac broadcast on the LAN woke it, and the first ping answered 10.2 s after the packet | The packet has to come from inside the LAN, so waking the laptop from the iPhone needs an always-on device at home to send it on request: the router runs its ISP's locked firmware, and there's no other. `iw`'s setting is lost at a reboot; NetworkManager's `802-11-wireless.wake-on-wlan magic` keeps it. One wake only: a sleep of hours wasn't tried |
 
 ## 3. Product architecture
 
 ```
 iPhone PWA ─┐                              ┌── Jira / Bitbucket / GitHub (poll); Exophase / IGDB (on request)
-MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac (services supervised by process-compose, §4)
+MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host laptop (services on single-node k3s)
             │                              ├── Postgres (todos, caches, push subscriptions, sessions)
-            │                              ├── vault dir (iCloud Drive), read only ◀── iCloud ──▶ Obsidian (MacBook)
+            │                              ├── vault clone, read only ◀── git pull ◀── GitHub ◀── obsidian-git (MacBook)
             │                              ├── copilot CLI (child process, JSON-RPC over stdio)
             └◀── Web Push ◀── APNs/FCM ◀── notify
 ```
 
-- **Host Mac**:
-  - Dedicated macOS user, auto-login, sleep disabled.
-  - A LaunchAgent with `KeepAlive` runs process-compose, which supervises every service. A user session is needed for iCloud and the Keychain.
-  - LaunchAgents and iCloud's File Provider agent load only after a login at the GUI, so after a reboot nothing runs or syncs until someone logs in. Auto-login does that, but macOS turns it off while FileVault is on. The MacBook that stood in for the host in the spikes has FileVault on, so it needs a login by hand after each reboot; whether a dedicated host keeps FileVault is decided with the host (§12).
-  - Same Apple ID as the MacBook, so iCloud brings the vault (decision 70). The vault folder is set to *Keep Downloaded*, or Optimize Mac Storage is off, so notes are on disk when read.
-- **Network**: Tailscale on the host, the MacBook and the iPhone. `tailscale serve` publishes `https://<host>.<tailnet>.ts.net` → the gateway on `127.0.0.1:8080` (`tailscale serve --bg 8080`). Nothing listens on the LAN.
-  - On the host, Tailscale is the Homebrew formula: the open-source `tailscaled` as a root LaunchDaemon, up at boot before any login, with no GUI and no auto-update (decision 62).
+- **Host** (decision 83):
+  - An old laptop at home (6 cores, 16 GB of RAM, an SSD) with CachyOS and KDE; it's also the TV PC. It stays on: on AC power KDE never suspends it, and closing the lid does nothing.
+  - Single-node k3s runs every service; `deploy-k3s` sets it up (§8.2). The user runs the commands on the laptop; agents don't log in to it.
+  - The vault is a git clone of its private GitHub repo, read with a read-only deploy key, and Sync pulls before it scans (decision 84). Secrets are Kubernetes Secrets (decision 85).
+  - The Mac is the dev machine: process-compose runs the services there (§4.9), with the dev Postgres and the Keychain.
+- **Network**: Tailscale on the host, the MacBook and the iPhone. On the Mac, `tailscale serve` publishes `https://<host>.<tailnet>.ts.net` → the gateway on `127.0.0.1:8080` (`tailscale serve --bg 8080`). Nothing listens on the LAN. How traffic reaches the gateway in k3s on the laptop is open (§12).
+  - On the Mac, Tailscale is the Homebrew formula: the open-source `tailscaled` as a root LaunchDaemon, up at boot before any login, with no GUI and no auto-update (decision 62).
   - Funnel works on the formula (not on the two apps), so `tailscale serve status` must show the tailnet only.
   - Serve's certificate comes from Let's Encrypt and lasts 90 days. Tailscale's docs say a certificate that isn't installed as files, as with Serve, renews by itself; no renewal has been watched yet.
   - On the formula, MagicDNS answers through `/etc/resolver/` files: check a name with `dscacheutil -q host -a name …`, not `dig`, which skips them.
-- **Backend**: Go services (§4). Secrets live in the macOS Keychain. Each integration service owns its adapters: poll → cache a snapshot in its own tables → diff → publish change events and feed the notification rules.
+- **Backend**: Go services (§4). Secrets live in the Keychain on the Mac and in Kubernetes Secrets on the laptop (decision 85). Each integration service owns its adapters: poll → cache a snapshot in its own tables → diff → publish change events and feed the notification rules.
 - **Frontend**:
   - Svelte 5 + Vite + TypeScript SPA, installed as a PWA (manifest, service worker, Web Push).
   - Notes render with a unified/remark pipeline plus our own embed resolver, backed by the notes service's vault index; KaTeX. A Sync button rescans the vault (decision 71). The CodeMirror 6 editor comes with `vault-edit-sync` (decision 69).
@@ -152,7 +154,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
   - Look and feel per §7. Home = greeting + "Needs you today" feed (attention items from every app) + "Your apps" grid + weekly hours bar.
 - **Copilot** (planner service, decisions 72 to 75):
   - The work account's Copilot Business seat, on its `*.ghe.com` host. The host's name reaches the CLI as `COPILOT_GH_HOST`; it's a local setting, never in git.
-  - The SDK client gets the token as `GitHubToken`: a fine-grained PAT with the Copilot Requests permission, read from the Keychain. The CLI's environment drops `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` and `GITHUB_TOKEN`, and its `BaseDirectory` is the service's own, so the personal token and the user's own `~/.copilot` stay out of it.
+  - The SDK client gets the token as `GitHubToken`: a fine-grained PAT with the Copilot Requests permission, read from the Keychain, or from a Kubernetes Secret on the laptop (decision 85). The CLI's environment drops `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` and `GITHUB_TOKEN`, and its `BaseDirectory` is the service's own, so the personal token and the user's own `~/.copilot` stay out of it.
   - The `copilot` CLI comes from mise, pinned at the version the SDK names; the service passes its path to the SDK.
   - One session per plan, on claude-opus-5.5, with `AgentMode: plan`. The allowed tools are `ask_user`, `view`, `glob`, `grep`, `create`, `edit` and `exit_plan_mode`. The working directory is empty, and the permission handler denies every request, so the agent writes only the session's `plan.md`, which the CLI allows by itself.
   - The agent's questions reach `OnUserInputRequest`; the service relays them to the chat and waits for the answer.
@@ -166,7 +168,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host Mac
   - The HTTP client is Go's `net/http` with an honest user agent that names Bakhyard and links its repo; Cloudflare challenges Go's default one (§2). If challenges start, `bogdanfinn/tls-client` is the plan B. On a 403, a challenge or a 429: exponential backoff, keep the last good data, show a "stale" badge.
   - Covers come from IGDB (decision 68): each title is matched once, with a filtered search and an exact-name fallback, and the match is cached.
   - Never fetch or store profile HTML (it contains PII).
-- **Vault reads** (notes service, decision 71): the vault is read in place. There's no file watcher and no polling: the service scans the vault when it starts and when the user presses Sync. A scan is a `WalkDir` with a stat of each file, skipping dot folders such as `.git/` and `.obsidian/`, and re-reads only the notes whose size or mtime differs from the index. It compares for equality, never "newer than": a note iCloud delivers keeps its original mtime.
+- **Vault reads** (notes service, decisions 71 and 84): the service reads the vault from a directory: in place on the Mac, in development, and its git clone on the laptop. There's no file watcher and no polling: the service scans the vault when it starts and when the user presses Sync, which pulls first on the laptop. A scan is a `WalkDir` with a stat of each file, skipping dot folders such as `.git/` and `.obsidian/`, and re-reads only the notes whose size or mtime differs from the index. It compares for equality, never "newer than": a note iCloud delivers keeps its original mtime, and a pull gives a new one only to the files it changes.
 - **Vault writes** (notes service, from `vault-edit-sync` in Phase 6, conflict-safe): new notes get unique names; edit only if the mtime/hash is unchanged since the read; temp file + atomic rename; skip notes modified elsewhere in the last few minutes; never touch `.obsidian/`.
 - **Auth** (enforced at the gateway; one person, two locks):
   1. **Tailscale identity**, as built in `auth-tailscale` (decision 77):
@@ -238,7 +240,7 @@ flowchart LR
     mac["MacBook browser"]
     serve["tailscale serve<br/>HTTPS on ts.net"]
 
-    subgraph host["Host Mac: every process supervised by process-compose"]
+    subgraph host["Host laptop: every service on k3s (process-compose on the dev Mac)"]
         gateway["gateway<br/>127.0.0.1:8080"]
         web["web<br/>Svelte SPA"]
         home["home<br/>Home screen BFF"]
@@ -255,7 +257,7 @@ flowchart LR
     end
 
     apis["Jira, Bitbucket, GitHub,<br/>Exophase, IGDB"]
-    vault[("Obsidian vault<br/>iCloud Drive")]
+    vault[("Obsidian vault<br/>git clone, pulled from GitHub")]
     copilot["copilot CLI"]
 
     phone --> serve
@@ -461,7 +463,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 `mise run up` builds, then runs `process-compose up`, which opens its TUI: a table of the services, with each one's status, age, health, memory, CPU, restarts and exit code, over the selected service's output. F7 starts the selected service, F9 stops it and Ctrl-R restarts it. F10 and Ctrl-C ask before quitting, and quitting stops every service, as SIGINT, SIGTERM and SIGHUP do.
 
-Later, for `deploy-launchd` (§8.2): process-compose can run detached (`up -D`), with its API server on a unix socket (`-U`), and `process-compose attach` opens the TUI on it. `BAKHYARD_HOME`, the services' data directories, unix sockets and log files wait for the steps that need them.
+process-compose runs the services on the Mac only, for development; the laptop runs them on k3s (decision 83), so its detached mode isn't planned. `BAKHYARD_HOME`, the services' data directories, unix sockets and log files wait for the steps that need them.
 
 ### 4.10 Monitoring
 
@@ -549,7 +551,7 @@ bakhyard/
 ├── .golangci.yml
 ├── go.work                    every Go module (to add)
 ├── mise.toml                  monorepo root: tools, env, tasks
-└── deploy/                    launchd plist and host setup notes (later)
+└── deploy/                    k3s manifests and host setup notes (later)
 ```
 
 - Module paths: `github.com/Bakhomious/bakhyard/{services/<name>,libs/go/kit,libs/go/contracts}`.
@@ -967,9 +969,11 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Attention providers (`AttentionService` in each feature service) aggregated by home and sorted by urgency, with live updates.
   - Home page per §7.
   - Each module registers its provider as it lands. Partly done in the first slice (contracts, demo data).
-- `deploy-launchd`.
-  - A LaunchAgent (`KeepAlive`) that runs process-compose (§4.9), plus a build-and-deploy script.
-  - Host setup notes: auto-login (FileVault off, §3), no sleep, *Keep Downloaded* on the vault folder (decision 70), the Tailscale formula and `tailscale serve` (decision 62), the gateway's settings in `mise.local.toml` and its Google client secret and database password in the Keychain (`docs/setup.md`), and the Copilot token in the Keychain (decision 73).
+- `deploy-k3s`. Replaces `deploy-launchd` (decision 83); split into smaller steps when it starts.
+  - The laptop: Tailscale, single-node k3s, and KDE's power settings (§3). Setup notes for the user to run, as agents don't log in to it.
+  - Images built for `linux/amd64`, as the Mac builds arm64, and the manifests in `deploy/`; how the images reach the laptop, and where Postgres runs (§12).
+  - Traffic to the gateway through Tailscale alone, so the identity headers stay trustworthy (decision 77, §12).
+  - The secrets as Kubernetes Secrets (decision 85). The vault: obsidian-git's automatic commit and push on the Mac, and the laptop's clone with its read-only deploy key, pulled by Sync (decision 84).
 
 **Phase 2: notes, read-only (decision 69)**
 
@@ -1027,18 +1031,18 @@ Every item is pending unless it says done. The service an item lands in is in br
 - `vault-edit-sync` [notes, web]. Needs `vault-render`. Moved from Phase 2 (decision 69).
   - CodeMirror 6 editor.
   - A save API with the §3 conflict rules; new notes get unique names.
-  - Server-side git snapshots (`--git-dir` outside iCloud) for history and rollback.
+  - History and rollback, and the way edits get back to the Mac, through the laptop's clone (decision 84, §12).
 - `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`, `vault-edit-sync`.
   - Chat UI with streaming, plan-mode sessions, resume, and plan preview.
   - The agent's questions shown in the chat, with their choices, and the answers sent back (§3).
   - "Save to Obsidian" writes `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, written by the service.
   - The tool allowlist and a deny-by-default permission handler (§3). No credit cap (decision 75).
-  - `copilot` pinned in mise.toml at the CLI version the SDK names; Renovate must update the two together (decision 74). The work host's name as a local setting, and the token from the Keychain (decisions 72 and 73).
+  - `copilot` pinned in mise.toml at the CLI version the SDK names; Renovate must update the two together (decision 74). The work host's name as a local setting, and the token from the Keychain, or a Kubernetes Secret on the laptop (decisions 72, 73 and 85).
   - Each plan's credits could show from `Usage.GetMetrics`, which is experimental (§10).
 
 **Phase 7: hardening**
 
-- `hardening-docs`. Needs `auth-signin`, `copilot-planner`, `deploy-launchd`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`.
+- `hardening-docs`. Needs `auth-signin`, `copilot-planner`, `deploy-k3s`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`.
   - Vault snapshots and Postgres backups.
   - Token-expiry reminders (Jira ≤ 365 d, the Copilot PAT).
   - Structured logs and per-widget error states.
@@ -1148,11 +1152,18 @@ Made on 2026-10-22:
 81. **A database and a role per service**: the user's choice. Each service gets a database of its own on the user's Postgres, owned by a role of its own, so no service can read another's data (§3 Data); a schema per service in one database was the other option. The gateway's are both `bakhyard_gateway`. Its URL, without the password, is in `BAKHYARD_DATABASE`, set in `process-compose.yaml`, and the password is in the login Keychain (service `bakhyard`, account `postgres-gateway`), read with decision 79's reader. At start the gateway connects with a pgx v5 pool, waiting at most 10 s, and runs its goose migrations, embedded in its binary. The database code lives in the gateway, and moves to the root `internal/` when a second service needs it (decision 76).
 82. **Sessions of 7 days, and tests on a real Postgres**: the user's choices. A session lasts 7 days, renewed on use from `signin-lock` on, in place of the ~30 days first planned (§3 Auth). The database keeps only each token's SHA-256, and starting a session deletes the expired ones, so there's no cleanup job. The tests run against a real Postgres rather than a fake: locally a test role and database on the user's Postgres, with the URL in `BAKHYARD_TEST_DATABASE` in `mise.local.toml`; in CI a `postgres:18-alpine` service container, pinned by digest for Renovate to update. Each test gets an empty schema of its own, dropped when it ends, so tests run side by side. Without the variable the tests fail and say how to set it up; they don't skip.
 
+Made on 2026-10-23:
+
+83. **The host is an old laptop, always on, with k3s**: the user's choices. The host is no longer an always-on Mac, which the MacBook only stood in for, but an old laptop at home (6 cores, 16 GB of RAM, an SSD) with CachyOS and KDE, which stays the TV PC as well. Single-node k3s runs the services, so `deploy-k3s` replaces `deploy-launchd` (§8.2); the Mac stays the dev machine, with process-compose. The laptop never sleeps. Wake-on-WLAN works, and a magic packet woke it in about 10 s (§2), but waking it on request needs a device at home that is always on to send the packet, and there's none: the router runs its ISP's locked firmware, and the user won't add one. So on AC power KDE never suspends it, and closing the lid does nothing. The user runs the commands on the laptop; agents don't log in to it. Decision 62 now covers only the Mac.
+84. **The vault reaches the host through git**: the user's choice. obsidian-git on the Mac commits the vault and pushes it to its private GitHub repo by itself, and the laptop keeps a clone, read with a read-only deploy key. Sync (decision 71) pulls, then scans; a pull gives a new mtime only to the files it changes, so the scan's equality check still finds them. A note reaches the laptop once the Mac has pushed it and someone presses Sync. iCloud still syncs the vault between the user's Apple devices, but the host no longer needs it: no Apple ID, no *Keep Downloaded* and no login after a reboot. How edits (Phase 6) get back to the Mac is open (§12). Replaces the host's part of 70.
+85. **Kubernetes Secrets on the host**: the user's choice. On the laptop, the services' secrets are Kubernetes Secrets, which the user creates by hand; they never go into git. Kubernetes stores Secrets unencrypted by default, so k3s is installed with `--secrets-encryption`. The Keychain stays on the Mac, for development (decisions 73, 79 and 81). How a service reads a Secret on the laptop, as a file or an environment variable, is settled in `deploy-k3s`, which may give decision 79's reader a second source.
+
 ## 10. Risks
 
 - **Exophase** (accepted by the user): undocumented endpoints behind a Cloudflare bot check may break or get blocked at any time. Today Cloudflare challenges Go's default user agent and lets an honest one through; that rule may change, and nobody has measured how long it holds (decision 67). Mitigations: fetched only on request and at most hourly, backoff, last-good cache, "stale" badge, `tls-client` as the plan B.
 - **IGDB**: free for non-commercial use only; 4 req/s. A title can match the wrong release, such as the original of a re-release, and a record merged into another leaves its old slug and cover dead, so a cached match can go stale.
-- **iCloud**: a note that changed on another device shows up only after the next Sync (decision 71), and one that macOS has offloaded reads about 1 s late. After a reboot nothing syncs until someone logs in, by hand while FileVault is on (§3). Reading while offline is untested. iCloud isn't a backup, so the vault needs one of its own; Bakhyard's git snapshots come only with edits (decision 69). Edits bring back duplicate conflict copies and the case where one of two offline edits silently wins, covered then by the write rules and the snapshots.
+- **Vault through git**: a note reaches the laptop only once obsidian-git on the Mac has pushed it and someone presses Sync (decisions 71 and 84), so while the Mac is asleep or off, or Obsidian is closed there, the laptop shows the last push. On the Mac the vault still lives in iCloud, where a note macOS has offloaded reads about 1 s late in development (§2). iCloud isn't a backup, but the GitHub repo now keeps the vault's history. Edits (Phase 6) will bring conflicts between the clone and the Mac, covered then by the write rules.
+- **The host**: one old laptop, with no failover. It's also the TV PC, so KDE's power settings must keep it awake on AC power. CachyOS is a rolling distribution, so an update can break k3s. Its worn battery stays on the charger at 100%, which the user accepts.
 - **Employer policy**: the planner runs on the work seat (decision 72), so the organisation's settings govern it. Its Copilot CLI policy, the models it allows, its budgets, an IP allowlist or the PAT lifetime it allows can each change or stop the planner without notice, and so can the employer's agreement.
 - **Token expiry**: Jira ≤ 365 d, org PAT lifetime policies, the Copilot PAT (decision 73) → expiry tracking and reminders.
 - **Rate limits**: Bitbucket 1,000 req/h; GitHub search 30 req/min.
@@ -1162,7 +1173,7 @@ Made on 2026-10-22:
   - Google's login stays inside the iPhone Home Screen app on iOS 27 (§2). A later iOS may hand it to Safari again, whose cookie jar is separate; then the iPhone would rely on the Tailscale identity alone, or a passkey (decision 63).
   - HTTPS certificates publish the machine and tailnet names in public Certificate Transparency logs.
 - **Push in Brave**: Brave sends Web Push through Google's FCM only when "Use Google services for push messaging" is on, which it isn't by default, and shows nothing until macOS allows its notifications (§2). Safari needs neither.
-- **Tailscale updates by hand**: the formula on the host doesn't update itself and Renovate can't see it (decision 62), so a security fix waits for a `brew upgrade`. It can run Funnel, unlike the apps; the gateway's identity check rejects Funnel's requests (§3). No renewal of Serve's 90-day certificate has been watched yet.
+- **Tailscale updates by hand**: the formula on the Mac doesn't update itself and Renovate can't see it (decision 62), so a security fix waits for a `brew upgrade`. It can run Funnel, unlike the apps; the gateway's identity check rejects Funnel's requests (§3). No renewal of Serve's 90-day certificate has been watched yet.
 - **Microservices overhead**: about a dozen processes for one user, plus sockets, a supervisor and contracts to maintain. The effort goes up by about 25–40% (§11). Mitigated by process-compose, the kit and the contract checks.
 - **Bleeding-edge toolchain**:
   - TypeScript 7 relies on svelte-check's `--tsgo` mode, which has open issues, and TypeScript 6 must stay installed alongside until svelte-check supports TypeScript 7 directly.
@@ -1184,20 +1195,20 @@ Made on 2026-10-22:
 
 ## 11. Estimate
 
-A rough estimate, made on 2026-10-18, in focused working days. It assumes an agent writes the code while the user reviews, tests on devices and supplies credentials; 1 day ≈ 6–8 h of session time. On 2026-10-22 the notes editor moved from Phase 2 to Phase 6 (decision 69), and its day moved with it.
+A rough estimate, made on 2026-10-18, in focused working days. It assumes an agent writes the code while the user reviews, tests on devices and supplies credentials; 1 day ≈ 6–8 h of session time. On 2026-10-22 the notes editor moved from Phase 2 to Phase 6 (decision 69), and its day moved with it. On 2026-10-23 the move to k3s added up to a day to Phase 1 (decision 83).
 
 | Phase | Effort |
 | --- | --- |
 | 0 Spikes (HTTPS + push, iCloud vault, Exophase, IGDB) | 1–2 d (+ a few days of passive Exophase polling) |
-| 1 Foundation (repo, backend core, sign-in, design system, Home, launchd) | 3–5 d |
+| 1 Foundation (repo, backend core, sign-in, design system, Home, k3s) | 3–6 d |
 | 2 Notes (index, render, Sync button) | 2–3 d |
 | 3 Work (Jira todos, Bitbucket PRs, push, reminders, time tracking) | 4–5 d |
 | 4 GitHub | 0.5 d |
 | 5 Games | 1–2 d |
 | 6 Vault edits (editor + safe writes) and Copilot planner | 2–3 d |
 | 7 Hardening + docs | 1 d |
-| **Total (single-binary design)** | **≈ 15–22 d** |
-| **Microservices experiment** (gateway, kit, contracts, process supervision, per-service plumbing) | **about +25–40% → ≈ 19–31 d** |
+| **Total (single-binary design)** | **≈ 15–23 d** |
+| **Microservices experiment** (gateway, kit, contracts, process supervision, per-service plumbing) | **about +25–40% → ≈ 19–32 d** |
 
 - **Calendar time** (single-binary figures): full-time ≈ 3–4.5 weeks; at about 10 h/week, ≈ 2.5–3.5 months.
 - **Without an agent**: solo by hand takes roughly 1.5–2× as long.
@@ -1210,7 +1221,10 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 ## 12. Open questions
 
 - For the first service-to-service call: grpc-go or connect-go, and which connect-go v2 ecosystem modules (OpenTelemetry interceptors, validation) exist (decision 43)?
-- Which Mac is the host? The spikes ran on the MacBook, standing in for it. It has FileVault on, so it can't log in by itself after a reboot (§3); a dedicated host could turn FileVault off for auto-login.
+- How does traffic reach the gateway on the laptop through Tailscale alone, so its identity headers stay trustworthy (decision 77): `tailscale serve` on the laptop to a port only its loopback reaches, or Tailscale's Kubernetes operator? And which pods may call the gateway, now that the loopback no longer limits who can forge the headers?
+- How do the images reach the laptop: through a registry such as GHCR, or imported into k3s by hand? And where does Postgres run there: in k3s, or in Docker beside it (decision 80)?
+- How do edits (Phase 6) get back to the Mac: as commits that the laptop's clone pushes and obsidian-git pulls, with a deploy key that can write (decision 84)?
+- Are work tokens OK on the laptop too? The user's OK covers the personal Mac (§1).
 - Can Bitbucket's required approvals be detected automatically, or are they configured per repo by hand?
 
 ## 13. Sources
@@ -1228,6 +1242,15 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - Aqua agents load only after a login at the GUI: `man launchctl`; iCloud's File Provider agent is one (`LimitLoadToSessionType` in `/System/Library/LaunchAgents/com.apple.FileProvider.plist`)
   - fsnotify, whose kqueue backend opens a file descriptor for every watched file and has no recursive watch: https://github.com/fsnotify/fsnotify
   - fsevents, marked unstable: https://github.com/fsnotify/fsevents
+- Host:
+  - k3s requirements, with a server's minimum of 2 cores and 2 GB and an SSD advised: https://docs.k3s.io/installation/requirements
+  - k3s secrets encryption: https://docs.k3s.io/security/secrets-encryption
+  - Kubernetes Secrets, unencrypted by default: https://kubernetes.io/docs/concepts/configuration/secret/
+  - Tailscale's Kubernetes operator: https://tailscale.com/docs/kubernetes-operator
+  - NetworkManager's `802-11-wireless.wake-on-wlan`: https://networkmanager.dev/docs/api/latest/nm-settings-nmcli.html
+  - NetworkManager keeps a device with wake-on-WLAN up through suspend: `src/core/nm-manager.c` in https://gitlab.freedesktop.org/NetworkManager/NetworkManager
+  - `iw phy <phy> wowlan`: `wowlan.c` in https://git.kernel.org/pub/scm/linux/kernel/git/jberg/iw.git
+  - GitHub deploy keys, read-only by default: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys
 - Copilot:
   - SDK GA: https://github.blog/changelog/2026-06-02-copilot-sdk-is-now-generally-available
   - SDK for Go, with the bundler and `BaseDirectory`: https://github.com/github/copilot-sdk/blob/main/go/README.md
