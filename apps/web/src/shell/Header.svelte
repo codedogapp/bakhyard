@@ -1,5 +1,6 @@
 <script lang="ts">
 import { isCurrent, navItems } from './nav';
+import ThemeToggle from './ThemeToggle.svelte';
 
 let { path }: { path: string } = $props();
 </script>
@@ -15,10 +16,13 @@ let { path }: { path: string } = $props();
       {/each}
     </ul>
   </nav>
-  <!-- The gateway ends this device's session and sends the browser to /, where the app shows its sign-in screen. -->
-  <form class="sign-out" method="post" action="/auth/logout">
-    <button type="submit">Sign out</button>
-  </form>
+  <div class="actions">
+    <ThemeToggle />
+    <!-- The gateway ends this device's session and sends the browser to /, where the app shows its sign-in screen. -->
+    <form class="sign-out" method="post" action="/auth/logout">
+      <button type="submit">Sign out</button>
+    </form>
+  </div>
 </header>
 
 <style>
@@ -49,10 +53,16 @@ ul {
   list-style: none;
 }
 
-/* It stays at the right end where the nav gives way to the tab bar. */
-.sign-out {
+/* They stay at the right end where the nav gives way to the tab bar. */
+.actions {
+  display: flex;
   grid-column: 3;
+  gap: 24px;
+  align-items: center;
   justify-self: end;
+}
+
+.sign-out {
   margin: 0;
 }
 

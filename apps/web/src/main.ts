@@ -6,5 +6,8 @@ import './styles/tokens.css';
 import './styles/base.css';
 
 import App from './App.svelte';
+import { applyChoice, loadChoice } from './shell/theme';
 
+// public/theme.js already set the scheme; this also points the browser's bar at it, on every screen.
+applyChoice(loadChoice());
 mount(App, { target: document.getElementById('app')! });

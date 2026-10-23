@@ -79,6 +79,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `signin-pin` | The first sign-in with the allowed email pins its Google account, by its `sub`, and every later sign-in needs that account too; another account with the same email gets a 403 (decision 87) | Done (#51) |
 | `signout` | The header's Sign out ends the session on this device only, drops its cookie and shows the sign-in screen; the gateway refuses every request but GET, HEAD and OPTIONS from another origin (decision 88) | Done (#52) |
 | `app-icon` | The app gets an icon of its own, a geometric mark: the favicon, the iPhone Home Screen icon and a web app manifest's, so Chrome can install the app; a `theme-color` per scheme matches the top bar (decision 89) | Done (#53) |
+| `theme-toggle` | A header toggle, System → Light → Dark, overrides the OS's colour scheme on this device; the page, the browser's controls and `theme-color` follow it at once, and a script in `<head>` applies the saved choice before the first paint (decision 90) | Done (#54) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -507,6 +508,7 @@ process-compose runs the services on the Mac only, for development; the laptop r
 - Vite builds into `services/web/dist/app` (gitignored), with `emptyOutDir` because the directory lies outside the app's root.
 - Vite inlines every asset under 4 KiB as a `data:` URI (its default `assetsInlineLimit`): today the grain tile and JetBrains Mono's Cyrillic Extended subset, both in the CSS.
 - Vite copies `apps/web/public/` to the build's root as it is (`app-icon`, decision 89): the app icon `icon.svg`, which is the favicon; `apple-touch-icon.png` (180 px), the iPhone's Home Screen icon; and `manifest.json`, which names the app, opens it standalone and lists `icon-192.png` and `icon-512.png`. The manifest ends in `.json` rather than `.webmanifest` because Go's MIME table doesn't know `.webmanifest` and the images have no `/etc/mime.types`, so it's served as `application/json`. The app's files need no cookie (decision 86), so the manifest's link needs no `crossorigin`.
+- `public/theme.js` (`theme-toggle`, decision 90) is a classic script that `index.html`'s `<head>` loads with no `async` or `defer`, so it runs before the body is parsed and the first paint already has the saved scheme. It's a file and not inline, so the CSP (§4.4) needs no `'unsafe-inline'` for scripts. Vite leaves the tag in place and only rewrites its path.
 - `internal/spa` serves the app for GET and HEAD. Paths are cleaned first, as a browser cleans them, so `..` can't leave the app.
   - A path that names a file gets it, through `http.FileServerFS`. Directories are never listed, and `/index.html` redirects to `/`.
   - Caching: Vite fingerprints the names in `assets/`, so those files are `public, max-age=31536000, immutable`; every other file, `index.html` included, is `no-cache`. Embedded files have no modification time, so there is no `Last-Modified`, and no ETag either.
@@ -753,16 +755,18 @@ Scale, in px / weight / letter-spacing:
 
 ```css
 :root {
-  color-scheme: light dark;
+  color-scheme: light dark;  /* the OS's scheme, unless the theme toggle sets data-theme */
 
-  --paper: #FAFAF8;          /* page, under the grain */
-  --surface: #FFFFFF;        /* cards, the bottom tab bar */
-  --fill: #F2F2F0;           /* bar tracks, row hover (ref #F1F1EF to #F4F4F2) */
-  --ink: #111111;            /* text, ink fills, hover borders (ref) */
-  --ink-muted: #5C5C5C;      /* secondary text and labels (ref #555555 to #707070) */
-  --rule: #D9D9D6;           /* 1 px card borders and dividers (ref) */
-  --shadow: #EBEBE8;         /* resting offset shadow (ref #F0F0F0) */
-  --shadow-strong: #CCCCC9;  /* hover offset shadow (ref #CCCCCC) */
+  /* light-dark(light, dark) */
+  --paper: light-dark(#FAFAF8, #131312);          /* page, under the grain */
+  --surface: light-dark(#FFFFFF, #1B1B1A);        /* cards, the bottom tab bar */
+  --fill: light-dark(#F2F2F0, #252523);           /* bar tracks, row hover (ref #F1F1EF to #F4F4F2) */
+  --ink: light-dark(#111111, #EDEDEA);            /* text, ink fills, hover borders (ref) */
+  --ink-muted: light-dark(#5C5C5C, #A3A3A0);      /* secondary text and labels (ref #555555 to #707070) */
+  --rule: light-dark(#D9D9D6, #343432);           /* 1 px card borders and dividers (ref) */
+  /* The offset shadows; dark's are lighter than the page, so the offset shows. */
+  --shadow: light-dark(#EBEBE8, #262624);         /* resting (ref #F0F0F0) */
+  --shadow-strong: light-dark(#CCCCC9, #3A3A38);  /* hover (ref #CCCCCC) */
 
   --font-sans: "Space Grotesk Variable", system-ui, sans-serif;
   --font-serif: "Instrument Serif", Georgia, serif;
@@ -774,17 +778,12 @@ Scale, in px / weight / letter-spacing:
   --offset-hover: 8px;       /* (ref) */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #131312;
-    --surface: #1B1B1A;
-    --fill: #252523;
-    --ink: #EDEDEA;
-    --ink-muted: #A3A3A0;
-    --rule: #343432;
-    --shadow: #262624;       /* lighter than the page, so the offset shows */
-    --shadow-strong: #3A3A38;
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 ```
 
@@ -816,7 +815,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 - Left: the wordmark, a link to Home.
 - Centre: the app nav in mono: Home, Notes, Todos, PRs, Time, GitHub, Games, Planner. Each app's path is its service's name: `/`, `/notes`, `/todos`, `/pulls`, `/time`, `/github`, `/games` and `/planner`, with the app's own pages under it. The current page's item (`aria-current="page"`) has a 1 px `--ink` underline, 2 px below the link's 4 px padding (ref); on the others it grows from the left on hover, over 250 ms (ref), and at once under `prefers-reduced-motion`.
-- Right: Sign out, on every screen size (decision 88): a form's button that looks like the nav's items, hover underline included. Its padding widens the tap target but doesn't make the header taller. Notifications join it later (§8.2 `notifications`).
+- Right: the theme toggle, then Sign out, 24 px apart, on every screen size (decisions 88 and 90). The toggle is an icon button (Icons) named for the current choice: "Theme: System", "Theme: Light" or "Theme: Dark". Sign out is a form's button that looks like the nav's items. Both get the nav's hover underline, and their padding widens the tap target but doesn't make the header taller. Notifications join them later (§8.2 `notifications`).
 
 **Page head**: every page starts with one. Two columns, 1.4fr and 1fr with a 10% gap, aligned to the bottom, with 58 px of padding above and 50 px below (ref); one column on phones (ref).
 
@@ -873,7 +872,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 **Focus**: every focusable element gets a 2 px `--ink` outline, 3 px outside it (ref: 2 px wide, 5 px out). It uses `:focus-visible`, so keyboard focus always shows it and a click on a link doesn't. The tab bar's cells draw it inside instead (Phone and tablet).
 
-**Icons**: no icon library. The few icons (arrows, menu, close) are inline SVGs of our own, with 1.5 px strokes and square caps, in `currentColor`. Apps have no icons; their number and name identify them.
+**Icons**: no icon library. The few icons (arrows, menu, close, and the theme toggle's half-filled circle for System, sun for Light and moon for Dark) are inline SVGs of our own on a 16-unit grid, with 1.5 px strokes and square caps, in `currentColor`. Apps have no icons; their number and name identify them.
 
 **App icon**, built in `app-icon` (decision 89): a card with a hard offset shadow, the style's own shape, in ink on paper. It's our own geometry, with no letters, on a 16-unit grid, so it stays crisp as a 16 px favicon. One artwork serves every size and both themes: a full-bleed square with no transparency, whose mark stays inside the central 80%, so the Home Screen's rounded corners never cut it.
 
@@ -890,7 +889,7 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
   - The tab bar's background reaches every edge, while its cells sit above the bottom inset and inside the side insets.
 - The header keeps the wordmark and its right slot.
 
-**Themes**: the OS setting picks light or dark (`prefers-color-scheme`). `color-scheme: light dark` makes the browser draw its own controls and scrollbars to match. The page sets a `theme-color` for each scheme, the top bar's `--ink` (#111111 and #ededea), so the browser's own bar runs into the top bar; the manifest has room for one, so it takes the light scheme's, with `--paper` as its `background_color`. A manual override comes with `theme-toggle`: a header toggle, System → Light → Dark, kept on each device (decision 89).
+**Themes**: the OS setting picks light or dark, unless the header's theme toggle overrides it on this device (decisions 89 and 90). Each colour token is defined once as `light-dark(light, dark)`, which follows the used `color-scheme`: `light dark` on `:root` follows the OS, and the toggle's `data-theme="light"` or `"dark"` on `<html>` forces one. The browser draws its own controls and scrollbars to match. The choice is kept in `localStorage` under `theme`, and System keeps nothing, so each browser on each device has its own; `public/theme.js` applies it in `<head>`, so the first paint has it. The page sets a `theme-color` for each scheme, the top bar's `--ink` (#111111 and #ededea), so the browser's own bar runs into the top bar; with an override, the app points both at the chosen scheme's colour. The manifest has room for one, so it takes the light scheme's, with `--paper` as its `background_color`.
 
 **Mapping to our modules**
 
@@ -965,7 +964,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - A scheduler: the first service that polls.
   - The integration cache: the first service that caches what it fetches.
   - Live updates beyond polling: the step that needs them (decision 49).
-- `auth-signin` [gateway]. Needs `spike-https-push`. Implements §3 Auth in seven steps (decisions 77, 78 and 86):
+- `auth-signin` [gateway]: done (#52). Needs `spike-https-push`. Implements §3 Auth in seven steps (decisions 77, 78 and 86):
   - `auth-tailscale`: done (#45). The Tailscale lock.
   - `signin-google`: done (#46). The Google sign-in flow, which checks who the user is but keeps no session; the client secret from the Keychain (decision 79); the setup notes in `docs/setup.md`.
   - `signin-session`: done (#47). Postgres and goose (decisions 80 and 81), and a session with its `__Host-` cookie at each sign-in (decision 82).
@@ -973,14 +972,14 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `signin-screen`: done (#50). The lock narrows to `/api`, so the app's files load with the Tailscale identity alone. On a 401 the app shows a sign-in screen in the §7 style, with a button that starts the sign-in, in place of the redirect and the reload (decision 86).
   - `signin-pin`: done (#51). The first sign-in with the allowed email pins its Google account's `sub`, and every later sign-in needs that account too (decision 87).
   - `signout`: done (#52). `POST /auth/logout` ends the session on this device, the header gets a Sign out button, and `http.CrossOriginProtection` wraps the whole gateway (decision 88).
-- `frontend-shell` [web]. Needs `scaffold-repo`. The Home steps in §0 built most of it, and two steps finish it (decision 89).
+- `frontend-shell` [web]: done (#54). Needs `scaffold-repo`. The Home steps in §0 built most of it, and two steps finished it (decision 89).
   - SPA shell per §7: tokens for both themes, self-hosted fonts, the paper grain, our own inline SVG icons.
   - Components: top bar, header nav, hero, section head, card, list rows, chips, app cards, hours bar, buttons.
   - Responsive: bottom tab bar below the nav breakpoint, safe areas.
   - Live-update client: polling (decision 49).
   - Check against §7 in both themes.
   - `app-icon`: done (#53). The app's own icon as the favicon and the Home Screen icon, and a web app manifest, with a `theme-color` per scheme.
-  - `theme-toggle`: a header toggle, System → Light → Dark, that overrides the OS's scheme on this device; `theme-color` follows it.
+  - `theme-toggle`: done (#54). A header toggle, System → Light → Dark, that overrides the OS's scheme on this device; `theme-color` follows it (decision 90).
   - The service worker moved to `notifications` (decision 89).
 - `home-feed` [home]. Needs `auth-signin`, `frontend-shell`.
   - Attention providers (`AttentionService` in each feature service) aggregated by home and sorted by urgency, with live updates.
@@ -1179,6 +1178,7 @@ Made on 2026-10-23:
 87. **The Google account pinned to the email**: the user's choice. Google lets any Google account finish its sign-in to a Testing app, test user or not, and an email address can move to another Google account. Google's OpenID Connect docs say `sub` is unique, never reused and never changed, while the `email` claim may change and isn't a unique identifier (checked 2026-10-23). So the first sign-in with the allowed, verified email pins its account's `sub` to the email, in the gateway's own database, and every later sign-in needs both; the first sign-in wins. One atomic upsert pins and checks, so concurrent first sign-ins agree on one account. The pin is per email: a new `BAKHYARD_GOOGLE_EMAIL` is pinned at its first sign-in, and the old pin stays. Letting another account in means deleting the email's pin by hand (`docs/setup.md`). Google advises matching on `sub` alone, which would survive a change of address but needs more code; the user chose the email and `sub` together, which keeps today's email check as it is. go-oidc 3.21.0 doesn't check that `sub` is there, so an ID token without one is refused. Not done: a log line for the first pin, deleting unused pins, and matching emails in any case.
 88. **Signing out on one device, and no cross-origin writes**: the user's choices. Sign out sits at the header's right end, on every page and screen size, with no confirmation. It's a plain HTML form that posts to `POST /auth/logout`, which deletes the session in the request's cookie, makes the browser drop the cookie (`Max-Age=0`, with the `__Host-` prefix's attributes, without which the browser ignores it) and redirects to `/` with a 303; the app then gets a 401 and shows its sign-in screen. Only this device signs out: the other devices' sessions stay, and the app offers no "everywhere" (`docs/setup.md` does it by hand). The route needs the Tailscale identity but no session, so signing out twice or after the session expired still drops the cookie. A database error gets a plain-text 500 and keeps the cookie, so that trying again can end the session. The route takes POST alone, so a link or a prefetch can't sign the user out; chi answers GET and HEAD with a 405 before the Tailscale lock runs, and no handler runs for them. Go's `http.CrossOriginProtection` wraps the whole gateway rather than this route alone: every request but GET, HEAD and OPTIONS needs `Sec-Fetch-Site: same-origin` (or `none`), or else an `Origin` whose host is the request's; a request with neither passes, as from curl, and anything else gets Go's plain-text 403. `SameSite=Lax` alone isn't enough: `ts.net` is on the Public Suffix List, so the tailnet's other machines count as the same site, but not the same origin. Not done: `Clear-Site-Data`, and the back-forward cache after a sign-out (§0 ideas).
 89. **The rest of `frontend-shell`**: the user's choices. The app's icon is a geometric mark of our own, with no letters: `app-icon` drew three drafts, a card with a hard offset shadow, a grid of plots and a fence, and the user picked the card (§7). Chrome no longer needs a service worker to install an app (web.dev's install criteria), so the service worker moves to `notifications`, its first user, for Web Push, and the app gets no offline mode. The manual theme override is a toggle in the header, System → Light → Dark, kept on each device by the browser, with no settings page; it's the next step, `theme-toggle`. This replaces the settings page that §7 and §8.2 planned.
+90. **The theme toggle**: an icon alone, the user's choice (2026-10-24): a half-filled circle for System, a sun for Light and a moon for Dark, our own SVGs (§7 Icons). Its accessible name says the current choice, such as "Theme: Dark". Each colour token is defined once with `light-dark()`, which Chrome has had since 123 and Safari since 17.5 (MDN's compatibility data), and `data-theme` on `<html>` switches `color-scheme`, so the page, the browser's controls and its scrollbars switch together. A classic script in `<head>`, `public/theme.js`, applies the saved choice before the first paint, so an override never flashes the OS's scheme; it's a file, not inline, so the CSP in §4.4 needs no `'unsafe-inline'` for scripts. The `theme-color` metas follow the choice once the app's JS runs. Other open tabs keep their scheme until they reload.
 
 ## 10. Risks
 

@@ -1,14 +1,16 @@
 :root {
+  /* light-dark() picks each colour by this: the OS's scheme, unless the theme toggle set data-theme. */
   color-scheme: light dark;
 
-  --paper: #fafaf8; /* page, under the grain */
-  --surface: #ffffff; /* cards, the bottom tab bar */
-  --fill: #f2f2f0; /* bar tracks, row hover */
-  --ink: #111111; /* text, ink fills, hover borders */
-  --ink-muted: #5c5c5c; /* secondary text and labels */
-  --rule: #d9d9d6; /* 1 px card borders and dividers */
-  --shadow: #ebebe8; /* resting offset shadow */
-  --shadow-strong: #ccccc9; /* hover offset shadow */
+  --paper: light-dark(#fafaf8, #131312); /* page, under the grain */
+  --surface: light-dark(#ffffff, #1b1b1a); /* cards, the bottom tab bar */
+  --fill: light-dark(#f2f2f0, #252523); /* bar tracks, row hover */
+  --ink: light-dark(#111111, #ededea); /* text, ink fills, hover borders */
+  --ink-muted: light-dark(#5c5c5c, #a3a3a0); /* secondary text and labels */
+  --rule: light-dark(#d9d9d6, #343432); /* 1 px card borders and dividers */
+  /* The offset shadows; dark's are lighter than the page, so the offset shows. */
+  --shadow: light-dark(#ebebe8, #262624); /* resting */
+  --shadow-strong: light-dark(#ccccc9, #3a3a38); /* hover */
 
   --font-sans: "Space Grotesk Variable", system-ui, sans-serif;
   --font-serif: "Instrument Serif", Georgia, serif;
@@ -36,15 +38,10 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #131312;
-    --surface: #1b1b1a;
-    --fill: #252523;
-    --ink: #ededea;
-    --ink-muted: #a3a3a0;
-    --rule: #343432;
-    --shadow: #262624; /* lighter than the page, so the offset shows */
-    --shadow-strong: #3a3a38;
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }

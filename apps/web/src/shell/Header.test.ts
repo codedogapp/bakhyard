@@ -48,3 +48,12 @@ test('signs out through a form that posts to the gateway', () => {
   expect(button.closest('form')).toHaveAttribute('method', 'post');
   expect(button.closest('form')).toHaveAttribute('action', '/auth/logout');
 });
+
+test('puts the theme toggle before Sign out', () => {
+  render(Header, { path: '/' });
+
+  const banner = within(screen.getByRole('banner'));
+  const toggle = banner.getByRole('button', { name: 'Theme: System' });
+  const signOut = banner.getByRole('button', { name: 'Sign out' });
+  expect(toggle.compareDocumentPosition(signOut) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
