@@ -16,6 +16,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/database"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/keychain"
+	"github.com/codedogapp/bakhyard/services/gateway/internal/pin"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/proxy"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/session"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/signin"
@@ -79,7 +80,7 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 		return nil, err
 	}
 
-	sessions, err := sessionStore(getenv, password)
+	sessions, pins, err := stores(getenv, password)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +97,7 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 	// Signing in needs the Tailscale identity only.
 	router.Group(func(signingIn chi.Router) {
 		signingIn.Use(identified)
-		signin.New(settings, sessions, logger).Register(signingIn)
+		signin.New(settings, sessions, pins, logger).Register(signingIn)
 	})
 	// The API needs a session as well (decision 86).
 	router.Group(func(api chi.Router) {
@@ -161,23 +162,25 @@ func googleSettings(
 	}, nil
 }
 
-// sessionStore opens the gateway's database with the password from the Keychain, and returns the
-// store that keeps the sessions in it.
-func sessionStore(getenv func(string) string, password passwordReader) (*session.Store, error) {
+// stores opens the gateway's database with the password from the Keychain, and returns the stores
+// that keep the sessions and the pins in it.
+func stores(
+	getenv func(string) string, password passwordReader,
+) (*session.Store, *pin.Store, error) {
 	address, err := env.Required(getenv, databaseVar)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	secret, err := password(context.Background(), secretService, databaseAccount)
 	if err != nil {
-		return nil, fmt.Errorf("read the database password: %w", err)
+		return nil, nil, fmt.Errorf("read the database password: %w", err)
 	}
 
 	pool, err := database.Open(context.Background(), address, secret)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return session.NewStore(pool), nil
+	return session.NewStore(pool), pin.NewStore(pool), nil
 }

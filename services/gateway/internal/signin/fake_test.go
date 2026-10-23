@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json/v2"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -93,7 +94,7 @@ func (g *fakeGoogle) approve(redirect *url.URL, change func(*grant)) string {
 	approved := grant{
 		challenge: query.Get("code_challenge"),
 		claims: map[string]any{
-			"iss": g.url, "aud": clientID, "sub": "1234567890",
+			"iss": g.url, "aud": clientID, "sub": subject,
 			"iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix(),
 			"nonce": query.Get("nonce"), "email": email, "email_verified": true,
 		},
@@ -202,4 +203,36 @@ func (s *fakeSessions) started() []string {
 	defer s.mu.Unlock()
 
 	return slices.Clone(s.tokens)
+}
+
+// fakePins stands in for the pin store. It pins the first account of each email, unless err is
+// set.
+type fakePins struct {
+	mu       sync.Mutex
+	accounts map[string]string
+	err      error
+}
+
+func (p *fakePins) Pin(_ context.Context, email, sub string) (bool, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.err != nil {
+		return false, p.err
+	}
+
+	pinned, ok := p.accounts[email]
+	if !ok {
+		p.accounts[email], pinned = sub, sub
+	}
+
+	return pinned == sub, nil
+}
+
+// pinned returns the accounts pinned so far, by email.
+func (p *fakePins) pinned() map[string]string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return maps.Clone(p.accounts)
 }

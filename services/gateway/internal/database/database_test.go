@@ -28,8 +28,8 @@ func TestOpenMigratesTheDatabaseOnce(t *testing.T) {
 		}
 
 		versions, err := pgx.CollectRows(rows, pgx.RowTo[int64])
-		if err != nil || !slices.Equal(versions, []int64{1}) {
-			t.Errorf("got the migrations %v (%v), want [1]", versions, err)
+		if err != nil || !slices.Equal(versions, []int64{1, 2}) {
+			t.Errorf("got the migrations %v (%v), want [1 2]", versions, err)
 		}
 
 		pool.Close()

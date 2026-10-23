@@ -3,6 +3,7 @@ package signin_test
 import (
 	"bytes"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,11 +16,13 @@ import (
 	"github.com/codedogapp/bakhyard/services/gateway/internal/signin"
 )
 
-// The client, user and host of the flow under test.
+// The client, user and host of the flow under test. subject is the user's Google account, the ID
+// token's sub.
 const (
 	clientID = "client"
 	secret   = "client-secret"
 	email    = "user@example.com"
+	subject  = "1234567890"
 	host     = "machine.tailnet.ts.net"
 )
 
@@ -57,19 +60,24 @@ func TestTheLoginGoesToGoogle(t *testing.T) {
 // google is where Google signs the user in.
 const google = "https://accounts.google.com/o/oauth2/v2/auth"
 
-// testFlow is a sign-in flow's routes, with its log and its sessions.
+// testFlow is a sign-in flow's routes, with its log, its sessions and its pins.
 type testFlow struct {
 	http.Handler
 
 	logs     *bytes.Buffer
 	sessions *fakeSessions
+	pins     *fakePins
 }
 
 // newFlow returns a sign-in flow with provider's endpoints.
 func newFlow(t *testing.T, provider oidc.ProviderConfig) *testFlow {
 	t.Helper()
 
-	flow := &testFlow{logs: new(bytes.Buffer), sessions: new(fakeSessions)}
+	flow := &testFlow{
+		logs:     new(bytes.Buffer),
+		sessions: new(fakeSessions),
+		pins:     &fakePins{accounts: make(map[string]string)},
+	}
 
 	router := chi.NewRouter()
 	signin.New(signin.Settings{
@@ -78,7 +86,7 @@ func newFlow(t *testing.T, provider oidc.ProviderConfig) *testFlow {
 		ClientSecret: secret,
 		Email:        email,
 		Host:         host,
-	}, flow.sessions, slog.New(slog.NewTextHandler(flow.logs, nil))).Register(router)
+	}, flow.sessions, flow.pins, slog.New(slog.NewTextHandler(flow.logs, nil))).Register(router)
 	flow.Handler = router
 
 	return flow
@@ -118,11 +126,11 @@ func callback(t *testing.T, flow http.Handler, query url.Values) *httptest.Respo
 }
 
 // refused brings Google's answer, query, back to flow, and fails t unless flow refuses it: a 403
-// without a cookie, no session started, and reason in the log.
+// without a cookie, no session started, nothing pinned, and reason in the log.
 func refused(t *testing.T, flow *testFlow, query url.Values, reason string) {
 	t.Helper()
 
-	before := len(flow.sessions.started())
+	before, pins := len(flow.sessions.started()), flow.pins.pinned()
 	rec := callback(t, flow, query)
 
 	if rec.Code != http.StatusForbidden || rec.Body.String() != "Forbidden\n" {
@@ -132,6 +140,10 @@ func refused(t *testing.T, flow *testFlow, query url.Values, reason string) {
 	cookies, started := rec.Header().Values("Set-Cookie"), len(flow.sessions.started())-before
 	if len(cookies) != 0 || started != 0 {
 		t.Errorf("got the cookies %q and %d sessions, want none", cookies, started)
+	}
+
+	if after := flow.pins.pinned(); !maps.Equal(after, pins) {
+		t.Errorf("the pins went from %v to %v, want them as they were", pins, after)
 	}
 
 	logs, line := flow.logs.String(), `level=WARN msg="refused a sign-in" reason=`

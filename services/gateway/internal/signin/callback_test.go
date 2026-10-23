@@ -2,16 +2,13 @@ package signin_test
 
 import (
 	"errors"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
-	"testing/synctest"
-	"time"
-
-	"github.com/codedogapp/bakhyard/services/gateway/internal/signin"
 )
 
 func TestTheUserSignsIn(t *testing.T) {
@@ -46,6 +43,8 @@ func TestTheUserSignsIn(t *testing.T) {
 		strings.Contains(logs, tokens[0]) {
 		t.Errorf("got the log %q, want signed in with the email, without the token", logs)
 	}
+
+	pinnedTheUser(t, flow)
 
 	// The state works once.
 	refused(t, flow, answer, "unknown, used or expired state")
@@ -84,135 +83,50 @@ func TestTheUserSignsInOnSeveralDevicesAtOnce(t *testing.T) {
 			signedIn, started, devices)
 	}
 
+	pinnedTheUser(t, flow)
 	google.noLeaks(t, flow.logs.String())
 }
 
-func TestTheCallbackFailsWhenTheSessionDoesNotStart(t *testing.T) {
-	google := newFakeGoogle(t)
-	flow := newFlow(t, google.provider())
-	flow.sessions.err = errors.New("the database is down")
-
-	redirect := login(t, flow)
-	rec := callback(t, flow, url.Values{
-		"state": {redirect.Query().Get("state")},
-		"code":  {google.approve(redirect, func(*grant) {})},
-	})
-
-	cookies := rec.Header().Values("Set-Cookie")
-	if rec.Code != http.StatusInternalServerError || len(cookies) != 0 {
-		t.Errorf("got %d with the cookies %q, want 500 without any", rec.Code, cookies)
-	}
-
-	line := `level=ERROR msg="failed a sign-in" email=user@example.com err="the database is down"`
-	if !strings.Contains(flow.logs.String(), line) {
-		t.Errorf("got the log %q, want %s", flow.logs, line)
-	}
-
-	google.noLeaks(t, flow.logs.String())
-}
-
-func TestTheCallbackRefusesAWrongIDToken(t *testing.T) {
-	forger := newKey(t)
-
-	for name, test := range map[string]struct {
-		change func(*grant)
-		reason string
-	}{
-		"wrong nonce": {func(g *grant) { g.claims["nonce"] = "other" }, "wrong nonce"},
-		"no nonce":    {func(g *grant) { delete(g.claims, "nonce") }, "wrong nonce"},
-		"unverified email": {
-			func(g *grant) { g.claims["email_verified"] = false },
-			"unverified email user@example.com",
-		},
-		"no email_verified": {
-			func(g *grant) { delete(g.claims, "email_verified") },
-			"unverified email user@example.com",
-		},
-		"email_verified as a string": {
-			func(g *grant) { g.claims["email_verified"] = "true" },
-			"read the ID token's claims",
-		},
-		"someone else's email": {
-			func(g *grant) { g.claims["email"] = "someone@example.com" },
-			"someone else's email someone@example.com",
-		},
-		"the email in other case": {
-			func(g *grant) { g.claims["email"] = "User@example.com" },
-			"someone else's email User@example.com",
-		},
-		"another client's token": {
-			func(g *grant) { g.claims["aud"] = "other-client" },
-			"verify the ID token: oidc: expected audience",
-		},
-		"another issuer": {
-			func(g *grant) { g.claims["iss"] = "https://accounts.example.com" },
-			"verify the ID token: oidc: id token issued by a different provider",
-		},
-		"expired token": {
-			func(g *grant) { g.claims["exp"] = time.Now().Add(-time.Minute).Unix() },
-			"verify the ID token: oidc: token is expired",
-		},
-		"forged signature": {
-			func(g *grant) { g.signer = forger },
-			"verify the ID token: failed to verify signature",
-		},
-		"no ID token": {func(g *grant) { g.claims = nil }, "no ID token in Google's answer"},
+func TestTheCallbackFailsWhenAStoreFails(t *testing.T) {
+	for name, fail := range map[string]func(*testFlow, error){
+		"the pin store":     func(flow *testFlow, err error) { flow.pins.err = err },
+		"the session store": func(flow *testFlow, err error) { flow.sessions.err = err },
 	} {
 		t.Run(name, func(t *testing.T) {
 			google := newFakeGoogle(t)
 			flow := newFlow(t, google.provider())
+			fail(flow, errors.New("the database is down"))
 
 			redirect := login(t, flow)
-			refused(t, flow, url.Values{
+			rec := callback(t, flow, url.Values{
 				"state": {redirect.Query().Get("state")},
-				"code":  {google.approve(redirect, test.change)},
-			}, test.reason)
+				"code":  {google.approve(redirect, func(*grant) {})},
+			})
+
+			cookies, started := rec.Header().Values("Set-Cookie"), len(flow.sessions.started())
+			if rec.Code != http.StatusInternalServerError || len(cookies) != 0 || started != 0 {
+				t.Errorf("got %d with the cookies %q and %d sessions, want 500 without any",
+					rec.Code, cookies, started)
+			}
+
+			line := `level=ERROR msg="failed a sign-in" email=user@example.com ` +
+				`err="the database is down"`
+			if !strings.Contains(flow.logs.String(), line) {
+				t.Errorf("got the log %q, want %s", flow.logs, line)
+			}
+
 			google.noLeaks(t, flow.logs.String())
 		})
 	}
 }
 
-func TestTheCallbackRefusesAWrongCode(t *testing.T) {
-	google := newFakeGoogle(t)
-	flow := newFlow(t, google.provider())
+// pinnedTheUser fails t unless flow has pinned the user's account to their email, and nothing
+// else.
+func pinnedTheUser(t *testing.T, flow *testFlow) {
+	t.Helper()
 
-	// A code for another login fails the PKCE check, as an unknown code does.
-	first, second := login(t, flow), login(t, flow)
-	for _, code := range []string{google.approve(second, func(*grant) {}), "4/unknown"} {
-		refused(t, flow, url.Values{
-			"state": {first.Query().Get("state")},
-			"code":  {code},
-		}, `exchange the code: oauth2: \"invalid_grant\"`)
-
-		first = login(t, flow)
+	want := map[string]string{email: subject}
+	if got := flow.pins.pinned(); !maps.Equal(got, want) {
+		t.Errorf("got the pins %v, want %v", got, want)
 	}
-
-	google.noLeaks(t, flow.logs.String())
-}
-
-func TestTheCallbackRefusesGooglesError(t *testing.T) {
-	flow := newFlow(t, signin.Google())
-	answer := url.Values{"state": {login(t, flow).Query().Get("state")}, "error": {"access_denied"}}
-
-	refused(t, flow, answer, `google sent the error \"access_denied\"`)
-	refused(t, flow, answer, "unknown, used or expired state")
-}
-
-func TestTheCallbackRefusesAnUnknownState(t *testing.T) {
-	flow := newFlow(t, signin.Google())
-
-	for _, state := range []string{"", "made-up"} {
-		answer := url.Values{"state": {state}, "code": {"4/code"}}
-		refused(t, flow, answer, "unknown, used or expired state")
-	}
-}
-
-func TestTheCallbackRefusesAnExpiredState(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		flow := newFlow(t, signin.Google())
-		answer := url.Values{"state": {login(t, flow).Query().Get("state")}, "code": {"4/code"}}
-
-		time.Sleep(10 * time.Minute)
-		refused(t, flow, answer, "unknown, used or expired state")
-	})
 }

@@ -12,7 +12,7 @@ Personal settings live in `mise.local.toml`, at the repo's root. git ignores it,
 | `BAKHYARD_TAILSCALE_LOGIN` | gateway | The one Tailscale login let in |
 | `BAKHYARD_HOST` | gateway | The ts.net name that `tailscale serve` publishes |
 | `BAKHYARD_GOOGLE_CLIENT_ID` | gateway | The Google OAuth client's ID |
-| `BAKHYARD_GOOGLE_EMAIL` | gateway | The one Google account let in |
+| `BAKHYARD_GOOGLE_EMAIL` | gateway | The one email let in; its first sign-in pins its Google account ([below](#the-pinned-google-account)) |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
 For example:
@@ -106,3 +106,17 @@ Without it, `mise run test` fails and points here. CI runs its own Postgres for 
 `mise run up` builds the services and runs them with process-compose. A service that exits restarts after 1 s, so a missing setting or secret shows up in the gateway's log every second until it's fixed.
 
 Open `https://<machine>.<tailnet>.ts.net`. Without a session the app shows its sign-in screen, whose Sign in button goes to Google; a sign-in starts a session for 7 days, renewed as the app uses it, and lands on the Home.
+
+## The pinned Google account
+
+The first sign-in with `BAKHYARD_GOOGLE_EMAIL` pins its Google account to the email, and every later sign-in needs that account too (decision 87). Another account with the same email gets a 403, and the gateway logs `refused a sign-in` with `another account with the email …`. The pins are in the gateway's database. To see them, in `psql`, connected to `bakhyard_gateway`:
+
+```sql
+SELECT email, pinned_at FROM pins;
+```
+
+To let another account in, for example after the address moved to a new Google account, delete the email's pin. The next sign-in with the email pins its account.
+
+```sql
+DELETE FROM pins WHERE email = 'you@example.com';
+```
