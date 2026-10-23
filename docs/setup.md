@@ -4,7 +4,11 @@ What a machine needs before `mise run up` can run Bakhyard: the local settings, 
 
 ## Local settings
 
-Personal settings live in `mise.local.toml`, at the repo's root. git ignores it, and mise puts its `[env]` into every task's environment.
+Personal settings live in `mise.local.toml`, at the repo's root. git ignores it, and mise puts its `[env]` into every task's environment. Start it from the example, which lists every setting:
+
+```sh
+cp mise.local.example.toml mise.local.toml
+```
 
 | Variable | Service | Holds |
 | --- | --- | --- |
@@ -14,16 +18,6 @@ Personal settings live in `mise.local.toml`, at the repo's root. git ignores it,
 | `BAKHYARD_GOOGLE_CLIENT_ID` | gateway | The Google OAuth client's ID |
 | `BAKHYARD_GOOGLE_EMAIL` | gateway | The one email let in; its first sign-in pins its Google account ([below](#the-pinned-google-account)) |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
-
-For example:
-
-```toml
-[env]
-BAKHYARD_TAILSCALE_LOGIN = "you@example.com"
-BAKHYARD_HOST = "machine.tailnet.ts.net"
-BAKHYARD_GOOGLE_CLIENT_ID = "1234567890-abcdef.apps.googleusercontent.com"
-BAKHYARD_GOOGLE_EMAIL = "you@example.com"
-```
 
 The gateway doesn't start without its four settings: it exits 1 and says which one is missing.
 
@@ -92,12 +86,7 @@ CREATE ROLE bakhyard_test LOGIN;
 CREATE DATABASE bakhyard_test OWNER bakhyard_test;
 ```
 
-Then add its URL to `mise.local.toml`:
-
-```toml
-[env]
-BAKHYARD_TEST_DATABASE = "postgres://bakhyard_test:<password>@127.0.0.1:5433/bakhyard_test"
-```
+Then put the password in `BAKHYARD_TEST_DATABASE`'s URL in `mise.local.toml`, in place of `<password>`.
 
 Without it, `mise run test` fails and points here. CI runs its own Postgres for the tests.
 

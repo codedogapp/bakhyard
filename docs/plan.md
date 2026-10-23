@@ -80,12 +80,13 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `signout` | The header's Sign out ends the session on this device only, drops its cookie and shows the sign-in screen; the gateway refuses every request but GET, HEAD and OPTIONS from another origin (decision 88) | Done (#52) |
 | `app-icon` | The app gets an icon of its own, a geometric mark: the favicon, the iPhone Home Screen icon and a web app manifest's, so Chrome can install the app; a `theme-color` per scheme matches the top bar (decision 89) | Done (#53) |
 | `theme-toggle` | A header toggle, System → Light → Dark, overrides the OS's colour scheme on this device; the page, the browser's controls and `theme-color` follow it at once, and a script in `<head>` applies the saved choice before the first paint (decision 90) | Done (#54) |
+| `readme` | A README at the root says what Bakhyard is and how to run it, and `mise.local.example.toml` lists the local settings to start from | Done (#55) |
 
 After these: the product phases (§8.2), each split into steps.
 
 **Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and process-compose's detached mode and API server (§4.9).
 
-**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does. Each service's port is written twice in `process-compose.yaml`, in its `BAKHYARD_LISTEN` and its probe, and the gateway's `BAKHYARD_PEERS` repeats home's and web's; a check could keep them in step. Nothing checks that every address is on the loopback, though nothing should listen on the LAN (§3). Pushover could join Web Push as a second notification channel, for alerts that repeat until acknowledged (§2, decision 64). After signing out, Back may bring back the signed-in page from the browser's back-forward cache, data included; the app could check its session again when a page is restored (`pageshow` with `persisted`).
+**Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does. Each service's port is written twice in `process-compose.yaml`, in its `BAKHYARD_LISTEN` and its probe, and the gateway's `BAKHYARD_PEERS` repeats home's and web's; a check could keep them in step. Nothing checks that every address is on the loopback, though nothing should listen on the LAN (§3). Pushover could join Web Push as a second notification channel, for alerts that repeat until acknowledged (§2, decision 64). After signing out, Back may bring back the signed-in page from the browser's back-forward cache, data included; the app could check its session again when a page is restored (`pageshow` with `persisted`). The web app's dev server (`//apps/web:dev`) proxies `/api` to the gateway on the loopback, which has answered 403 there since `auth-tailscale` (decision 77), so it shows the app without data; local development needs a way through the lock.
 
 ## 1. Goal and scope
 
@@ -954,9 +955,9 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 1: foundation**
 
-- `scaffold-repo`:
+- `scaffold-repo`: done (#55).
   - Repo, Go modules, web app, lint and test setup, README skeleton, config example.
-  - Mostly covered by the first slice. Left: README, config example, the GitHub remote.
+  - The first slice covered most of it, and `readme` (#55) added the README and the config example, `mise.local.example.toml`. The repo has been on GitHub since decision 28.
 - `backend-foundation`: split (decision 76). Each piece comes with the first step that needs it, and the steps that waited for it no longer do:
   - Postgres, with goose for the migrations (decision 80): done in `signin-session` (#47), for the gateway's sessions, with a database per service (decision 81).
   - Secrets from the Keychain: done in `signin-google` (#46), for the OAuth client secret (decision 79).
@@ -1064,7 +1065,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - Token-expiry reminders (Jira ≤ 365 d, the Copilot PAT).
   - Structured logs and per-widget error states.
   - NATS auth token.
-  - README and host setup docs.
+  - The host's setup, in the README and `docs/setup.md`.
 
 ## 9. Decisions
 
