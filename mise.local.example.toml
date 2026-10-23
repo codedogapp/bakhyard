@@ -1,0 +1,16 @@
+# Copy this file to mise.local.toml, which git ignores, and fill it in. mise puts its [env] into
+# every task's environment. docs/setup.md says more about each setting; the secrets themselves go
+# into the Keychain, not here.
+[env]
+# The name the Home's greeting uses. Without it, the greeting says "there".
+BAKHYARD_NAME = "Alex"
+# The one Tailscale login the gateway lets in.
+BAKHYARD_TAILSCALE_LOGIN = "you@example.com"
+# The name that tailscale serve publishes.
+BAKHYARD_HOST = "machine.tailnet.ts.net"
+# The Google OAuth client's ID.
+BAKHYARD_GOOGLE_CLIENT_ID = "1234567890-abcdef.apps.googleusercontent.com"
+# The one email the gateway lets sign in. Its first sign-in pins its Google account.
+BAKHYARD_GOOGLE_EMAIL = "you@example.com"
+# The Go tests' own database. Put its role's password in place of <password>.
+BAKHYARD_TEST_DATABASE = "postgres://bakhyard_test:<password>@127.0.0.1:5433/bakhyard_test"
