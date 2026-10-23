@@ -1,6 +1,6 @@
 // Package session keeps the user's sessions (docs/plan.md §3 Auth): each sign-in starts one, the
-// browser carries its token in a cookie, and the gateway's second lock lets in only the requests
-// that carry a live one.
+// browser carries its token in a cookie, the gateway's second lock lets in only the requests
+// that carry a live one, and signing out ends it.
 package session
 
 import (
@@ -25,6 +25,9 @@ INSERT INTO sessions (token_hash, expires_at) VALUES ($1, now() + $2::interval)`
 const renewSQL = `
 UPDATE sessions SET expires_at = now() + $2::interval
 WHERE token_hash = $1 AND expires_at > now()`
+
+// endSQL deletes a session, live or expired.
+const endSQL = `DELETE FROM sessions WHERE token_hash = $1`
 
 // Store keeps the sessions in the gateway's database. It stores the SHA-256 of each session's
 // token, never the token.
@@ -62,4 +65,17 @@ func (s *Store) Renew(ctx context.Context, token string) (bool, error) {
 	}
 
 	return tag.RowsAffected() == 1, nil
+}
+
+// End ends the session whose token is token. A token that is unknown has no session to end,
+// which is no error.
+func (s *Store) End(ctx context.Context, token string) error {
+	hash := sha256.Sum256([]byte(token))
+
+	_, err := s.pool.Exec(ctx, endSQL, hash[:])
+	if err != nil {
+		return fmt.Errorf("end a session: %w", err)
+	}
+
+	return nil
 }

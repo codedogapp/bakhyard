@@ -89,15 +89,18 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 	identified := tailscale.RequireLogin(login, host, logger)
 
 	router := chi.NewRouter()
-	// Answer HEAD wherever GET is served.
-	router.Use(middleware.GetHead)
+	// Refuse what other sites' pages send here with a method other than GET, HEAD or OPTIONS: the
+	// browser adds the user's cookies (decision 88). Then answer HEAD wherever GET is served.
+	router.Use(http.NewCrossOriginProtection().Handler, middleware.GetHead)
 	// The gateway's own health check, so /healthz never reaches web (decision 59). It needs no
 	// login: process-compose's probe calls the gateway directly.
 	health.Register(router)
-	// Signing in needs the Tailscale identity only.
+	// Signing in and out needs the Tailscale identity only. Signing out takes POST alone, so that
+	// a link or a prefetch can't sign the user out.
 	router.Group(func(signingIn chi.Router) {
 		signingIn.Use(identified)
 		signin.New(settings, sessions, pins, logger).Register(signingIn)
+		signingIn.Method(http.MethodPost, "/auth/logout", session.SignOut(sessions, logger))
 	})
 	// The API needs a session as well (decision 86).
 	router.Group(func(api chi.Router) {
