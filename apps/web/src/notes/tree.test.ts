@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { type Folder, matches, noteHref, noteTree } from './tree';
+import { type Folder, matches, noteAt, noteHref, noteTree, withoutExtension } from './tree';
 
 const files = [
   'Work/Plans/Q3.md',
@@ -73,6 +73,45 @@ test.each([
   { path: 'Café/Ünï.md', want: '/notes/Caf%C3%A9/%C3%9Cn%C3%AF' },
 ])('links $path to $want', ({ path, want }) => {
   expect(noteHref(path)).toBe(want);
+});
+
+test.each([
+  'Inbox.md',
+  'Work/Plans/Day 2.md',
+  'Q&A?/50% #1.md',
+  'Café/Ünï.md',
+  'a+b/c=d;e,f@g$h!.md',
+  "it's (ok) [1] {2} ~`^|\\.md",
+  '日本語/メモ 😀.md',
+])('finds %s at its own link', (path) => {
+  expect(noteAt(noteHref(path))?.path).toBe(path);
+});
+
+test.each([
+  { href: '/notes/Inbox', want: { path: 'Inbox.md', title: 'Inbox', folder: '' } },
+  { href: '/notes/Work/Plans/Day%202', want: { path: 'Work/Plans/Day 2.md', title: 'Day 2', folder: 'Work/Plans' } },
+  { href: '/notes/Work/Plans/Q3.md', want: { path: 'Work/Plans/Q3.md.md', title: 'Q3.md', folder: 'Work/Plans' } },
+  // Only noteHref's links are expected, but an unescaped name works too.
+  { href: '/notes/Work/To do', want: { path: 'Work/To do.md', title: 'To do', folder: 'Work' } },
+])('gives the note at $href', ({ href, want }) => {
+  expect(noteAt(href)).toEqual(want);
+});
+
+test.each([
+  { name: 'the Notes page', href: '/notes' },
+  { name: 'the Notes page with a slash', href: '/notes/' },
+  { name: 'another page', href: '/notesbook/Inbox' },
+  { name: 'an empty name', href: '/notes//Inbox' },
+  { name: 'a trailing slash', href: '/notes/Work/' },
+  { name: 'a cut escape', href: '/notes/%E0%A4%A' },
+  { name: 'an escape of no UTF-8', href: '/notes/%FF' },
+  { name: 'a lone %', href: '/notes/50%' },
+])('gives no note for $name', ({ href }) => {
+  expect(noteAt(href)).toBeUndefined();
+});
+
+test('gives the path without ".md"', () => {
+  expect(withoutExtension('Work/Plans/Q3.md')).toBe('Work/Plans/Q3');
 });
 
 // The titles of the notes that match the filter.

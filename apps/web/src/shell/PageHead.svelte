@@ -25,6 +25,8 @@ let { eyebrow, summary, children }: { eyebrow?: string; summary?: string; childr
   row-gap: 20px;
   align-items: end;
   padding: 58px var(--page-padding) 50px;
+  /* A long word, such as in a note's name, breaks rather than widen the page. */
+  overflow-wrap: anywhere;
 }
 
 .eyebrow {

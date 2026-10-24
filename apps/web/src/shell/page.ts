@@ -1,3 +1,4 @@
+import { type Note, noteAt } from '../notes/tree';
 import { type App, appHref, apps } from './apps';
 import { isCurrent, moreHref } from './nav';
 
@@ -5,13 +6,17 @@ import { isCurrent, moreHref } from './nav';
 export type Page =
   | { kind: 'home' }
   | { kind: 'notes' }
+  | { kind: 'note'; note: Note }
   | { kind: 'app'; app: App }
   | { kind: 'more' }
   | { kind: 'missing' };
 
 const notesHref = appHref('notes');
 
-/** The page at path. The Notes app's path shows the notes; an app's other paths show its page, as the nav marks it. */
+/**
+ * The page at path. The Notes app's path shows the notes, and the paths under it their notes; another app's paths show
+ * its page, as the nav marks it.
+ */
 export function pageAt(path: string): Page {
   if (path === '/') {
     return { kind: 'home' };
@@ -19,11 +24,20 @@ export function pageAt(path: string): Page {
   if (path === notesHref || path === `${notesHref}/`) {
     return { kind: 'notes' };
   }
+  if (isCurrent(notesHref, path)) {
+    return notePage(path);
+  }
   if (isCurrent(moreHref, path)) {
     return { kind: 'more' };
   }
   const app = apps.find((candidate) => isCurrent(appHref(candidate.id), path));
   return app ? { kind: 'app', app } : { kind: 'missing' };
+}
+
+// The page of the note at path; missing when no note's page can be at it.
+function notePage(path: string): Page {
+  const note = noteAt(path);
+  return note ? { kind: 'note', note } : { kind: 'missing' };
 }
 
 const siteName = 'Bakhyard';
@@ -38,6 +52,8 @@ export function pageTitle(page: Page): string {
       return siteName;
     case 'notes':
       return `Notes · ${siteName}`;
+    case 'note':
+      return `${page.note.title} · ${siteName}`;
     case 'app':
       return `${page.app.name} · ${siteName}`;
     case 'more':
