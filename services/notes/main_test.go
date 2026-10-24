@@ -30,6 +30,7 @@ func TestNotesServesTheVault(t *testing.T) {
 		{http.MethodGet, "/notes", `{"files":["Inbox.md"]}`},
 		{http.MethodGet, "/notes/files/Inbox.md", "{}"},
 		{http.MethodHead, "/notes/files/Inbox.md", ""},
+		{http.MethodPost, "/notes/sync", `{"files":["Inbox.md"]}`},
 		{http.MethodGet, "/healthz", `{"status":"ok"}`},
 	} {
 		req := httptest.NewRequestWithContext(t.Context(), test.method, test.target, nil)

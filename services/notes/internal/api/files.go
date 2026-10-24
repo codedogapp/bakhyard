@@ -19,17 +19,12 @@ const filesPath = "/notes/files/"
 const fileCSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
 // serveFile returns the handler of GET /notes/files/<path>: it answers the file at <path> in root
-// if files lists it, and 404 otherwise.
-func serveFile(root *os.Root, files []string, logger *slog.Logger) http.HandlerFunc {
-	listed := make(map[string]bool, len(files))
-	for _, file := range files {
-		listed[file] = true
-	}
-
+// if idx's latest scan lists it, and 404 otherwise.
+func serveFile(root *os.Root, idx *index, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// The decoded path, so that a name escaped in the URL, such as %3F for ?, matches the list.
 		name := strings.TrimPrefix(r.URL.Path, filesPath)
-		if !listed[name] {
+		if !idx.current().listed[name] {
 			http.NotFound(w, r)
 
 			return
