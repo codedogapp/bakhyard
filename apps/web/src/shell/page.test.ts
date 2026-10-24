@@ -2,23 +2,24 @@ import { expect, test } from 'vitest';
 
 import { type Page, pageAt, pageTitle } from './page';
 
-// The page at a path, with the app's id in place of the app.
+// The page at a path: its kind, and the app's id for an app's page.
 function pageId(path: string): string {
   const page = pageAt(path);
-  return page.kind === 'app' ? page.app.id : page.kind;
+  return page.kind === 'app' ? `app ${page.app.id}` : page.kind;
 }
 
 test.each([
   { path: '/', want: 'home' },
   { path: '/notes', want: 'notes' },
   { path: '/notes/', want: 'notes' },
-  { path: '/notes/today', want: 'notes' },
-  { path: '/todos', want: 'todos' },
-  { path: '/pulls', want: 'pulls' },
-  { path: '/time', want: 'time' },
-  { path: '/github', want: 'github' },
-  { path: '/games/zelda', want: 'games' },
-  { path: '/planner', want: 'planner' },
+  { path: '/notes/today', want: 'app notes' },
+  { path: '/notes//', want: 'app notes' },
+  { path: '/todos', want: 'app todos' },
+  { path: '/pulls', want: 'app pulls' },
+  { path: '/time', want: 'app time' },
+  { path: '/github', want: 'app github' },
+  { path: '/games/zelda', want: 'app games' },
+  { path: '/planner', want: 'app planner' },
   { path: '/more', want: 'more' },
   { path: '/more/', want: 'more' },
   { path: '/elsewhere', want: 'missing' },
@@ -31,6 +32,7 @@ test.each([
 
 test.each([
   { page: pageAt('/'), want: 'Bakhyard' },
+  { page: pageAt('/notes'), want: 'Notes · Bakhyard' },
   { page: pageAt('/time'), want: 'Time · Bakhyard' },
   { page: pageAt('/pulls/42'), want: 'Pull requests · Bakhyard' },
   { page: pageAt('/more'), want: 'More · Bakhyard' },

@@ -12,7 +12,7 @@ export interface App {
 }
 
 const catalogue: readonly Omit<App, 'number'>[] = [
-  { id: 'notes', label: 'Notes', name: 'Notes', description: 'The Obsidian vault, rendered and editable' },
+  { id: 'notes', label: 'Notes', name: 'Notes', description: 'The Obsidian vault, rendered' },
   { id: 'todos', label: 'Todos', name: 'Todos', description: 'Todos linked to Jira tickets' },
   { id: 'pulls', label: 'PRs', name: 'Pull requests', description: 'Bitbucket PRs and reviewer nudges' },
   { id: 'time', label: 'Time', name: 'Time', description: 'Hours logged on the Jira tickets' },

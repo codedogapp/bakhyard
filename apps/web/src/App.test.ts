@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/svelte';
+import { act, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import App from './App.svelte';
@@ -49,10 +49,12 @@ async function go(navigation: EventTarget, path: string) {
   });
 }
 
+const notes = { files: ['Work/Plan.md', 'Inbox.md'] };
+
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn<typeof fetch>(async () => Response.json(home))
+    vi.fn<typeof fetch>(async (url) => Response.json(url === '/api/notes' ? notes : home))
   );
 });
 
@@ -122,6 +124,32 @@ test('shows each page in place as the browser navigates, with the Home it has al
   expect(screen.getByRole('heading', { level: 1, name: /^Good \w+, Ada\.$/ })).toBeInTheDocument();
   expect(document.title).toBe('Bakhyard');
   expect(fetch).toHaveBeenCalledOnce();
+});
+
+test('keeps the Notes page as the user left it while the app runs, with the list it has already loaded', async () => {
+  const navigation = new EventTarget();
+  vi.stubGlobal('navigation', navigation);
+  history.replaceState(null, '', '/notes');
+  render(App);
+
+  expect(await screen.findByText('2 notes in the vault.')).toBeInTheDocument();
+  expect(document.title).toBe('Notes · Bakhyard');
+  expect(screen.getAllByRole('link', { name: 'Notes', current: 'page' })).toHaveLength(2);
+  const work = screen.getByText('Work').closest('details')!;
+  const opened = new Promise((resolve) => work.addEventListener('toggle', resolve, { once: true }));
+  await fireEvent.click(screen.getByText('Work'));
+  await opened;
+
+  await go(navigation, '/notes/Work/Plan');
+
+  expect(screen.getByRole('heading', { level: 1, name: 'Notes' })).toBeInTheDocument();
+  expect(screen.getByText('Coming soon')).toBeInTheDocument();
+
+  await go(navigation, '/notes');
+
+  expect(screen.getByText('Work').closest('details')).toHaveProperty('open', true);
+  expect(screen.getByRole('link', { name: 'Plan' })).toHaveAttribute('href', '/notes/Work/Plan');
+  expect(vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/notes')).toHaveLength(1);
 });
 
 test('leaves navigations to the browser once it goes away', () => {
