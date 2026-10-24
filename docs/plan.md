@@ -82,7 +82,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `theme-toggle` | A header toggle, System → Light → Dark, overrides the OS's colour scheme on this device; the page, the browser's controls and `theme-color` follow it at once, and a script in `<head>` applies the saved choice before the first paint (decision 90) | Done (#54) |
 | `readme` | A README at the root says what Bakhyard is and how to run it, and `mise.local.example.toml` lists the local settings to start from | Done (#55) |
 | `notes-list` | A `notes` service lists the vault's files, and the gateway forwards `/api/notes` to it; the first of `vault-index`'s three steps (decision 91) | Done (#56) |
-| `notes-read` | Notes returns one listed file on `GET /api/notes/files/<path>`, with headers that keep it from running a script in the app's origin, and the gateway forwards the paths under `/api/<svc>/` (decision 92) | Done (#57) |
+| `notes-read` | Notes returns one listed file on `GET /api/notes/files/<path>`, with headers that keep it from running a script in the app's origin, and the gateway forwards the paths under `/api/<svc>/` (decision 92) | Done (#58) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -998,7 +998,7 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 - `vault-index` [notes]. Needs `spike-vault-sync`. Three steps (decision 91):
   - `notes-list`: the `notes` service scans the vault when it starts and lists its files on `GET /api/notes`. Done (#56).
-  - `notes-read`: `GET /api/notes/files/<path>` returns one of the listed files, through the `os.Root`. Done (#57).
+  - `notes-read`: `GET /api/notes/files/<path>` returns one of the listed files, through the `os.Root`. Done (#58).
   - `notes-sync`: `POST /api/notes/sync` scans the vault again and answers the new list.
 - `vault-render` [web, notes]. Needs `frontend-shell`, `vault-index`.
   - unified/remark pipeline: wikilinks (alias/heading/block), `![[note]]` and image embeds via our own resolver, callouts, LaTeX (KaTeX), frontmatter, tasks.
