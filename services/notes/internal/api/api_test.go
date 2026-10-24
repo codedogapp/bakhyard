@@ -28,18 +28,28 @@ func TestTheListNamesEveryFile(t *testing.T) {
 	}
 }
 
-func TestTheAPIIsReadOnly(t *testing.T) {
+func TestEachPathTakesOnlyItsMethod(t *testing.T) {
 	router, _ := newRouter(t, vaultWith(t, "Inbox.md"), []string{"Inbox.md"})
 
-	for _, target := range []string{"/notes", "/notes/files/Inbox.md"} {
-		for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
+	for _, test := range []struct {
+		target  string
+		allow   string
+		methods []string
+	}{
+		{"/notes", http.MethodGet, []string{http.MethodPost, http.MethodPut, http.MethodDelete}},
+		{"/notes/files/Inbox.md", http.MethodGet, []string{
+			http.MethodPost, http.MethodPut, http.MethodDelete,
+		}},
+		{"/notes/sync", http.MethodPost, []string{http.MethodGet, http.MethodPut, http.MethodDelete}},
+	} {
+		for _, method := range test.methods {
 			rec := httptest.NewRecorder()
-			router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, target, nil))
+			router.ServeHTTP(rec,
+				httptest.NewRequestWithContext(t.Context(), method, test.target, nil))
 
-			if rec.Code != http.StatusMethodNotAllowed ||
-				rec.Header().Get("Allow") != http.MethodGet {
-				t.Errorf("%s %s: got %d, Allow %q; want 405, Allow GET",
-					method, target, rec.Code, rec.Header().Get("Allow"))
+			if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != test.allow {
+				t.Errorf("%s %s: got %d, Allow %q; want 405, Allow %s",
+					method, test.target, rec.Code, rec.Header().Get("Allow"), test.allow)
 			}
 		}
 	}
