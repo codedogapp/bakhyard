@@ -4,10 +4,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/go-chi/chi/v5"
-
-	"github.com/codedogapp/bakhyard/services/notes/internal/api"
 )
 
 func TestTheListNamesEveryFile(t *testing.T) {
@@ -20,7 +16,8 @@ func TestTheListNamesEveryFile(t *testing.T) {
 		{"none", nil, `{"files":[]}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			rec := serve(t, test.files, http.MethodGet)
+			router, _ := newRouter(t, vaultWith(t), test.files)
+			rec := get(t, router, "/notes", nil)
 
 			if rec.Code != http.StatusOK || rec.Body.String() != test.want ||
 				rec.Header().Get("Content-Type") != "application/json" {
@@ -31,26 +28,19 @@ func TestTheListNamesEveryFile(t *testing.T) {
 	}
 }
 
-func TestTheListIsReadOnly(t *testing.T) {
-	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
-		rec := serve(t, []string{"Inbox.md"}, method)
+func TestTheAPIIsReadOnly(t *testing.T) {
+	router, _ := newRouter(t, vaultWith(t, "Inbox.md"), []string{"Inbox.md"})
 
-		if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != http.MethodGet {
-			t.Errorf("%s /notes: got %d, Allow %q; want 405, Allow GET",
-				method, rec.Code, rec.Header().Get("Allow"))
+	for _, target := range []string{"/notes", "/notes/files/Inbox.md"} {
+		for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, target, nil))
+
+			if rec.Code != http.StatusMethodNotAllowed ||
+				rec.Header().Get("Allow") != http.MethodGet {
+				t.Errorf("%s %s: got %d, Allow %q; want 405, Allow GET",
+					method, target, rec.Code, rec.Header().Get("Allow"))
+			}
 		}
 	}
-}
-
-// serve sends a method request for /notes to a router that lists files, and returns its answer.
-func serve(t *testing.T, files []string, method string) *httptest.ResponseRecorder {
-	t.Helper()
-
-	router := chi.NewRouter()
-	api.Register(router, files)
-
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, "/notes", nil))
-
-	return rec
 }

@@ -29,6 +29,7 @@ func TestTheGatewayNeedsASessionForTheAPIOnly(t *testing.T) {
 		{http.MethodGet, "/api/home", http.StatusUnauthorized},
 		{http.MethodPost, "/api/home", http.StatusUnauthorized},
 		{http.MethodGet, "/api/notes", http.StatusUnauthorized},
+		{http.MethodGet, "/api/notes/files/Inbox.md", http.StatusUnauthorized},
 		{http.MethodGet, "/api/nothing", http.StatusUnauthorized},
 		{http.MethodGet, "/api", http.StatusUnauthorized},
 	} {

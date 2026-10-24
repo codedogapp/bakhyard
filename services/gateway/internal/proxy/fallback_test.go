@@ -47,11 +47,8 @@ func TestRejectsUnknownAPIPaths(t *testing.T) {
 		"/api/",
 		"/api/healthz",
 		"/api/web",
-		"/api/home/",
-		"/api/home/x",
 		"/api/homes",
 		"/api//home",
-		"/api/home/../healthz",
 		"/api/ho%6De",
 	}
 

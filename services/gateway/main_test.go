@@ -78,10 +78,11 @@ func TestTheGatewayLetsTheUserIn(t *testing.T) {
 	// Nothing listens where the test gateway's home and notes are, so a 503 means the request
 	// reached their forwarder. An /api path that no service claims keeps its 404 behind the lock.
 	for target, want := range map[string]int{
-		"/api/home":    http.StatusServiceUnavailable,
-		"/api/notes":   http.StatusServiceUnavailable,
-		"/api/nothing": http.StatusNotFound,
-		"/api":         http.StatusNotFound,
+		"/api/home":                 http.StatusServiceUnavailable,
+		"/api/notes":                http.StatusServiceUnavailable,
+		"/api/notes/files/Inbox.md": http.StatusServiceUnavailable,
+		"/api/nothing":              http.StatusNotFound,
+		"/api":                      http.StatusNotFound,
 	} {
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, withSession(signedIn(t, http.MethodGet, target), token))
@@ -102,8 +103,8 @@ func TestTheGatewayRefusesEveryoneElse(t *testing.T) {
 
 	// The Tailscale lock comes first: a session doesn't open it.
 	for _, target := range []string{
-		"/", "/notes", "/api/home", "/api/notes", "/api/nothing", "/auth/google/login",
-		"/auth/google/callback",
+		"/", "/notes", "/api/home", "/api/notes", "/api/notes/files/Inbox.md", "/api/nothing",
+		"/auth/google/login", "/auth/google/callback",
 	} {
 		for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost} {
 			for _, req := range []*http.Request{

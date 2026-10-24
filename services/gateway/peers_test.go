@@ -28,22 +28,27 @@ func TestTheGatewayForwardsTheNotes(t *testing.T) {
 		",web=tcp://" + strings.TrimPrefix(web.URL, "http://")
 	router, token := gatewayFrom(t, vars, items)
 
-	// Whatever the method, notes answers for itself (decision 41).
-	for _, method := range []string{http.MethodGet, http.MethodPost} {
+	// Whatever the method or the path under /api/notes, notes answers for itself (decisions 41
+	// and 92).
+	for _, test := range []struct{ method, target, want string }{
+		{http.MethodGet, "/api/notes", "GET /notes"},
+		{http.MethodPost, "/api/notes", "POST /notes"},
+		{http.MethodGet, "/api/notes/files/Daily/To%20do.md", "GET /notes/files/Daily/To do.md"},
+	} {
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, withSession(signedIn(t, method, "/api/notes"), token))
+		router.ServeHTTP(rec, withSession(signedIn(t, test.method, test.target), token))
 
 		if rec.Code != http.StatusAccepted {
-			t.Errorf("%s /api/notes: got %d, want notes' 202", method, rec.Code)
+			t.Errorf("%s %s: got %d, want notes' 202", test.method, test.target, rec.Code)
 		}
 
 		select {
 		case got := <-reached:
-			if got != method+" /notes" {
-				t.Errorf("%s /api/notes: notes got %s, want %s /notes", method, got, method)
+			if got != test.want {
+				t.Errorf("%s %s: notes got %s, want %s", test.method, test.target, got, test.want)
 			}
 		default:
-			t.Errorf("%s /api/notes: notes got nothing", method)
+			t.Errorf("%s %s: notes got nothing", test.method, test.target)
 		}
 	}
 }

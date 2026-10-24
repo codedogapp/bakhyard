@@ -33,6 +33,28 @@ func TestForwardsHome(t *testing.T) {
 	}
 }
 
+func TestForwardsThePathsUnderAService(t *testing.T) {
+	// The service matches its paths as they come, so a dot segment doesn't reach its ops paths.
+	for path, want := range map[string]string{
+		"/api/home/":                 "GET /home/",
+		"/api/home/x":                "GET /home/x",
+		"/api/home/files/a%20b.md":   "GET /home/files/a%20b.md",
+		"/api/home/files/Why%3F.md":  "GET /home/files/Why%3F.md",
+		"/api/home/files/I'm.md?x=1": "GET /home/files/I'm.md?x=1",
+		"/api/home/../healthz":       "GET /home/../healthz",
+	} {
+		t.Run(path, func(t *testing.T) {
+			rec, upstreams := route(t, http.MethodGet, path)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			upstreams.expect(t, want, "")
+		})
+	}
+}
+
 func TestForwardsEveryMethod(t *testing.T) {
 	methods := []string{
 		http.MethodHead,
