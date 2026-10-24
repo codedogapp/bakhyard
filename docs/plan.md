@@ -81,6 +81,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `app-icon` | The app gets an icon of its own, a geometric mark: the favicon, the iPhone Home Screen icon and a web app manifest's, so Chrome can install the app; a `theme-color` per scheme matches the top bar (decision 89) | Done (#53) |
 | `theme-toggle` | A header toggle, System → Light → Dark, overrides the OS's colour scheme on this device; the page, the browser's controls and `theme-color` follow it at once, and a script in `<head>` applies the saved choice before the first paint (decision 90) | Done (#54) |
 | `readme` | A README at the root says what Bakhyard is and how to run it, and `mise.local.example.toml` lists the local settings to start from | Done (#55) |
+| `notes-list` | A `notes` service lists the vault's files, and the gateway forwards `/api/notes` to it; the first of `vault-index`'s three steps (decision 91) | Done (#56) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -175,7 +176,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host lap
   - The HTTP client is Go's `net/http` with an honest user agent that names Bakhyard and links its repo; Cloudflare challenges Go's default one (§2). If challenges start, `bogdanfinn/tls-client` is the plan B. On a 403, a challenge or a 429: exponential backoff, keep the last good data, show a "stale" badge.
   - Covers come from IGDB (decision 68): each title is matched once, with a filtered search and an exact-name fallback, and the match is cached.
   - Never fetch or store profile HTML (it contains PII).
-- **Vault reads** (notes service, decisions 71 and 84): the service reads the vault from a directory: in place on the Mac, in development, and its git clone on the laptop. There's no file watcher and no polling: the service scans the vault when it starts and when the user presses Sync, which pulls first on the laptop. A scan is a `WalkDir` with a stat of each file, skipping dot folders such as `.git/` and `.obsidian/`, and re-reads only the notes whose size or mtime differs from the index. It compares for equality, never "newer than": a note iCloud delivers keeps its original mtime, and a pull gives a new one only to the files it changes.
+- **Vault reads** (notes service, decisions 71 and 84): the service reads the vault from a directory: in place on the Mac, in development, and its git clone on the laptop. There's no file watcher and no polling: the service scans the vault when it starts and when the user presses Sync, which pulls first on the laptop. A scan is a `WalkDir` through an `os.Root`, skipping every folder and file whose name starts with a dot, such as `.git/`, `.obsidian/` and `.DS_Store`, or isn't valid UTF-8, which JSON can't carry and macOS never makes. The index it makes is the list of the vault's regular files, notes and attachments alike; it reads nothing from the notes, so a scan just lists the files again (decision 91).
 - **Vault writes** (notes service, from `vault-edit-sync` in Phase 6, conflict-safe): new notes get unique names; edit only if the mtime/hash is unchanged since the read; temp file + atomic rename; skip notes modified elsewhere in the last few minutes; never touch `.obsidian/`.
 - **Auth** (enforced at the gateway; one person, two locks):
   1. **Tailscale identity**, as built in `auth-tailscale` (decision 77):
@@ -288,7 +289,7 @@ flowchart LR
 | Service | Role | Listens on | Peers | Grows into (§8.2) |
 | --- | --- | --- | --- | --- |
 | nats | Event bus; JetStream on for later durable flows | `tcp://127.0.0.1:4222`, monitoring `:8222` | | reminders → notify |
-| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home | auth-signin |
+| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home, notes | auth-signin |
 | web | Serves the embedded Svelte build | unix socket | | frontend-shell (PWA parts) |
 | home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner | home-feed |
 | notes | Obsidian vault | unix socket | nats | vault-index, vault-render, vault-edit-sync |
@@ -463,7 +464,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 - Each service has a `description`, a `command` (`bin/<name>`, run with `bash -c` from the repo root) and an `environment` with its `BAKHYARD_LISTEN` and, for the gateway, `BAKHYARD_PEERS` (§4.7).
 - A readiness probe checks each service's `GET /healthz` (§4.7), first 1 s after the start, then every 2 s. A check gets 1 s to answer, and 3 failures in a row fail the probe.
-- The gateway `depends_on` home and web with `condition: process_healthy`, so it starts once their probes pass.
+- The gateway `depends_on` home, notes and web with `condition: process_healthy`, so it starts once their probes pass.
 - What every service shares sits in an `x-service` YAML anchor, merged into each with `<<: *service`:
   - `availability.restart: always`: a service that exits, or fails its probe, restarts after 1 s, however often it needs to. A service stopped by hand stays stopped.
   - `shutdown.timeout_seconds: 10`: a stop sends SIGTERM to the service's process group, then SIGKILL if it's still running 10 s later. Without the timeout, process-compose never sends SIGKILL, and a hung service never stops.
@@ -994,10 +995,10 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 2: notes, read-only (decision 69)**
 
-- `vault-index` [notes]. Needs `spike-vault-sync`.
-  - Vault index: titles, aliases and paths for wikilink resolution.
-  - A scan when the service starts and on request, which re-reads only the notes whose size or mtime changed (§3, decision 71).
-  - A safe read API.
+- `vault-index` [notes]. Needs `spike-vault-sync`. Three steps (decision 91):
+  - `notes-list`: the `notes` service scans the vault when it starts and lists its files on `GET /api/notes`. Done (#56).
+  - `notes-read`: `GET /api/notes/files/<path>` returns one of the listed files, through the `os.Root`.
+  - `notes-sync`: `POST /api/notes/sync` scans the vault again and answers the new list.
 - `vault-render` [web, notes]. Needs `frontend-shell`, `vault-index`.
   - unified/remark pipeline: wikilinks (alias/heading/block), `![[note]]` and image embeds via our own resolver, callouts, LaTeX (KaTeX), frontmatter, tasks.
   - A Sync button, on every device, that rescans the vault.
@@ -1180,6 +1181,7 @@ Made on 2026-10-23:
 88. **Signing out on one device, and no cross-origin writes**: the user's choices. Sign out sits at the header's right end, on every page and screen size, with no confirmation. It's a plain HTML form that posts to `POST /auth/logout`, which deletes the session in the request's cookie, makes the browser drop the cookie (`Max-Age=0`, with the `__Host-` prefix's attributes, without which the browser ignores it) and redirects to `/` with a 303; the app then gets a 401 and shows its sign-in screen. Only this device signs out: the other devices' sessions stay, and the app offers no "everywhere" (`docs/setup.md` does it by hand). The route needs the Tailscale identity but no session, so signing out twice or after the session expired still drops the cookie. A database error gets a plain-text 500 and keeps the cookie, so that trying again can end the session. The route takes POST alone, so a link or a prefetch can't sign the user out; chi answers GET and HEAD with a 405 before the Tailscale lock runs, and no handler runs for them. Go's `http.CrossOriginProtection` wraps the whole gateway rather than this route alone: every request but GET, HEAD and OPTIONS needs `Sec-Fetch-Site: same-origin` (or `none`), or else an `Origin` whose host is the request's; a request with neither passes, as from curl, and anything else gets Go's plain-text 403. `SameSite=Lax` alone isn't enough: `ts.net` is on the Public Suffix List, so the tailnet's other machines count as the same site, but not the same origin. Not done: `Clear-Site-Data`, and the back-forward cache after a sign-out (§0 ideas).
 89. **The rest of `frontend-shell`**: the user's choices. The app's icon is a geometric mark of our own, with no letters: `app-icon` drew three drafts, a card with a hard offset shadow, a grid of plots and a fence, and the user picked the card (§7). Chrome no longer needs a service worker to install an app (web.dev's install criteria), so the service worker moves to `notifications`, its first user, for Web Push, and the app gets no offline mode. The manual theme override is a toggle in the header, System → Light → Dark, kept on each device by the browser, with no settings page; it's the next step, `theme-toggle`. This replaces the settings page that §7 and §8.2 planned.
 90. **The theme toggle**: an icon alone, the user's choice (2026-10-24): a half-filled circle for System, a sun for Light and a moon for Dark, our own SVGs (§7 Icons). Its accessible name says the current choice, such as "Theme: Dark". Each colour token is defined once with `light-dark()`, which Chrome has had since 123 and Safari since 17.5 (MDN's compatibility data), and `data-theme` on `<html>` switches `color-scheme`, so the page, the browser's controls and its scrollbars switch together. A classic script in `<head>`, `public/theme.js`, applies the saved choice before the first paint, so an override never flashes the OS's scheme; it's a file, not inline, so the CSP in §4.4 needs no `'unsafe-inline'` for scripts. The `theme-color` metas follow the choice once the app's JS runs. Other open tabs keep their scheme until they reload.
+91. **The vault index is the file list**: the user's choices (2026-10-24). `vault-index` splits into `notes-list`, `notes-read` and `notes-sync` (§8.2). The index lists the vault's regular files outside dot folders, notes and attachments alike, so that `![[image.png]]` embeds resolve; the app takes a note's title from its file name. It keeps no aliases: none of the vault's 236 notes has any, so they wait until the vault does. With nothing in the index read from the notes, a scan just lists the files again: nothing is re-read, and no size or mtime is kept, which replaces the re-reading in decisions 71 and 84. The API: `GET /api/notes` lists the files as `{"files":[…]}`, `GET /api/notes/files/<path>` returns one of them, and `POST /api/notes/sync` scans again. Only listed files are served, so the dot folders stay private, `.obsidian/` included, where plugins keep their settings and sometimes their tokens. The service opens the vault, from `BAKHYARD_VAULT`, as an `os.Root`, so no path or symlink leads out of it.
 
 ## 10. Risks
 

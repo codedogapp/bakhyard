@@ -15,6 +15,7 @@ Each feature is a Go service of its own, in `services/`, behind a gateway that c
 - [Tailscale](https://tailscale.com), on the Mac and on every device that opens the app.
 - PostgreSQL 18, on `127.0.0.1:5433`.
 - A Google OAuth client, for the sign-in.
+- An Obsidian vault in a folder on the Mac.
 
 ## Run it
 

@@ -12,5 +12,7 @@ BAKHYARD_HOST = "machine.tailnet.ts.net"
 BAKHYARD_GOOGLE_CLIENT_ID = "1234567890-abcdef.apps.googleusercontent.com"
 # The one email the gateway lets sign in. Its first sign-in pins its Google account.
 BAKHYARD_GOOGLE_EMAIL = "you@example.com"
+# The Obsidian vault's folder, as an absolute path. The notes service lists its files.
+BAKHYARD_VAULT = "/Users/you/Documents/Vault"
 # The Go tests' own database. Put its role's password in place of <password>.
 BAKHYARD_TEST_DATABASE = "postgres://bakhyard_test:<password>@127.0.0.1:5433/bakhyard_test"

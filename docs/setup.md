@@ -17,9 +17,10 @@ cp mise.local.example.toml mise.local.toml
 | `BAKHYARD_HOST` | gateway | The ts.net name that `tailscale serve` publishes |
 | `BAKHYARD_GOOGLE_CLIENT_ID` | gateway | The Google OAuth client's ID |
 | `BAKHYARD_GOOGLE_EMAIL` | gateway | The one email let in; its first sign-in pins its Google account ([below](#the-pinned-google-account)) |
+| `BAKHYARD_VAULT` | notes | The Obsidian vault's folder, as an absolute path |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
-The gateway doesn't start without its four settings: it exits 1 and says which one is missing.
+The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes to start.
 
 ## Tailscale
 
