@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -60,7 +61,7 @@ func main() {
 }
 
 func routes(getenv func(string) string, password passwordReader) (http.Handler, error) {
-	home, web, err := peers(getenv)
+	upstream, err := peers(getenv)
 	if err != nil {
 		return nil, err
 	}
@@ -105,35 +106,48 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 	// The API needs a session as well (decision 86).
 	router.Group(func(api chi.Router) {
 		api.Use(identified, session.Require(sessions, logger), session.Hide)
-		proxy.Register(api, "home", home, logger)
+		proxy.Register(api, "home", upstream.home, logger)
+		proxy.Register(api, "notes", upstream.notes, logger)
 		proxy.RegisterUnclaimed(api)
 	})
 	// The app's files hold no data, so they need the Tailscale identity only. This group is the
 	// root router's child, so that its web fallback, chi's NotFound handler, reaches the root router.
 	router.Group(func(app chi.Router) {
 		app.Use(identified, session.Hide)
-		proxy.RegisterFallback(app, "web", web, logger)
+		proxy.RegisterFallback(app, "web", upstream.web, logger)
 	})
 
 	return router, nil
 }
 
-// peers returns the URLs of home and web, the services that the gateway forwards to.
-func peers(getenv func(string) string) (home, web *url.URL, err error) {
-	homeAddress, err := env.PeerAddress(getenv, "home")
+// upstreams are the URLs of the services that the gateway forwards to.
+type upstreams struct {
+	home, notes, web *url.URL
+}
+
+// peers returns the URLs of home, notes and web from BAKHYARD_PEERS, or an error that names every
+// one of them it lacks.
+func peers(getenv func(string) string) (upstreams, error) {
+	home, homeErr := peer(getenv, "home")
+	notes, notesErr := peer(getenv, "notes")
+	web, webErr := peer(getenv, "web")
+
+	err := errors.Join(homeErr, notesErr, webErr)
 	if err != nil {
-		return nil, nil, err
+		return upstreams{}, err
 	}
 
-	webAddress, err := env.PeerAddress(getenv, "web")
+	return upstreams{home: home, notes: notes, web: web}, nil
+}
+
+// peer returns the URL of the peer name, from BAKHYARD_PEERS.
+func peer(getenv func(string) string, name string) (*url.URL, error) {
+	address, err := env.PeerAddress(getenv, name)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	home = &url.URL{Scheme: "http", Host: homeAddress}
-	web = &url.URL{Scheme: "http", Host: webAddress}
-
-	return home, web, nil
+	return &url.URL{Scheme: "http", Host: address}, nil
 }
 
 // googleSettings returns the settings of the flow that signs the user in with Google and sends

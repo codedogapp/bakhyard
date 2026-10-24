@@ -40,16 +40,31 @@ processes:
       initial_delay_seconds: 1
       period_seconds: 2
 
+  notes:
+    <<: *service
+    description: Lists the files of the Obsidian vault at BAKHYARD_VAULT
+    command: bin/notes
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8083
+    readiness_probe:
+      http_get:
+        port: 8083
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
   gateway:
     <<: *service
     description: "The only way in: /api to the services, everything else to web"
     command: bin/gateway
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8080
-      - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,web=tcp://127.0.0.1:8082
+      - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,notes=tcp://127.0.0.1:8083,web=tcp://127.0.0.1:8082
       - BAKHYARD_DATABASE=postgres://bakhyard_gateway@127.0.0.1:5433/bakhyard_gateway
     depends_on:
       home:
+        condition: process_healthy
+      notes:
         condition: process_healthy
       web:
         condition: process_healthy

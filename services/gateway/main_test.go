@@ -75,10 +75,11 @@ func TestTheGatewayLetsTheUserIn(t *testing.T) {
 
 	router, token := gateway(t, web.URL)
 
-	// Nothing listens where the test gateway's home is, so a 503 means the request reached home's
-	// forwarder. An /api path that no service claims keeps its 404 behind the lock.
+	// Nothing listens where the test gateway's home and notes are, so a 503 means the request
+	// reached their forwarder. An /api path that no service claims keeps its 404 behind the lock.
 	for target, want := range map[string]int{
 		"/api/home":    http.StatusServiceUnavailable,
+		"/api/notes":   http.StatusServiceUnavailable,
 		"/api/nothing": http.StatusNotFound,
 		"/api":         http.StatusNotFound,
 	} {
@@ -101,7 +102,8 @@ func TestTheGatewayRefusesEveryoneElse(t *testing.T) {
 
 	// The Tailscale lock comes first: a session doesn't open it.
 	for _, target := range []string{
-		"/", "/notes", "/api/home", "/api/nothing", "/auth/google/login", "/auth/google/callback",
+		"/", "/notes", "/api/home", "/api/notes", "/api/nothing", "/auth/google/login",
+		"/auth/google/callback",
 	} {
 		for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost} {
 			for _, req := range []*http.Request{
@@ -151,8 +153,8 @@ func signedIn(t *testing.T, method, target string) *http.Request {
 	return req
 }
 
-// gateway returns the gateway's routes, with home on a port where nothing listens, web at
-// webURL and the database in a schema of its own, and the token of a session in that database.
+// gateway returns the gateway's routes, with home and notes on a port where nothing listens, web
+// at webURL and the database in a schema of its own, and the token of a session in that database.
 func gateway(t *testing.T, webURL string) (http.Handler, string) {
 	t.Helper()
 
@@ -193,14 +195,14 @@ func withSession(req *http.Request, token string) *http.Request {
 	return req
 }
 
-// gatewayEnv returns the test gateway's environment and Keychain items, with home on a port
-// where nothing listens, web at webURL and the database in a schema of its own.
+// gatewayEnv returns the test gateway's environment and Keychain items, with home and notes on a
+// port where nothing listens, web at webURL and the database in a schema of its own.
 func gatewayEnv(t *testing.T, webURL string) (vars, items map[string]string) {
 	t.Helper()
 
 	schema := databasetest.NewSchema(t)
 	vars = map[string]string{
-		"BAKHYARD_PEERS": "home=tcp://127.0.0.1:1,web=tcp://" +
+		"BAKHYARD_PEERS": "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,web=tcp://" +
 			strings.TrimPrefix(webURL, "http://"),
 		"BAKHYARD_TAILSCALE_LOGIN":  testLogin,
 		"BAKHYARD_HOST":             testHost,

@@ -28,6 +28,7 @@ func TestTheGatewayNeedsASessionForTheAPIOnly(t *testing.T) {
 		{http.MethodGet, "/auth/other", http.StatusOK},
 		{http.MethodGet, "/api/home", http.StatusUnauthorized},
 		{http.MethodPost, "/api/home", http.StatusUnauthorized},
+		{http.MethodGet, "/api/notes", http.StatusUnauthorized},
 		{http.MethodGet, "/api/nothing", http.StatusUnauthorized},
 		{http.MethodGet, "/api", http.StatusUnauthorized},
 	} {
@@ -66,7 +67,7 @@ func TestTheGatewayKeepsTheSessionFromTheServices(t *testing.T) {
 
 	vars, items := gatewayEnv(t, web.URL)
 	vars["BAKHYARD_PEERS"] = "home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
-		",web=tcp://" + strings.TrimPrefix(web.URL, "http://")
+		",notes=tcp://127.0.0.1:1,web=tcp://" + strings.TrimPrefix(web.URL, "http://")
 	router, token := gatewayFrom(t, vars, items)
 
 	// Only the API renews the session; neither the service behind the session lock nor the one
