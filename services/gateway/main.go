@@ -19,6 +19,7 @@ import (
 	"github.com/codedogapp/bakhyard/services/gateway/internal/keychain"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/pin"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/proxy"
+	"github.com/codedogapp/bakhyard/services/gateway/internal/secure"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/session"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/signin"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/tailscale"
@@ -90,9 +91,10 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 	identified := tailscale.RequireLogin(login, host, logger)
 
 	router := chi.NewRouter()
-	// Refuse what other sites' pages send here with a method other than GET, HEAD or OPTIONS: the
-	// browser adds the user's cookies (decision 88). Then answer HEAD wherever GET is served.
-	router.Use(http.NewCrossOriginProtection().Handler, middleware.GetHead)
+	// Every response gets the security headers, refusals included (decision 95). Then refuse what
+	// other sites' pages send here with a method other than GET, HEAD or OPTIONS: the browser adds
+	// the user's cookies (decision 88). Then answer HEAD wherever GET is served.
+	router.Use(secure.Headers, http.NewCrossOriginProtection().Handler, middleware.GetHead)
 	// The gateway's own health check, so /healthz never reaches web (decision 59). It needs no
 	// login: process-compose's probe calls the gateway directly.
 	health.Register(router)
