@@ -20,11 +20,13 @@ type apiError struct {
 	Message string `json:"message"`
 }
 
-// Register forwards /api/<name> on router to target as /<name>, for every standard method;
-// target answers for its own methods. When target can't be reached, the client gets a 503
-// with a JSON error and logger gets the cause.
+// Register forwards /api/<name> and every path under it on router to target, as /<name>…, for
+// every standard method; target answers for its own paths and methods (decisions 41 and 92). When
+// target can't be reached, the client gets a 503 with a JSON error and logger gets the cause.
 func Register(router chi.Router, name string, target *url.URL, logger *slog.Logger) {
-	router.Handle(apiPrefix+"/"+name, http.StripPrefix(apiPrefix, forwarder(name, target, logger)))
+	forward := http.StripPrefix(apiPrefix, forwarder(name, target, logger))
+	router.Handle(apiPrefix+"/"+name, forward)
+	router.Handle(apiPrefix+"/"+name+"/*", forward)
 }
 
 // RegisterFallback forwards every path that router has no route for to target unchanged, as
