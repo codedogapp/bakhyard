@@ -71,6 +71,9 @@
       "bracketSameLine": false
     }
   },
+  "yaml": {
+    "formatter": { "quoteStyle": "single" }
+  },
   "html": {
     "experimentalFullSupportEnabled": true,
     "formatter": { "enabled": true }
