@@ -32,7 +32,7 @@ func TestEveryResponseCarriesTheSecurityHeaders(t *testing.T) {
 	vars, items := gatewayEnv(t, web.URL)
 	vars["BAKHYARD_PEERS"] = "home=tcp://127.0.0.1:1" +
 		",notes=tcp://" + strings.TrimPrefix(notes.URL, "http://") +
-		",web=tcp://" + strings.TrimPrefix(web.URL, "http://")
+		",todos=tcp://127.0.0.1:1,web=tcp://" + strings.TrimPrefix(web.URL, "http://")
 	router, token := gatewayFrom(t, vars, items)
 
 	crossSite := withSession(signedIn(t, http.MethodPost, "/auth/logout"), token)

@@ -7,15 +7,19 @@ import (
 	"testing"
 )
 
-func TestTheGatewayForwardsTheNotes(t *testing.T) {
+func TestTheGatewayForwardsTheNotesAndTheTodos(t *testing.T) {
 	reached := make(chan string, 1)
+	service := func(name string) *httptest.Server {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reached <- name + " got " + r.Method + " " + r.URL.Path
 
-	notes := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reached <- r.Method + " " + r.URL.Path
+			w.WriteHeader(http.StatusAccepted)
+		}))
+		t.Cleanup(srv.Close)
 
-		w.WriteHeader(http.StatusAccepted)
-	}))
-	t.Cleanup(notes.Close)
+		return srv
+	}
+	notes, todos := service("notes"), service("todos")
 
 	web := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		t.Errorf("web got %s %s, want nothing", r.Method, r.URL.Path)
@@ -25,45 +29,57 @@ func TestTheGatewayForwardsTheNotes(t *testing.T) {
 	vars, items := gatewayEnv(t, web.URL)
 	vars["BAKHYARD_PEERS"] = "home=tcp://127.0.0.1:1" +
 		",notes=tcp://" + strings.TrimPrefix(notes.URL, "http://") +
+		",todos=tcp://" + strings.TrimPrefix(todos.URL, "http://") +
 		",web=tcp://" + strings.TrimPrefix(web.URL, "http://")
 	router, token := gatewayFrom(t, vars, items)
 
-	// Whatever the method or the path under /api/notes, notes answers for itself (decisions 41
-	// and 92).
+	// Whatever the method or the path under /api/<service>, the service answers for itself
+	// (decisions 41 and 92).
 	for _, test := range []struct{ method, target, want string }{
-		{http.MethodGet, "/api/notes", "GET /notes"},
-		{http.MethodPost, "/api/notes", "POST /notes"},
-		{http.MethodGet, "/api/notes/files/Daily/To%20do.md", "GET /notes/files/Daily/To do.md"},
+		{http.MethodGet, "/api/notes", "notes got GET /notes"},
+		{http.MethodPost, "/api/notes", "notes got POST /notes"},
+		{
+			http.MethodGet, "/api/notes/files/Daily/To%20do.md",
+			"notes got GET /notes/files/Daily/To do.md",
+		},
+		{http.MethodGet, "/api/todos", "todos got GET /todos"},
+		{http.MethodPost, "/api/todos", "todos got POST /todos"},
 	} {
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, withSession(signedIn(t, test.method, test.target), token))
 
 		if rec.Code != http.StatusAccepted {
-			t.Errorf("%s %s: got %d, want notes' 202", test.method, test.target, rec.Code)
+			t.Errorf("%s %s: got %d, want the service's 202", test.method, test.target, rec.Code)
 		}
 
 		select {
 		case got := <-reached:
 			if got != test.want {
-				t.Errorf("%s %s: notes got %s, want %s", test.method, test.target, got, test.want)
+				t.Errorf("%s %s: %s, want %s", test.method, test.target, got, test.want)
 			}
 		default:
-			t.Errorf("%s %s: notes got nothing", test.method, test.target)
+			t.Errorf("%s %s: no service got it, want %s", test.method, test.target, test.want)
 		}
 	}
 }
 
 func TestTheGatewayNeedsItsPeers(t *testing.T) {
-	for peers, want := range map[string]string{
-		"home=tcp://127.0.0.1:1,web=tcp://127.0.0.1:2": `BAKHYARD_PEERS has no peer "notes"`,
-		"": `BAKHYARD_PEERS has no peer "home"` + "\n" +
-			`BAKHYARD_PEERS has no peer "notes"` + "\n" + `BAKHYARD_PEERS has no peer "web"`,
+	// The error names every peer that BAKHYARD_PEERS lacks, one per line.
+	for peers, missing := range map[string][]string{
+		"home=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1,web=tcp://127.0.0.1:2": {"notes"},
+		"home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,web=tcp://127.0.0.1:2": {"todos"},
+		"": {"home", "notes", "todos", "web"},
 	} {
 		vars, items := gatewayEnv(t, "http://127.0.0.1:2")
 		vars["BAKHYARD_PEERS"] = peers
 
+		var lines []string
+		for _, name := range missing {
+			lines = append(lines, `BAKHYARD_PEERS has no peer "`+name+`"`)
+		}
+
 		_, err := routes(func(key string) string { return vars[key] }, keychainWith(items))
-		if err == nil || err.Error() != want {
+		if want := strings.Join(lines, "\n"); err == nil || err.Error() != want {
 			t.Errorf("with the peers %q: got %v, want the error %q", peers, err, want)
 		}
 	}

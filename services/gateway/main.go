@@ -111,6 +111,7 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 		api.Use(identified, session.Require(sessions, logger), session.Hide)
 		proxy.Register(api, "home", upstream.home, logger)
 		proxy.Register(api, "notes", upstream.notes, logger)
+		proxy.Register(api, "todos", upstream.todos, logger)
 		proxy.RegisterUnclaimed(api)
 	})
 	// The app's files hold no data, so they need the Tailscale identity only. This group is the
@@ -125,22 +126,23 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 
 // upstreams are the URLs of the services that the gateway forwards to.
 type upstreams struct {
-	home, notes, web *url.URL
+	home, notes, todos, web *url.URL
 }
 
-// peers returns the URLs of home, notes and web from BAKHYARD_PEERS, or an error that names every
-// one of them it lacks.
+// peers returns the URLs of home, notes, todos and web from BAKHYARD_PEERS, or an error that
+// names every one of them it lacks.
 func peers(getenv func(string) string) (upstreams, error) {
 	home, homeErr := peer(getenv, "home")
 	notes, notesErr := peer(getenv, "notes")
+	todos, todosErr := peer(getenv, "todos")
 	web, webErr := peer(getenv, "web")
 
-	err := errors.Join(homeErr, notesErr, webErr)
+	err := errors.Join(homeErr, notesErr, todosErr, webErr)
 	if err != nil {
 		return upstreams{}, err
 	}
 
-	return upstreams{home: home, notes: notes, web: web}, nil
+	return upstreams{home: home, notes: notes, todos: todos, web: web}, nil
 }
 
 // peer returns the URL of the peer name, from BAKHYARD_PEERS.

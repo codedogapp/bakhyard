@@ -6,11 +6,11 @@ It's early. Today Bakhyard has its app shell, the sign-in, and a Home with demo 
 
 ## How it's built
 
-Each feature is a Go service of its own, in `services/`, behind a gateway that checks who's asking and passes each request on. The app is a Svelte single-page app, in `apps/web`, which the `web` service embeds and serves. The gateway keeps its sessions in PostgreSQL, and process-compose runs the services. [§4 of the plan](docs/plan.md#4-system-architecture-the-microservices-experiment) has the details.
+Each feature is a Go service of its own, in `services/`, behind a gateway that checks who's asking and passes each request on. The app is a Svelte single-page app, in `apps/web`, which the `web` service embeds and serves. The gateway keeps its sessions, and todos its todos, in PostgreSQL, and process-compose runs the services. [§4 of the plan](docs/plan.md#4-system-architecture-the-microservices-experiment) has the details.
 
 ## Requirements
 
-- macOS, because the gateway reads its secrets from the login Keychain.
+- macOS, because the services read their secrets from the login Keychain.
 - [mise](https://mise.jdx.dev), which installs every other tool at the version the repo pins.
 - [Tailscale](https://tailscale.com), on the Mac and on every device that opens the app.
 - PostgreSQL 18, on `127.0.0.1:5433`.

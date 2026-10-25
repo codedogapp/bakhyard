@@ -1,7 +1,7 @@
 # The services that mise run up runs with process-compose (docs/plan.md §4.9). Each one
-# listens on its BAKHYARD_LISTEN, and the gateway finds the others in its BAKHYARD_PEERS (§4.7)
-# and its database at BAKHYARD_DATABASE, a URL without the password (docs/setup.md).
-# Every address is on the loopback: tailscale serve publishes the gateway.
+# listens on its BAKHYARD_LISTEN, and the gateway finds the others in its BAKHYARD_PEERS (§4.7).
+# The gateway and todos find their databases at BAKHYARD_DATABASE, a URL without the password
+# (docs/setup.md). Every address is on the loopback: tailscale serve publishes the gateway.
 is_strict: true
 ordered_shutdown: true
 
@@ -53,18 +53,34 @@ processes:
       initial_delay_seconds: 1
       period_seconds: 2
 
+  todos:
+    <<: *service
+    description: Keeps the todos in its database
+    command: bin/todos
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8084
+      - BAKHYARD_DATABASE=postgres://bakhyard_todos@127.0.0.1:5433/bakhyard_todos
+    readiness_probe:
+      http_get:
+        port: 8084
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
   gateway:
     <<: *service
     description: "The only way in: /api to the services, everything else to web"
     command: bin/gateway
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8080
-      - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,notes=tcp://127.0.0.1:8083,web=tcp://127.0.0.1:8082
+      - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,notes=tcp://127.0.0.1:8083,todos=tcp://127.0.0.1:8084,web=tcp://127.0.0.1:8082
       - BAKHYARD_DATABASE=postgres://bakhyard_gateway@127.0.0.1:5433/bakhyard_gateway
     depends_on:
       home:
         condition: process_healthy
       notes:
+        condition: process_healthy
+      todos:
         condition: process_healthy
       web:
         condition: process_healthy

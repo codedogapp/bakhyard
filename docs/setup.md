@@ -20,7 +20,7 @@ cp mise.local.example.toml mise.local.toml
 | `BAKHYARD_VAULT` | notes | The Obsidian vault's folder, as an absolute path |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
-The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes to start.
+The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes and todos to start.
 
 ## Tailscale
 
@@ -61,7 +61,7 @@ Without the item, the gateway exits 1 with `read the Google client secret: no Ke
 
 ## Postgres
 
-Each service keeps its data in a database of its own, owned by a role of its own, on a local PostgreSQL 18 (decisions 80 and 81). `process-compose.yaml` expects it at `127.0.0.1:5433`. So far only the gateway has one. Choose a long random password for its role, then, as a Postgres superuser in `psql`:
+Each service keeps its data in a database of its own, owned by a role of its own, on a local PostgreSQL 18 (decisions 80 and 81). `process-compose.yaml` expects it at `127.0.0.1:5433`. So far the gateway and todos have one. For the gateway, choose a long random password for its role, then, as a Postgres superuser in `psql`:
 
 ```sql
 CREATE ROLE bakhyard_gateway LOGIN;
@@ -75,7 +75,19 @@ CREATE DATABASE bakhyard_gateway OWNER bakhyard_gateway;
 security add-generic-password -s bakhyard -a postgres-gateway -w
 ```
 
-The gateway runs its migrations when it starts. It exits 1 with `read the database password: …` without the item, and with `reach the database: …` when Postgres doesn't answer within 10 s.
+For todos, do the same with a password of its own:
+
+```sql
+CREATE ROLE bakhyard_todos LOGIN;
+\password bakhyard_todos
+CREATE DATABASE bakhyard_todos OWNER bakhyard_todos;
+```
+
+```sh
+security add-generic-password -s bakhyard -a postgres-todos -w
+```
+
+Each service runs its migrations when it starts. It exits 1 with `read the database password: …` without its item, and with `reach the database: …` when Postgres doesn't answer within 10 s.
 
 ## The test database
 
@@ -93,7 +105,7 @@ Without it, `mise run test` fails and points here. CI runs its own Postgres for 
 
 ## Run
 
-`mise run up` builds the services and runs them with process-compose. A service that exits restarts after 1 s, so a missing setting or secret shows up in the gateway's log every second until it's fixed.
+`mise run up` builds the services and runs them with process-compose. A service that exits restarts after 1 s, so a missing setting or secret shows up in that service's log every second until it's fixed.
 
 Open `https://<machine>.<tailnet>.ts.net`. Without a session the app shows its sign-in screen, whose Sign in button goes to Google; a sign-in starts a session for 7 days, renewed as the app uses it, and lands on the Home. Sign out, at the header's right end, ends the session on that device only (decision 88). To sign out everywhere, for example after losing a phone, delete every session in `psql`, connected to `bakhyard_gateway`:
 
