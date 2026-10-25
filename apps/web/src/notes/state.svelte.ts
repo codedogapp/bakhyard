@@ -18,17 +18,26 @@ export class NotesState {
   filter = $state('');
   /** The paths of the open folders. */
   readonly open = new SvelteSet<string>();
+  // The request for the list that runs, or the last one that ran, which load waits for.
+  #request: Promise<void> = Promise.resolve();
 
   /** Whether a request for the list is running; nothing else starts until it ends. */
   get busy(): boolean {
     return this.status.kind === 'loading' || this.status.kind === 'syncing';
   }
 
-  /** Loads the list, unless it has loaded already: after that, only Sync loads it again (decision 71). */
-  async load(): Promise<void> {
-    if (this.files !== undefined || this.busy) {
-      return;
+  /**
+   * Loads the list, unless it has loaded already: after that, only Sync loads it again (decision 71). While a request
+   * for the list runs, waits for that one instead.
+   */
+  load(): Promise<void> {
+    if (!this.busy && this.files === undefined) {
+      this.#request = this.#load();
     }
+    return this.#request;
+  }
+
+  async #load(): Promise<void> {
     this.status = { kind: 'loading' };
     try {
       this.files = await fetchNotes();
@@ -43,6 +52,11 @@ export class NotesState {
     if (this.busy) {
       return;
     }
+    this.#request = this.#sync();
+    await this.#request;
+  }
+
+  async #sync(): Promise<void> {
     this.status = { kind: 'syncing' };
     try {
       this.files = await syncNotes();

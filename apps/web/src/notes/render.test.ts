@@ -2,9 +2,12 @@ import { expect, test } from 'vitest';
 
 import { renderNote } from './render';
 
-// The note's HTML, rendered under the title "To do".
+const vault = ['Daily/To do.md', 'Songs/Em.md'];
+const toDo = { path: 'Daily/To do.md', title: 'To do', folder: 'Daily' };
+
+// The HTML of the note "Daily/To do", whose file holds markdown.
 function html(markdown: string): string {
-  return renderNote(markdown, 'To do').html;
+  return renderNote(markdown, toDo, vault).html;
 }
 
 test('renders GFM: tables with their alignment, strikethrough, autolinks and tasks', () => {
@@ -45,11 +48,15 @@ test.each([
   { name: 'the title after the frontmatter', markdown: '---\na: b\n---\n# To do\nText', want: '<p>Text</p>' },
   { name: 'the title with formatting', markdown: '# *To* `do`\n\nText', want: '<p>Text</p>' },
   { name: 'the title as setext', markdown: 'To do\n===\n\nText', want: '<p>Text</p>' },
-  { name: 'another H1', markdown: '# Today\n\nText', want: '<h2>Today</h2>\n<p>Text</p>' },
-  { name: 'the title in another case', markdown: '# to do', want: '<h2>to do</h2>' },
-  { name: 'the title as an H2', markdown: '## To do', want: '<h2>To do</h2>' },
-  { name: 'the title after a paragraph', markdown: 'Text\n\n# To do', want: '<p>Text</p>\n<h2>To do</h2>' },
-  { name: 'the title twice', markdown: '# To do\n# To do', want: '<h2>To do</h2>' },
+  { name: 'another H1', markdown: '# Today\n\nText', want: '<h2 id="user-content-today">Today</h2>\n<p>Text</p>' },
+  { name: 'the title in another case', markdown: '# to do', want: '<h2 id="user-content-to-do">to do</h2>' },
+  { name: 'the title as an H2', markdown: '## To do', want: '<h2 id="user-content-to-do">To do</h2>' },
+  {
+    name: 'the title after a paragraph',
+    markdown: 'Text\n\n# To do',
+    want: '<p>Text</p>\n<h2 id="user-content-to-do">To do</h2>',
+  },
+  { name: 'the title twice', markdown: '# To do\n# To do', want: '<h2 id="user-content-to-do">To do</h2>' },
 ])('drops the first block only when it is an H1 with the title: $name', ({ markdown, want }) => {
   expect(html(markdown)).toBe(want);
 });
@@ -79,7 +86,7 @@ test('moves every heading one level down when an H1 is left, in quotes and lists
     ['h2', 'Quoted'],
     ['h2', 'Listed'],
   ]) {
-    expect(out).toContain(`<${tag}>${text}</${tag}>`);
+    expect(out).toContain(`<${tag} id="user-content-${text.toLowerCase()}">${text}</${tag}>`);
   }
 });
 
@@ -87,11 +94,13 @@ test.each([
   { name: 'the title is dropped', markdown: '# To do\n## Section\n### Part\n###### Six' },
   { name: 'the note has no H1', markdown: '## Section\n### Part\n###### Six' },
 ])('keeps the levels when no H1 is left: $name', ({ markdown }) => {
-  expect(html(markdown)).toBe('<h2>Section</h2>\n<h3>Part</h3>\n<h6>Six</h6>');
+  expect(html(markdown)).toBe(
+    '<h2 id="user-content-section">Section</h2>\n<h3 id="user-content-part">Part</h3>\n<h6 id="user-content-six">Six</h6>'
+  );
 });
 
 test('gives the properties from the frontmatter, which is not part of the HTML', () => {
-  const note = renderNote('---\ntags: [a]\nalbum: B\n---\nText', 'To do');
+  const note = renderNote('---\ntags: [a]\nalbum: B\n---\nText', toDo, vault);
 
   expect(note.properties).toEqual([
     { key: 'tags', value: ['a'] },
@@ -100,12 +109,36 @@ test('gives the properties from the frontmatter, which is not part of the HTML',
   expect(note.html).toBe('<p>Text</p>');
 });
 
+test('links a property whose value is one wikilink alone, as the note’s text does', () => {
+  const frontmatter = [
+    'album: "[[Em]]"',
+    'shown: "[[Em|E minor]]"',
+    'missing: "[[Nothing]]"',
+    'empty: "[[#]]"',
+    'mixed: "[[Em]] and more"',
+    'list: ["[[Em]]"]',
+    'plain: Em',
+  ];
+
+  const note = renderNote(['---', ...frontmatter, '---'].join('\n'), toDo, vault);
+
+  expect(note.properties).toEqual([
+    { key: 'album', value: { text: 'Em', href: '/notes/Songs/Em' } },
+    { key: 'shown', value: { text: 'E minor', href: '/notes/Songs/Em' } },
+    { key: 'missing', value: { text: 'Nothing', href: undefined } },
+    { key: 'empty', value: '[[#]]' },
+    { key: 'mixed', value: '[[Em]] and more' },
+    { key: 'list', value: ['[[Em]]'] },
+    { key: 'plain', value: 'Em' },
+  ]);
+});
+
 test.each([
   { name: 'no frontmatter', markdown: 'Text' },
   { name: 'frontmatter that does not parse', markdown: '---\ntags: [a\n---\nText' },
   { name: 'a rule, not frontmatter, after the first line', markdown: '\n---\na: b\n---\nText' },
 ])('renders a note with $name, without properties', ({ markdown }) => {
-  const note = renderNote(markdown, 'To do');
+  const note = renderNote(markdown, toDo, vault);
 
   expect(note.properties).toEqual([]);
   expect(note.html).toContain('<p>Text</p>');

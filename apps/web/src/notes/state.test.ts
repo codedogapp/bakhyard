@@ -89,22 +89,28 @@ test('lists the vault on a sync after a failed load, and loads nothing more', as
 test.each([
   { name: 'a load', start: (notes: NotesState) => notes.load(), kind: 'loading' },
   { name: 'a sync', start: (notes: NotesState) => notes.sync(), kind: 'syncing' },
-])('starts nothing else while $name runs', async ({ start, kind }) => {
+])('starts nothing else while $name runs, and a load waits for it', async ({ start, kind }) => {
   const answer = Promise.withResolvers<Response>();
   fetchMock.mockReturnValueOnce(answer.promise);
   const notes = new NotesState();
 
   const running = start(notes);
-  await notes.load();
+  let waited = false;
+  const waiting = notes.load().then(() => {
+    waited = true;
+  });
   await notes.sync();
 
   expect(notes.status.kind).toBe(kind);
   expect(notes.busy).toBe(true);
+  expect(waited).toBe(false);
   expect(fetchMock).toHaveBeenCalledOnce();
 
   answer.resolve(Response.json({ files: listed }));
-  await running;
+  await waiting;
 
   expect(notes.busy).toBe(false);
   expect(notes.files).toEqual(listed);
+  expect(fetchMock).toHaveBeenCalledOnce();
+  await running;
 });

@@ -1,6 +1,6 @@
 import type { Heading, Nodes, Root } from 'mdast';
 import { toString as plainText } from 'mdast-util-to-string';
-import rehypeSanitize from 'rehype-sanitize';
+import rehypeSanitize, { defaultSchema, type Options as Schema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import remarkBreaks from 'remark-breaks';
 import remarkFrontmatter from 'remark-frontmatter';
@@ -9,7 +9,10 @@ import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
 
+import { type Finder, finder, headingId, linkTo } from './links';
 import { noteProperties, type Property } from './properties';
+import type { Note } from './tree';
+import { replaceWikilinks, unresolvedClass } from './wikilinks';
 
 /** A note as its page shows it. */
 export interface RenderedNote {
@@ -19,24 +22,36 @@ export interface RenderedNote {
   html: string;
 }
 
+// GitHub's rules, and one more class, a wikilink's that leads nowhere, which only the renderer adds: raw HTML is dropped.
+const schema: Schema = {
+  ...defaultSchema,
+  attributes: { ...defaultSchema.attributes, span: [['className', unresolvedClass]] },
+};
+
 // Markdown as Obsidian reads it: GFM, a line break for each newline, and YAML frontmatter. Raw HTML is dropped, and
-// the HTML is sanitized with GitHub's rules. Frozen, so no one can change it.
+// the HTML is sanitized with the schema above. Frozen, so no one can change it.
 const processor = unified()
   .use(remarkParse)
   .use(remarkFrontmatter)
   .use(remarkGfm)
   .use(remarkBreaks)
   .use(remarkRehype)
-  .use(rehypeSanitize)
+  .use(rehypeSanitize, schema)
   .use(rehypeStringify)
   .freeze();
 
-/** The note titled title, whose file holds markdown, as its page shows it, under a head whose h1 is the title. */
-export function renderNote(markdown: string, title: string): RenderedNote {
+/**
+ * The note, whose file holds markdown, as its page shows it, under a head whose h1 is its title, its wikilinks found
+ * among the vault's files.
+ */
+export function renderNote(markdown: string, note: Note, files: readonly string[]): RenderedNote {
   const tree = processor.parse(markdown);
-  const properties = takeProperties(tree);
-  dropTitle(tree, title);
+  const find = finder(files, note.path);
+  const properties = takeProperties(tree).map((property) => linkProperty(property, find));
+  dropTitle(tree, note.title);
   shiftHeadings(tree);
+  replaceWikilinks(tree, find);
+  nameHeadings(tree);
   return { properties, html: processor.stringify(processor.runSync(tree)) };
 }
 
@@ -48,6 +63,13 @@ function takeProperties(tree: Root): Property[] {
   }
   tree.children.shift();
   return noteProperties(first.value);
+}
+
+// A property whose value is a wikilink alone, such as album: "[[X]]", shows as the note's wikilinks do.
+function linkProperty(property: Property, find: Finder): Property {
+  const inside = typeof property.value === 'string' ? /^\[\[([^[\]\n]+)\]\]$/.exec(property.value)?.[1] : undefined;
+  const link = inside === undefined ? undefined : linkTo(inside, find);
+  return link ? { ...property, value: link } : property;
 }
 
 // Drops the note's first block when it's an H1 that repeats the title, which the head shows.
@@ -66,6 +88,19 @@ function shiftHeadings(tree: Root) {
   }
   for (const heading of headings) {
     heading.depth = Math.min(heading.depth + 1, 6) as Heading['depth'];
+  }
+}
+
+// Gives each heading an ID from its text, for the links to it, unless an earlier heading has that ID: a link leads to
+// the first, as in Obsidian.
+function nameHeadings(tree: Root) {
+  const named = new Set<string>();
+  for (const heading of headingsIn(tree)) {
+    const id = headingId(plainText(heading));
+    if (id !== '' && !named.has(id)) {
+      named.add(id);
+      heading.data = { hProperties: { id } };
+    }
   }
 }
 

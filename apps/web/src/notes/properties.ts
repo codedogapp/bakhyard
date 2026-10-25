@@ -1,10 +1,12 @@
 import { parse } from 'yaml';
 
+import type { Link } from './links';
+
 /** A row of a note's Properties block: a key of its frontmatter, with its value, or its list's values, as text. */
 export interface Property {
   key: string;
-  /** One value, shown as text, or a list's values, shown as chips. */
-  value: string | string[];
+  /** One value, shown as text, or a list's values, shown as chips; or a wikilink's, which the renderer finds. */
+  value: string | string[] | Link;
 }
 
 /**

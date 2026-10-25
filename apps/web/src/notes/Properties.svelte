@@ -1,7 +1,7 @@
 <script lang="ts">
 import type { Property } from './properties';
 
-// A note's Properties block: each key, then its value as text, or its list's values as chips (plan §7).
+// A note's Properties block: each key, then its value as text or a link, or its list's values as chips (plan §7).
 let { properties }: { properties: readonly Property[] } = $props();
 </script>
 
@@ -17,8 +17,12 @@ let { properties }: { properties: readonly Property[] } = $props();
                 <li>{value}</li>
               {/each}
             </ul>
-          {:else}
+          {:else if typeof property.value === 'string'}
             {property.value}
+          {:else if property.value.href === undefined}
+            <span class="unresolved">{property.value.text}</span>
+          {:else}
+            <a href={property.value.href}>{property.value.text}</a>
           {/if}
         </dd>
       </div>
@@ -53,6 +57,16 @@ dt {
 dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+/* As the note's links, and its wikilinks that lead nowhere, show. */
+a {
+  color: var(--ink);
+  text-underline-offset: 2px;
+}
+
+.unresolved {
+  color: var(--ink-muted);
 }
 
 ul {

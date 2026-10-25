@@ -64,7 +64,7 @@ $effect(() =>
     {:else if page.kind === 'notes'}
       <NotesPage {notes} />
     {:else if page.kind === 'note'}
-      <NotePage note={page.note} />
+      <NotePage note={page.note} {notes} />
     {:else if page.kind === 'app'}
       <AppPage app={page.app} />
     {:else if page.kind === 'more'}
