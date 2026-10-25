@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import NotePage from './NotePage.svelte';
+import { NotesState } from './state.svelte';
 import { type Note, noteAt } from './tree';
 
 const toDo = noteAt('/notes/Daily/To%20do')!;
@@ -19,6 +20,13 @@ const markdown = [
   '- [x] Tune',
 ].join('\n');
 
+// The app's state for the Notes pages, with the vault's list loaded.
+function listed(): NotesState {
+  const notes = new NotesState();
+  notes.files = ['Daily/To do.md', 'Inbox.md'];
+  return notes;
+}
+
 let fetchMock: ReturnType<typeof vi.fn<typeof fetch>>;
 
 beforeEach(() => {
@@ -34,7 +42,7 @@ afterEach(() => {
 function held(note: Note) {
   const answer = Promise.withResolvers<Response>();
   fetchMock.mockReturnValueOnce(answer.promise);
-  return { answer, page: render(NotePage, { props: { note } }) };
+  return { answer, page: render(NotePage, { props: { note, notes: listed() } }) };
 }
 
 test('shows the head at once, then the properties and the note once it loads', async () => {
@@ -58,7 +66,7 @@ test('shows the head at once, then the properties and the note once it loads', a
 });
 
 test('shows the properties: each key, then its text or its chips', async () => {
-  render(NotePage, { props: { note: toDo } });
+  render(NotePage, { props: { note: toDo, notes: listed() } });
 
   const rows = [...(await screen.findByRole('article')).querySelectorAll('dl > div')].map((row) => ({
     key: within(row as HTMLElement).getByRole('term').textContent,
@@ -77,7 +85,7 @@ test('shows the properties: each key, then its text or its chips', async () => {
 
 test('shows no properties block for a note without frontmatter, and no eyebrow at the vault’s top', async () => {
   fetchMock.mockResolvedValueOnce(new Response('Just text'));
-  render(NotePage, { props: { note: inbox } });
+  render(NotePage, { props: { note: inbox, notes: listed() } });
 
   expect(await screen.findByText('Just text')).toBeInTheDocument();
   expect(document.querySelector('dl')).toBeNull();
@@ -98,7 +106,7 @@ test.each([
   },
 ])('says so when $name', async ({ answer, want }) => {
   fetchMock.mockResolvedValueOnce(answer());
-  render(NotePage, { props: { note: toDo } });
+  render(NotePage, { props: { note: toDo, notes: listed() } });
 
   expect(await screen.findByText(want)).toBeInTheDocument();
   expect(screen.getByRole('heading', { level: 1, name: 'To do' })).toBeInTheDocument();
@@ -107,17 +115,17 @@ test.each([
 
 test('says it could not load the note when the gateway can not be reached', async () => {
   fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
-  render(NotePage, { props: { note: toDo } });
+  render(NotePage, { props: { note: toDo, notes: listed() } });
 
   expect(await screen.findByText("Couldn't load the note.")).toBeInTheDocument();
 });
 
 test('loads the note again each time its page shows', async () => {
-  const first = render(NotePage, { props: { note: toDo } });
+  const first = render(NotePage, { props: { note: toDo, notes: listed() } });
   await screen.findByRole('article');
   first.unmount();
 
-  render(NotePage, { props: { note: toDo } });
+  render(NotePage, { props: { note: toDo, notes: listed() } });
   await screen.findByRole('article');
 
   expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -142,7 +150,7 @@ test('shows only the latest note when the page goes straight to another, whichev
 });
 
 test('clears the last note while the next one loads', async () => {
-  const { rerender } = render(NotePage, { props: { note: toDo } });
+  const { rerender } = render(NotePage, { props: { note: toDo, notes: listed() } });
   await screen.findByRole('article');
   const next = Promise.withResolvers<Response>();
   fetchMock.mockReturnValueOnce(next.promise);
@@ -153,4 +161,51 @@ test('clears the last note while the next one loads', async () => {
   expect(screen.queryByRole('article')).not.toBeInTheDocument();
   next.resolve(new Response('Inbox text'));
   expect(await screen.findByText('Inbox text')).toBeInTheDocument();
+});
+
+test('links the wikilinks of the note and its properties with the app’s list, and dims those that lead nowhere', async () => {
+  fetchMock.mockResolvedValueOnce(
+    new Response('---\nnext: "[[Inbox]]"\nlast: "[[Nothing]]"\n---\nSee [[Inbox]] and [[Gone|gone]].')
+  );
+  render(NotePage, { props: { note: toDo, notes: listed() } });
+
+  const note = await screen.findByRole('article');
+  const links = within(note).getAllByRole('link', { name: 'Inbox' });
+  expect(links.map((link) => link.getAttribute('href'))).toEqual(['/notes/Inbox', '/notes/Inbox']);
+  for (const text of ['Nothing', 'gone']) {
+    expect(within(note).getByText(text)).toHaveClass('unresolved');
+    expect(within(note).queryByRole('link', { name: text })).not.toBeInTheDocument();
+  }
+});
+
+// Answers the list's request with what list gives, and the note's with a link to Inbox.
+function answering(list: () => Promise<Response>) {
+  fetchMock.mockImplementation((input) =>
+    input === '/api/notes' ? list() : Promise.resolve(new Response('[[Inbox]]'))
+  );
+}
+
+test.each([
+  { name: 'loads the list', start: () => undefined },
+  { name: 'waits for the list’s load that runs', start: (notes: NotesState) => notes.load() },
+])('$name when the page finds it not loaded, and asks for it and the note once', async ({ start }) => {
+  const list = Promise.withResolvers<Response>();
+  answering(() => list.promise);
+  const notes = new NotesState();
+  const running = start(notes);
+
+  render(NotePage, { props: { note: toDo, notes } });
+  list.resolve(Response.json({ files: ['Daily/To do.md', 'Inbox.md'] }));
+
+  expect(await screen.findByRole('link', { name: 'Inbox' })).toHaveAttribute('href', '/notes/Inbox');
+  await running;
+  expect(fetchMock.mock.calls.map(([input]) => input)).toEqual(['/api/notes', '/api/notes/files/Daily/To%20do.md']);
+  expect(notes.status.kind).toBe('loaded');
+});
+
+test('says it could not load the note when the list can not load', async () => {
+  answering(async () => new Response(null, { status: 502 }));
+  render(NotePage, { props: { note: toDo, notes: new NotesState() } });
+
+  expect(await screen.findByText("Couldn't load the note.")).toBeInTheDocument();
 });

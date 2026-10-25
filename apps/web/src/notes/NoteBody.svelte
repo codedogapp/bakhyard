@@ -59,6 +59,11 @@ let { note }: { note: RenderedNote } = $props();
     text-underline-offset: 2px;
   }
 
+  /* A wikilink that leads nowhere: its text, dimmed, and not a link. */
+  .unresolved {
+    color: var(--ink-muted);
+  }
+
   :is(ul, ol) {
     padding-left: 24px;
   }
