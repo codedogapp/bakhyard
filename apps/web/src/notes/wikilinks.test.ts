@@ -2,7 +2,14 @@ import { expect, test } from 'vitest';
 
 import { renderNote } from './render';
 
-const vault = ['Daily/To do.md', 'Daily/Plan.md', 'Plan.md', 'Songs/Em.md', 'Attachments/x.png'];
+const vault = [
+  'Daily/To do.md',
+  'Daily/Plan.md',
+  'Plan.md',
+  'Songs/Em.md',
+  'Attachments/x.png',
+  'Attachments/score.pdf',
+];
 const toDo = { path: 'Daily/To do.md', title: 'To do', folder: 'Daily' };
 
 // The HTML of the note "Daily/To do", whose file holds markdown, in the vault above.
@@ -35,13 +42,36 @@ test('links a wikilink in a table, its "|" escaped', () => {
 test.each([
   { name: 'a missing note', markdown: '[[Nothing|Gone]]', want: 'Gone' },
   { name: 'a file that is not a note', markdown: '[[x.png]]', want: 'x.png' },
-  { name: 'an image embed', markdown: '![[x.png]]', want: 'x.png' },
+  { name: 'an embed of a missing image', markdown: '![[y.png]]', want: 'y.png' },
+  { name: 'an embed of a file that is neither a note nor an image', markdown: '![[score.pdf]]', want: 'score.pdf' },
 ])('dims the text of a wikilink that leads nowhere: $name', ({ markdown, want }) => {
   expect(html(markdown)).toBe(`<p><span class="unresolved">${want}</span></p>`);
 });
 
+const image = '<img src="/api/notes/files/Attachments/x.png" alt="x.png">';
+
+test.each([
+  { name: 'alone', markdown: '![[x.png]]', want: `<p>${image}</p>` },
+  { name: 'in a sentence', markdown: 'See ![[x.png]] now.', want: `<p>See ${image} now.</p>` },
+  {
+    name: 'on a list item’s next line',
+    markdown: '- Text\n  ![[x.png]]',
+    want: `<ul>\n<li>Text<br>\n${image}</li>\n</ul>`,
+  },
+  { name: 'with a size', markdown: '![[x.png|300]]', want: `<p>${image}</p>` },
+])('shows the image of an image embed: $name', ({ markdown, want }) => {
+  expect(html(markdown)).toBe(want);
+});
+
+test('shows two image embeds side by side in a table', () => {
+  expect(html('| A | B |\n| - | - |\n| ![[x.png]] | ![[x.png]] |')).toContain(
+    `<tr>\n<td>${image}</td>\n<td>${image}</td>\n</tr>`
+  );
+});
+
 test.each([
   { name: 'inline code', markdown: '`[[Em]]`', want: '<p><code>[[Em]]</code></p>' },
+  { name: 'an image embed in inline code', markdown: '`![[x.png]]`', want: '<p><code>![[x.png]]</code></p>' },
   { name: 'a code block', markdown: '```\n[[Em]]\n```', want: '<pre><code>[[Em]]\n</code></pre>' },
   {
     name: 'a link’s text',

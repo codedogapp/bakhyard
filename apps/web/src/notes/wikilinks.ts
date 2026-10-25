@@ -1,7 +1,8 @@
 import type { Parent, PhrasingContent, Root } from 'mdast';
 import { findAndReplace } from 'mdast-util-find-and-replace';
 
-import { type Finder, type Link, linkTo } from './links';
+import { imageOf } from './embeds';
+import { type Finder, linkTo } from './links';
 
 /** The class of a wikilink's text when it leads nowhere, which the page shows dimmed. */
 export const unresolvedClass = 'unresolved';
@@ -26,19 +27,26 @@ declare module 'mdast' {
 
 /**
  * Replaces each wikilink in the note's text, "[[Note]]", with a link to what it names, or its text, dimmed, when it
- * leads nowhere: to a note the vault doesn't have, or to a file that isn't a note. An embed, "![[Note]]", is a link
- * too, for now, and so leads nowhere when it names an image. Code and a link's text keep their wikilinks.
+ * leads nowhere: to a note the vault doesn't have, or to a file that isn't a note. An embed of an image, "![[x.png]]",
+ * shows the image; any other embed reads as a wikilink, so "![[Note]]" is a link, for now. Code and a link's text keep
+ * their wikilinks.
  */
 export function replaceWikilinks(tree: Root, find: Finder) {
   // A wikilink holds no newline, "[" or "]".
   const wikilink = /!?\[\[([^[\]\n]+)\]\]/g;
-  findAndReplace(tree, [wikilink, (_: string, inside: string) => toNode(linkTo(inside, find))], {
+  findAndReplace(tree, [wikilink, (match: string, inside: string) => toNode(match.startsWith('!'), inside, find)], {
     ignore: ['link', 'linkReference'],
   });
 }
 
-// The link's node; false, which keeps the wikilink as written, for one that names nothing.
-function toNode(link: Link | undefined): PhrasingContent | false {
+// The wikilink's node: an embed's image, or a link; false, which keeps the wikilink as written, for one that names
+// nothing.
+function toNode(embed: boolean, inside: string, find: Finder): PhrasingContent | false {
+  const image = embed ? imageOf(inside, find) : undefined;
+  if (image !== undefined) {
+    return { type: 'image', url: image.src, alt: image.alt };
+  }
+  const link = linkTo(inside, find);
   if (link === undefined) {
     return false;
   }
