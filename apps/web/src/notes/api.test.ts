@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { fetchNote, fetchNotes, syncNotes } from './api';
+import { fetchNote, fetchNotes, fileUrl, syncNotes } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -33,6 +33,10 @@ test('fails when the gateway can not be reached', async () => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
 
   await expect(syncNotes()).rejects.toThrow('Failed to fetch');
+});
+
+test('gives a file’s URL, each name in its path escaped', () => {
+  expect(fileUrl('My art/a b%?.png')).toBe('/api/notes/files/My%20art/a%20b%25%3F.png');
 });
 
 test('loads a note through the gateway, each name in its path escaped', async () => {

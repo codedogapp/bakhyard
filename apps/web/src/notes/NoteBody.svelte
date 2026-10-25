@@ -64,6 +64,11 @@ let { note }: { note: RenderedNote } = $props();
     color: var(--ink-muted);
   }
 
+  /* An image is never wider than the note, and keeps its shape. */
+  img {
+    max-width: 100%;
+  }
+
   :is(ul, ol) {
     padding-left: 24px;
   }
