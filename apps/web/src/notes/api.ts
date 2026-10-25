@@ -22,3 +22,19 @@ async function listing(url: string, method: string): Promise<string[]> {
   const body: Listing = await response.json();
   return body.files;
 }
+
+/**
+ * Loads the note at path in the vault, such as "Work/Plans/Q3.md": its Markdown, or undefined when the vault has no
+ * such note. Fails when the gateway can't be reached or answers with another error.
+ */
+export async function fetchNote(path: string): Promise<string | undefined> {
+  const url = `/api/notes/files/${path.split('/').map(encodeURIComponent).join('/')}`;
+  const response = await fetch(url);
+  if (response.status === 404) {
+    return undefined;
+  }
+  if (!response.ok) {
+    throw new Error(`GET ${url}: ${response.status}`);
+  }
+  return response.text();
+}

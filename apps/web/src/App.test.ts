@@ -51,10 +51,21 @@ async function go(navigation: EventTarget, path: string) {
 
 const notes = { files: ['Work/Plan.md', 'Inbox.md'] };
 
+// The answer for each request the app makes; the home page's for any other.
+function answer(url: string): Response {
+  if (url === '/api/notes') {
+    return Response.json(notes);
+  }
+  if (url === '/api/notes/files/Work/Plan.md') {
+    return new Response('# Plan\n\n## Goals\nShip it.');
+  }
+  return Response.json(home);
+}
+
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn<typeof fetch>(async (url) => Response.json(url === '/api/notes' ? notes : home))
+    vi.fn<typeof fetch>(async (url) => answer(String(url)))
   );
 });
 
@@ -126,7 +137,7 @@ test('shows each page in place as the browser navigates, with the Home it has al
   expect(fetch).toHaveBeenCalledOnce();
 });
 
-test('keeps the Notes page as the user left it while the app runs, with the list it has already loaded', async () => {
+test('opens a note, and keeps the Notes page as the user left it while the app runs, with the list it has already loaded', async () => {
   const navigation = new EventTarget();
   vi.stubGlobal('navigation', navigation);
   history.replaceState(null, '', '/notes');
@@ -142,8 +153,11 @@ test('keeps the Notes page as the user left it while the app runs, with the list
 
   await go(navigation, '/notes/Work/Plan');
 
-  expect(screen.getByRole('heading', { level: 1, name: 'Notes' })).toBeInTheDocument();
-  expect(screen.getByText('Coming soon')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 1, name: 'Plan' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { level: 2, name: 'Goals' })).toBeInTheDocument();
+  expect(screen.getByText('Ship it.')).toBeInTheDocument();
+  expect(document.title).toBe('Plan · Bakhyard');
+  expect(screen.getAllByRole('link', { name: 'Notes', current: 'page' })).toHaveLength(2);
 
   await go(navigation, '/notes');
 

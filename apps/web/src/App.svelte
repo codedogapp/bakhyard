@@ -3,6 +3,7 @@ import { tick } from 'svelte';
 
 import HomePage from './home/HomePage.svelte';
 import { type Feed, pollHome } from './home/poll';
+import NotePage from './notes/NotePage.svelte';
 import NotesPage from './notes/NotesPage.svelte';
 import { NotesState } from './notes/state.svelte';
 import AppPage from './pages/AppPage.svelte';
@@ -62,6 +63,8 @@ $effect(() =>
       <HomePage {now} home={feed.home} />
     {:else if page.kind === 'notes'}
       <NotesPage {notes} />
+    {:else if page.kind === 'note'}
+      <NotePage note={page.note} />
     {:else if page.kind === 'app'}
       <AppPage app={page.app} />
     {:else if page.kind === 'more'}

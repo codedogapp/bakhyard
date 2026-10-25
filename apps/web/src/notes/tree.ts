@@ -72,13 +72,37 @@ function finish(folder: Folder): Folder {
   return folder;
 }
 
-function withoutExtension(path: string): string {
+/** The path without ".md": "Work/Plans/Q3" for "Work/Plans/Q3.md". */
+export function withoutExtension(path: string): string {
   return path.slice(0, -noteExtension.length);
 }
 
+const notePages = '/notes/';
+
 /** The path of the page of the note at path: "/notes/" and the path without ".md", each name escaped (decision 94). */
 export function noteHref(path: string): string {
-  return `/notes/${withoutExtension(path).split('/').map(encodeURIComponent).join('/')}`;
+  return `${notePages}${withoutExtension(path).split('/').map(encodeURIComponent).join('/')}`;
+}
+
+/**
+ * The note whose page is at href, as noteHref writes it; undefined when href isn't under "/notes/", or a name in it is
+ * empty or doesn't decode.
+ */
+export function noteAt(href: string): Note | undefined {
+  if (!href.startsWith(notePages)) {
+    return undefined;
+  }
+  let names: string[];
+  try {
+    names = href.slice(notePages.length).split('/').map(decodeURIComponent);
+  } catch {
+    // A "%" that doesn't start an escape of UTF-8.
+    return undefined;
+  }
+  if (names.includes('')) {
+    return undefined;
+  }
+  return { path: `${names.join('/')}${noteExtension}`, title: names.at(-1)!, folder: names.slice(0, -1).join('/') };
 }
 
 /** The notes whose path without ".md" holds every word of the filter, in any case, in the tree's order. */
