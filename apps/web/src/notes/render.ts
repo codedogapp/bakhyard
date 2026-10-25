@@ -1,10 +1,14 @@
+import 'katex/dist/katex.min.css';
+
 import type { Heading, Nodes, Root } from 'mdast';
 import { toString as plainText } from 'mdast-util-to-string';
+import rehypeKatex from 'rehype-katex';
 import rehypeSanitize, { defaultSchema, type Options as Schema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import remarkBreaks from 'remark-breaks';
 import remarkFrontmatter from 'remark-frontmatter';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
@@ -28,15 +32,19 @@ const schema: Schema = {
   attributes: { ...defaultSchema.attributes, span: [['className', unresolvedClass]] },
 };
 
-// Markdown as Obsidian reads it: GFM, a line break for each newline, and YAML frontmatter. Raw HTML is dropped, and
-// the HTML is sanitized with the schema above. Frozen, so no one can change it.
+// Markdown as Obsidian reads it: GFM, a line break for each newline, YAML frontmatter, and math between `$` or `$$`.
+// Raw HTML is dropped, and the HTML is sanitized with the schema above. KaTeX renders the math after that, since the
+// schema would drop KaTeX's styles and MathML. KaTeX's `trust` stays off, so a formula can't add a link, an image or
+// HTML attributes of its own. Frozen, so no one can change it.
 const processor = unified()
   .use(remarkParse)
   .use(remarkFrontmatter)
   .use(remarkGfm)
+  .use(remarkMath)
   .use(remarkBreaks)
   .use(remarkRehype)
   .use(rehypeSanitize, schema)
+  .use(rehypeKatex)
   .use(rehypeStringify)
   .freeze();
 

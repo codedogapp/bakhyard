@@ -1,0 +1,8 @@
+# rehype-katex and remark-math's micromark-extension-math ask for KaTeX 0.16, and KaTeX before 0.18.2 has
+# GHSA-238p-pmpm-9mq7, so every KaTeX in the graph is the app's own (decision 99). Drop the override once both accept
+# a fixed KaTeX.
+catalog:
+  katex: 0.19.1
+
+overrides:
+  katex: 'catalog:'

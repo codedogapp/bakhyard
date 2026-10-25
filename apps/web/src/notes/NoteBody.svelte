@@ -23,6 +23,14 @@ let { note }: { note: RenderedNote } = $props();
     margin: 0 0 16px;
   }
 
+  /* A block of math, spaced as the note's other blocks. A wide one scrolls sideways on its own, as KaTeX's docs show;
+     2 px above and below keep the clip off the tips of tall glyphs, which reach a little past KaTeX's box. */
+  .katex-display {
+    margin: 0 0 16px;
+    padding-block: 2px;
+    overflow: auto hidden;
+  }
+
   :is(h2, h3, h4, h5, h6) {
     margin: 32px 0 12px;
   }

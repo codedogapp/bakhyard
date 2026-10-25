@@ -19,6 +19,8 @@ export default defineConfig({
     // The web service embeds the app from here; Vite empties a directory outside its root only when told to.
     outDir: '../../services/web/dist/app',
     emptyOutDir: true,
+    // The note renderer's chunk holds KaTeX, about 540 kB in all; it loads only with a note's page (decision 99).
+    chunkSizeWarningLimit: 600,
   },
   test: {
     environment: 'jsdom',
