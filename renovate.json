@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended"
   ],
+  "postUpdateOptions": ["pnpmDedupe"],
   "packageRules": [
     {
       "description": ["svelte-check needs TypeScript 6 beside TypeScript 7 until it supports 7 directly (docs/plan.md §6.4)"],
