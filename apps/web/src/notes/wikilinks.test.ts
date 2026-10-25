@@ -48,8 +48,14 @@ test.each([
     markdown: '[[[Em]]](https://example.com)',
     want: '<p><a href="https://example.com">[[Em]]</a></p>',
   },
+  {
+    name: 'a reference link’s text',
+    markdown: '[[[Em]]][r]\n\n[r]: https://example.com',
+    want: '<p><a href="https://example.com">[[Em]]</a></p>',
+  },
   { name: 'no path and no heading', markdown: '[[#]] [[ | Text]] [[]]', want: '<p>[[#]] [[ | Text]] [[]]</p>' },
   { name: 'a bracket inside', markdown: '[[a[b]] [[a]b]]', want: '<p>[[a[b]] [[a]b]]</p>' },
+  { name: 'a newline inside', markdown: '[[Em\nE minor]]', want: '<p>[[Em<br>\nE minor]]</p>' },
   { name: 'emphasis inside', markdown: '[[_Em_]]', want: '<p>[[<em>Em</em>]]</p>' },
   {
     name: 'an autolink inside',

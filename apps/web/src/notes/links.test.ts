@@ -49,6 +49,7 @@ test.each([
   { name: 'another file by its extension', from: 'Daily/To do.md', path: 'x.png', want: 'Attachments/x.png' },
   { name: 'nothing in another case', from: 'Daily/To do.md', path: 'plan', want: undefined },
   { name: 'nothing without its extension', from: 'Daily/To do.md', path: 'x', want: undefined },
+  { name: 'nothing whose name only ends with it', from: 'Daily/To do.md', path: 'lan', want: undefined },
   { name: 'nothing that is not there', from: 'Daily/To do.md', path: 'Nothing', want: undefined },
 ])('finds $name', ({ from, path, want }) => {
   expect(finder(vault, from)(path)).toBe(want);
