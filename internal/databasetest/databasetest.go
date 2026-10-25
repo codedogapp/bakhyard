@@ -19,7 +19,7 @@ const testDatabaseVar = "BAKHYARD_TEST_DATABASE"
 
 // Schema is a test's own schema in the test database.
 type Schema struct {
-	// URL reaches the schema, without the password, as the gateway's BAKHYARD_DATABASE does.
+	// URL reaches the schema, without the password, as a service's BAKHYARD_DATABASE does.
 	URL      string
 	Password string
 }

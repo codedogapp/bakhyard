@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codedogapp/bakhyard/services/gateway/internal/keychain"
+	"github.com/codedogapp/bakhyard/internal/keychain"
 )
 
 // standIn is a fake security tool that answers by account: see testdata/security.

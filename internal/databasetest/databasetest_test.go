@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/codedogapp/bakhyard/services/gateway/internal/databasetest"
+	"github.com/codedogapp/bakhyard/internal/databasetest"
 )
 
 func TestEachTestGetsAnEmptySchemaOfItsOwn(t *testing.T) {

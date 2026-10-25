@@ -11,8 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/codedogapp/bakhyard/services/gateway/internal/database"
-	"github.com/codedogapp/bakhyard/services/gateway/internal/databasetest"
+	"github.com/codedogapp/bakhyard/internal/database"
+	"github.com/codedogapp/bakhyard/internal/databasetest"
+	"github.com/codedogapp/bakhyard/services/gateway/internal/migrations"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/pin"
 )
 
@@ -122,7 +123,7 @@ func newStore(t *testing.T) (*pin.Store, *pgxpool.Pool) {
 
 	schema := databasetest.NewSchema(t)
 
-	pool, err := database.Open(t.Context(), schema.URL, schema.Password)
+	pool, err := database.Open(t.Context(), schema.URL, schema.Password, migrations.FS())
 	if err != nil {
 		t.Fatal(err)
 	}

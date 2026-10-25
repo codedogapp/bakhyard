@@ -6,8 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codedogapp/bakhyard/services/gateway/internal/database"
-	"github.com/codedogapp/bakhyard/services/gateway/internal/databasetest"
+	"github.com/codedogapp/bakhyard/internal/database"
+	"github.com/codedogapp/bakhyard/internal/databasetest"
+	"github.com/codedogapp/bakhyard/services/gateway/internal/migrations"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/session"
 )
 
@@ -174,7 +175,12 @@ func gatewayFrom(t *testing.T, vars, items map[string]string) (http.Handler, str
 		t.Fatal(err)
 	}
 
-	pool, err := database.Open(t.Context(), vars[databaseVar], items[databaseAccount])
+	pool, err := database.Open(
+		t.Context(),
+		vars[databaseVar],
+		items[databaseAccount],
+		migrations.FS(),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

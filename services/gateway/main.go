@@ -12,11 +12,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/codedogapp/bakhyard/internal/database"
 	"github.com/codedogapp/bakhyard/internal/env"
 	"github.com/codedogapp/bakhyard/internal/health"
+	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/service"
-	"github.com/codedogapp/bakhyard/services/gateway/internal/database"
-	"github.com/codedogapp/bakhyard/services/gateway/internal/keychain"
+	"github.com/codedogapp/bakhyard/services/gateway/internal/migrations"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/pin"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/proxy"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/secure"
@@ -196,7 +197,7 @@ func stores(
 		return nil, nil, fmt.Errorf("read the database password: %w", err)
 	}
 
-	pool, err := database.Open(context.Background(), address, secret)
+	pool, err := database.Open(context.Background(), address, secret, migrations.FS())
 	if err != nil {
 		return nil, nil, err
 	}
