@@ -37,19 +37,28 @@ async function load(shown: Note): Promise<Body> {
 }
 </script>
 
-<PageHead eyebrow={note.folder}>{note.title}</PageHead>
 <div class="note-page">
-  {#if body.kind === 'loaded'}
-    <NoteBody note={body.note} />
-  {:else if body.kind === 'missing'}
-    <p class="failed">There's no note at {withoutExtension(note.path)}.</p>
-  {:else if body.kind === 'failed'}
-    <p class="failed">Couldn't load the note.</p>
-  {/if}
+  <PageHead eyebrow={note.folder}>{note.title}</PageHead>
+  <div class="content">
+    {#if body.kind === 'loaded'}
+      <NoteBody note={body.note} />
+    {:else if body.kind === 'missing'}
+      <p class="failed">There's no note at {withoutExtension(note.path)}.</p>
+    {:else if body.kind === 'failed'}
+      <p class="failed">Couldn't load the note.</p>
+    {/if}
+  </div>
 </div>
 
 <style>
+/* The head and the note share one column in the middle of the page: 700 px, Obsidian's readable line length, plus
+   the gutters, which --page-padding gives inside the column. */
 .note-page {
+  max-width: calc(700px + 2 * (var(--gutter) + var(--inset-x)));
+  margin-inline: auto;
+}
+
+.content {
   padding: 0 var(--page-padding) 64px;
 }
 
@@ -59,7 +68,7 @@ async function load(shown: Note): Promise<Body> {
 }
 
 @media (max-width: 700px) {
-  .note-page {
+  .content {
     padding-bottom: 48px;
   }
 }

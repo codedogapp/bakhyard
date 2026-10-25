@@ -20,13 +20,18 @@ let { eyebrow, summary, children }: { eyebrow?: string; summary?: string; childr
 <style>
 .page-head {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: 1fr;
   column-gap: 10%;
   row-gap: 20px;
   align-items: end;
   padding: 58px var(--page-padding) 50px;
   /* A long word, such as in a note's name, breaks rather than widen the page. */
   overflow-wrap: anywhere;
+}
+
+/* Without a summary, the eyebrow and the h1 take the whole width. */
+.page-head:has(.summary) {
+  grid-template-columns: 1.4fr 1fr;
 }
 
 .eyebrow {
@@ -53,7 +58,7 @@ h1 {
 }
 
 @media (max-width: 700px) {
-  .page-head {
+  .page-head:has(.summary) {
     grid-template-columns: 1fr;
   }
 }

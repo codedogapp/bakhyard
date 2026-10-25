@@ -2,7 +2,7 @@
 import Properties from './Properties.svelte';
 import type { RenderedNote } from './render';
 
-// A note's Properties block and its text, in a column as wide as Obsidian's readable line length.
+// A note's Properties block and its text.
 let { note }: { note: RenderedNote } = $props();
 </script>
 
@@ -13,10 +13,6 @@ let { note }: { note: RenderedNote } = $props();
 </article>
 
 <style>
-article {
-  max-width: 700px;
-}
-
 .note {
   overflow-wrap: break-word;
 }
