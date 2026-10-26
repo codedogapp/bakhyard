@@ -12,7 +12,7 @@ import JiraTickets from './JiraTickets.svelte';
 import { groupNote, priorityLabel, todosSummary } from './labels';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
-import { loadTickets, type Tickets } from './tickets';
+import { loadTickets, openTickets, type Tickets } from './tickets';
 
 const list = new TodosState();
 let addField = $state<HTMLInputElement>();
@@ -20,6 +20,7 @@ const focus = new Focus(() => addField?.focus());
 const editor = new Editor(list, focus);
 const drag = new Drag(list, editor);
 let tickets = $state.raw<Tickets>({ kind: 'loading' });
+const open = $derived(openTickets(tickets));
 
 onMount(() => {
   void list.load();
@@ -38,7 +39,7 @@ onMount(() => {
     <Section title={priorityLabel(group.priority)} accent="priority" note={groupNote(group.todos.length)}>
       <ul class="card">
         {#each group.todos as todo (todo.id)}
-          <TodoRow {list} {todo} {editor} {focus} {drag} />
+          <TodoRow {list} {todo} {editor} {focus} {drag} {open} />
         {/each}
       </ul>
     </Section>

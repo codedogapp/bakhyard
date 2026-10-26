@@ -8,6 +8,7 @@ import { Editor } from './editor.svelte';
 import { Focus } from './focus';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
+import type { Ticket } from './tickets';
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -16,16 +17,16 @@ afterEach(() => {
 const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
 const milk: Todo = { id: 1, title: 'Buy milk', done: false, priority: 'normal' };
 
-/** The bank's row 100 px down the page and the milk's under it, each 50 px tall, in one list. */
-function rows() {
+/** The bank's row 100 px down the page and the milk's under it, each 50 px tall, in one list, with my open tickets. */
+function rows(open: ReadonlyMap<string, Ticket> = new Map(), todos = [bank, milk]) {
   const list = new TodosState();
-  list.todos = [bank, milk];
+  list.todos = todos;
   const focus = new Focus(() => undefined);
   const editor = new Editor(list, focus);
   const drag = new Drag(list, editor);
   const target = document.body.appendChild(document.createElement('ul'));
   for (const todo of list.todos) {
-    render(TodoRow, { target, props: { list, todo, editor, focus, drag } });
+    render(TodoRow, { target, props: { list, todo, editor, focus, drag, open } });
   }
   flushSync();
   const [first, second] = target.querySelectorAll('li');
@@ -106,4 +107,32 @@ test('says the move failed on the row whose drop failed', () => {
 
   expect(within(second).getByRole('status')).toHaveTextContent('Move failed');
   expect(within(first).getByRole('status').textContent).toBe('');
+});
+
+const picker: Ticket = {
+  key: 'WEB-9',
+  summary: 'Fix the date picker in Safari',
+  status: 'In Progress',
+  category: 'in-progress',
+  url: 'https://jira.example.com/browse/WEB-9',
+};
+const linked: Todo = { ...bank, ticket: 'WEB-9' };
+
+test("shows the ticket a todo names under its title, in the box's label, with its status when it's open", () => {
+  const { first, second } = rows(new Map([['WEB-9', picker]]), [linked, milk]);
+
+  const box = within(first).getByRole('checkbox', { name: 'Call the bank WEB-9 In Progress' });
+  const label = box.closest('label');
+  expect(label?.querySelector('.title')).toHaveTextContent(/^Call the bank$/);
+  expect(label?.querySelector('.badge')).toHaveTextContent('WEB-9 In Progress');
+  expect(within(first).getByRole('button', { name: 'Edit Call the bank' })).toBeInTheDocument();
+  expect(within(second).getByRole('checkbox', { name: 'Buy milk' })).toBeInTheDocument();
+  expect(second.querySelector('.badge')).toBeNull();
+});
+
+test("shows the key alone when the ticket isn't one of my open tickets", () => {
+  const { first } = rows(new Map([['OPS-31', { ...picker, key: 'OPS-31' }]]), [linked, milk]);
+
+  expect(within(first).getByRole('checkbox', { name: 'Call the bank WEB-9' })).toBeInTheDocument();
+  expect(first.querySelector('.chip')).toBeNull();
 });

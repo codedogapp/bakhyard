@@ -25,6 +25,12 @@ export interface Snapshot {
 /** The Todos page's tickets: loading, off when Jira isn't set up, failed to load, or loaded. */
 export type Tickets = { kind: 'loading' | 'off' | 'failed' } | { kind: 'loaded'; snapshot: Snapshot };
 
+/** My open tickets by key, from the last search that succeeded; none while loading, after a failed load, or without Jira. */
+export function openTickets(tickets: Tickets): ReadonlyMap<string, Ticket> {
+  const list = tickets.kind === 'loaded' ? (tickets.snapshot.tickets ?? []) : [];
+  return new Map(list.map((ticket) => [ticket.key, ticket]));
+}
+
 /** Loads the tickets; never fails, since a failed load is one of the outcomes. */
 export async function loadTickets(): Promise<Tickets> {
   try {

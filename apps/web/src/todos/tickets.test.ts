@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { loadTickets, type Snapshot } from './tickets';
+import { loadTickets, openTickets, type Snapshot, type Tickets } from './tickets';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -55,4 +55,28 @@ test('fails when the gateway cannot be reached', async () => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
 
   expect(await loadTickets()).toEqual({ kind: 'failed' });
+});
+
+const certificates = { ...ticket, key: 'OPS-31', status: 'To Do', category: 'to-do' } as const;
+
+test.each<[string, Tickets, string[]]>([
+  ['loaded tickets', { kind: 'loaded', snapshot: { tickets: [ticket, certificates] } }, ['WEB-12', 'OPS-31']],
+  [
+    'the tickets of a search that succeeded before the last one failed',
+    { kind: 'loaded', snapshot: { tickets: [ticket], failure: 'search Jira: 502' } },
+    ['WEB-12'],
+  ],
+  ['no open tickets', { kind: 'loaded', snapshot: { tickets: [] } }, []],
+  ['a failure before any search succeeded', { kind: 'loaded', snapshot: { failure: 'search Jira: 401' } }, []],
+  ['an empty snapshot, as a stopping service answers', { kind: 'loaded', snapshot: {} }, []],
+  ['tickets still loading', { kind: 'loading' }, []],
+  ['Jira off', { kind: 'off' }, []],
+  ['tickets that failed to load', { kind: 'failed' }, []],
+])('finds my open tickets by key in %s', (_, tickets, keys) => {
+  const open = openTickets(tickets);
+
+  expect([...open.keys()]).toEqual(keys);
+  for (const key of keys) {
+    expect(open.get(key)?.key).toBe(key);
+  }
 });

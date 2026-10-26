@@ -1,6 +1,7 @@
 <script lang="ts">
 import Section from '../shell/Section.svelte';
 import { searchedLabel, ticketsNote } from './labels';
+import TicketStatus from './TicketStatus.svelte';
 import type { Tickets } from './tickets';
 
 let { tickets }: { tickets: Tickets } = $props();
@@ -26,11 +27,7 @@ let { tickets }: { tickets: Tickets } = $props();
                 <a class="list-row" href={ticket.url}>
                   <span class="list-label">{ticket.key}</span>
                   <span class="list-text"><span class="list-title">{ticket.summary}</span></span>
-                  <span class="list-end">
-                    <span class={['chip', 'status', { 'chip-filled': ticket.category === 'in-progress' }]}>
-                      {ticket.status}
-                    </span>
-                  </span>
+                  <span class="list-end"><TicketStatus {ticket} /></span>
                 </a>
               </li>
             {/each}
@@ -62,13 +59,6 @@ let { tickets }: { tickets: Tickets } = $props();
 
 .muted + .card {
   margin-top: 20px;
-}
-
-/* A long status wraps in its chip, rather than squeezing the summary or widening the row. */
-.status {
-  max-width: 160px;
-  overflow-wrap: anywhere;
-  white-space: normal;
 }
 
 .empty {
