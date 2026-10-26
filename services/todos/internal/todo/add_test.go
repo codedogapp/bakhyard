@@ -13,13 +13,13 @@ func TestAddStoresATrimmedTitle(t *testing.T) {
 	store, _ := newStore(t)
 
 	first, err := store.Add(t.Context(), "  Buy milk  ")
-	if err != nil || first != (todo.Todo{ID: 1, Title: "Buy milk"}) {
-		t.Fatalf("got %+v (%v), want todo 1, Buy milk", first, err)
+	if err != nil || first != (todo.Todo{ID: 1, Title: "Buy milk", Priority: todo.Normal}) {
+		t.Fatalf("got %+v (%v), want todo 1, Buy milk, Normal", first, err)
 	}
 
 	second, err := store.Add(t.Context(), "\tCall home\n")
-	if err != nil || second != (todo.Todo{ID: 2, Title: "Call home"}) {
-		t.Fatalf("got %+v (%v), want todo 2, Call home", second, err)
+	if err != nil || second != (todo.Todo{ID: 2, Title: "Call home", Priority: todo.Normal}) {
+		t.Fatalf("got %+v (%v), want todo 2, Call home, Normal", second, err)
 	}
 
 	got, err := store.List(t.Context())

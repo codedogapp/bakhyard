@@ -13,7 +13,7 @@ func TestPostTodosAddsATodo(t *testing.T) {
 
 	rec := post(t, router, `{"title":"  Buy <milk> & \"eggs\"  "}`)
 
-	want := `{"id":1,"title":"Buy <milk> & \"eggs\"","done":false}`
+	want := `{"id":1,"title":"Buy <milk> & \"eggs\"","done":false,"priority":"normal"}`
 	if rec.Code != http.StatusCreated || rec.Body.String() != want ||
 		rec.Header().Get("Content-Type") != "application/json" {
 		t.Errorf("got %d %s (%s), want 201 %s as JSON",
@@ -35,6 +35,7 @@ func TestPostTodosRefusesABadBody(t *testing.T) {
 		{"a list", `["Buy milk"]`, notTitle},
 		{"a number as title", `{"title":5}`, notTitle},
 		{"an unknown member", `{"title":"Buy milk","done":true}`, notTitle},
+		{"a priority", `{"title":"Buy milk","priority":"high"}`, notTitle},
 		{"a duplicate member", `{"title":"Buy milk","title":"Call home"}`, notTitle},
 		{"trailing data", `{"title":"Buy milk"}{}`, notTitle},
 		{"invalid UTF-8", "{\"title\":\"Buy \xff\"}", notTitle},

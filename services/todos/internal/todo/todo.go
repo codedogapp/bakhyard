@@ -10,16 +10,17 @@ import (
 )
 
 // listSQL selects every todo, done or not, newest first (decision 104).
-const listSQL = `SELECT id, title, done FROM todos ORDER BY id DESC`
+const listSQL = `SELECT id, title, done, priority FROM todos ORDER BY id DESC`
 
-// addSQL stores a todo with the title $1 and returns it.
-const addSQL = `INSERT INTO todos (title) VALUES ($1) RETURNING id, title, done`
+// addSQL stores a todo with the title $1 and returns it; the database makes it Normal.
+const addSQL = `INSERT INTO todos (title) VALUES ($1) RETURNING id, title, done, priority`
 
 // Todo is one of the user's todos.
 type Todo struct {
-	ID    int64  `json:"id"`
-	Title string `json:"title"`
-	Done  bool   `json:"done"`
+	ID       int64    `json:"id"`
+	Title    string   `json:"title"`
+	Done     bool     `json:"done"`
+	Priority Priority `json:"priority"`
 }
 
 // Store keeps the todos in todos' database.
@@ -45,9 +46,9 @@ func (s *Store) List(ctx context.Context) ([]Todo, error) {
 	return todos, nil
 }
 
-// Add trims title, stores it as a new todo and returns the todo. A title that is empty once
-// trimmed, has more than 500 characters or has a control character gets an error that wraps
-// ErrTitle, and nothing is stored.
+// Add trims title, stores it as a new todo, which is Normal, and returns the todo. A title that is
+// empty once trimmed, has more than 500 characters or has a control character gets an error that
+// wraps ErrTitle, and nothing is stored.
 func (s *Store) Add(ctx context.Context, title string) (Todo, error) {
 	title, err := cleanTitle(title)
 	if err != nil {
@@ -56,7 +57,8 @@ func (s *Store) Add(ctx context.Context, title string) (Todo, error) {
 
 	var added Todo
 
-	err = s.pool.QueryRow(ctx, addSQL, title).Scan(&added.ID, &added.Title, &added.Done)
+	err = s.pool.QueryRow(ctx, addSQL, title).
+		Scan(&added.ID, &added.Title, &added.Done, &added.Priority)
 	if err != nil {
 		return Todo{}, fmt.Errorf("add the todo: %w", err)
 	}
