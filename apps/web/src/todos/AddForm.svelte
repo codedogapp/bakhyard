@@ -2,7 +2,7 @@
 import { addLabel } from './labels';
 import type { TodosState } from './state.svelte';
 
-let { list }: { list: TodosState } = $props();
+let { list, field = $bindable() }: { list: TodosState; field?: HTMLInputElement } = $props();
 
 function submit(event: SubmitEvent): void {
   event.preventDefault();
@@ -19,6 +19,7 @@ function submit(event: SubmitEvent): void {
     placeholder="New todo"
     readonly={list.busy}
     bind:value={list.draft}
+    bind:this={field}
   >
   <!-- aria-disabled, not disabled, so focus stays on the button while it waits. -->
   <button class="form-button" type="submit" aria-disabled={list.busy}>Add</button>

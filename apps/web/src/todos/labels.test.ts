@@ -41,7 +41,9 @@ test.each([
     status: { kind: 'refused', reason: 'invalid title: empty once trimmed' },
     want: 'invalid title: empty once trimmed',
   },
-  { status: { kind: 'failed' }, want: 'Save failed' },
+  { status: { kind: 'saveFailed' }, want: 'Save failed' },
+  { status: { kind: 'deleting' }, want: 'Deleting…' },
+  { status: { kind: 'deleteFailed' }, want: 'Delete failed' },
 ] as const)('labels the edit $status.kind as "$want"', ({ status, want }) => {
   expect(editLabel(status)).toBe(want);
 });

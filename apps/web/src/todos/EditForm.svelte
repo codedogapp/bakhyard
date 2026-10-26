@@ -22,11 +22,20 @@ function submit(event: SubmitEvent): void {
       onkeydown={editor.keydown}
       {@attach focusField}
     >
-    <!-- The buttons wrap together, under the field, on a narrow screen. -->
+    <!-- The buttons wrap under the field on a narrow screen, and Delete under the others on the narrowest. -->
     <span class="buttons">
       <button class="form-button" type="submit" aria-disabled={editor.busy}>Save</button>
       <button class="form-button" type="button" aria-disabled={editor.busy} onclick={() => editor.close()}>
         Cancel
+      </button>
+      <button
+        class="form-button"
+        type="button"
+        aria-disabled={editor.busy}
+        onclick={() => editor.confirmDelete()}
+        {@attach editor.deleteButton}
+      >
+        Delete
       </button>
     </span>
   </div>
@@ -51,7 +60,7 @@ input {
 
 .buttons {
   display: flex;
-  flex: none;
+  flex-wrap: wrap;
   gap: 12px;
 }
 </style>

@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { addTodo, fetchTodos, renameTodo, tickTodo } from './api';
+import { addTodo, deleteTodo, fetchTodos, renameTodo, tickTodo } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -129,4 +129,24 @@ test('fails to rename when the gateway can not be reached', async () => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
 
   await expect(renameTodo(4, 'Call the bank')).rejects.toThrow('Failed to fetch');
+});
+
+test.each([204, 404])('deletes a todo through the gateway, which answers %i', async (status) => {
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status }));
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(deleteTodo(4)).resolves.toBeUndefined();
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/todos/4', { method: 'DELETE' });
+});
+
+test.each([200, 400, 401, 405, 500, 502])('fails to delete when the gateway answers with %i', async (status) => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status })));
+
+  await expect(deleteTodo(4)).rejects.toThrow(`DELETE /api/todos/4: ${status}`);
+});
+
+test('fails to delete when the gateway can not be reached', async () => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
+
+  await expect(deleteTodo(4)).rejects.toThrow('Failed to fetch');
 });

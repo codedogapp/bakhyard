@@ -190,3 +190,22 @@ test('shows the save running, then the reason the service refused the title for'
   expect(screen.getByRole('textbox', { name: 'Title' })).not.toHaveAttribute('readonly');
   expect(screen.getByRole('button', { name: 'Edit Buy milk' })).toHaveAttribute('aria-disabled', 'false');
 });
+
+test('deletes a todo from its editor, then gives the focus to the Add field once none is left', async () => {
+  const fetchMock = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ todos: [bank] }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(TodosPage);
+
+  await fireEvent.click(await screen.findByRole('button', { name: 'Edit Call the bank' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+  const dialog = screen.getByRole('alertdialog', { name: 'Delete this todo?' });
+  await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+  await waitFor(() => expect(screen.getByRole('textbox', { name: 'New todo' })).toHaveFocus());
+  expect(screen.getByText('No todos on the list.')).toBeInTheDocument();
+  expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  expect(fetchMock).toHaveBeenLastCalledWith('/api/todos/2', { method: 'DELETE' });
+});

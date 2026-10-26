@@ -82,3 +82,14 @@ export async function renameTodo(id: number, title: string): Promise<Renamed> {
   const todo: Todo = await response.json();
   return { kind: 'renamed', todo };
 }
+
+/**
+ * Deletes the todo for good. A 404 counts as deleted, since the todo is gone either way, say deleted from another
+ * device; fails on any other answer but a 204.
+ */
+export async function deleteTodo(id: number): Promise<void> {
+  const response = await fetch(`${url}/${id}`, { method: 'DELETE' });
+  if (response.status !== 204 && response.status !== 404) {
+    throw new Error(`DELETE ${url}/${id}: ${response.status}`);
+  }
+}
