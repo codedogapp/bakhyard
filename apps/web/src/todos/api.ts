@@ -99,9 +99,12 @@ export async function editTodo(id: number, edit: Edit): Promise<Edited> {
   return { kind: 'edited', todo };
 }
 
-/** Moves the todo right before or right after another; fails on any answer but a 200. */
-export async function moveTodo(id: number, place: Place): Promise<void> {
-  const response = await patchTodo(id, place);
+/**
+ * Moves the todo right before or right after another, and into the priority's group if given, in one request; fails
+ * on any answer but a 200.
+ */
+export async function moveTodo(id: number, place: Place, priority?: Priority): Promise<void> {
+  const response = await patchTodo(id, priority === undefined ? place : { ...place, priority });
   if (response.status !== 200) {
     throw new Error(`PATCH ${url}/${id}: ${response.status}`);
   }

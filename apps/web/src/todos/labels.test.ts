@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { addLabel, editLabel, groupNote, priorityLabel, tickLabel, todosSummary } from './labels';
+import { addLabel, editLabel, groupNote, priorityLabel, rowLabel, tickLabel, todosSummary } from './labels';
 
 test.each([
   { count: 0, want: 'No todos on the list.' },
@@ -49,6 +49,19 @@ test.each([
 ] as const)('labels the tick $tick as "$want"', ({ tick, want }) => {
   expect(tickLabel(tick)).toBe(want);
 });
+
+test.each([
+  { tick: undefined, dropFailed: false, want: '' },
+  { tick: { kind: 'ticking', done: true }, dropFailed: true, want: 'Move failed' },
+  { tick: undefined, dropFailed: true, want: 'Move failed' },
+  { tick: { kind: 'failed', done: false }, dropFailed: true, want: 'Untick failed' },
+  { tick: { kind: 'failed', done: true }, dropFailed: false, want: 'Tick failed' },
+] as const)(
+  'labels a row with the tick $tick and a failed drop $dropFailed as "$want"',
+  ({ tick, dropFailed, want }) => {
+    expect(rowLabel(tick, dropFailed)).toBe(want);
+  }
+);
 
 test.each([
   { status: { kind: 'idle' }, want: '' },
