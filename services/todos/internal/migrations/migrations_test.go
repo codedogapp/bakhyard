@@ -29,15 +29,16 @@ func TestTheMigrationsMakeTheTodos(t *testing.T) {
 		{
 			"migrations",
 			"SELECT version_id::text FROM goose_db_version WHERE version_id > 0 ORDER BY id",
-			[]string{"1"},
+			[]string{"1", "2"},
 		},
 		{
 			"columns",
-			`SELECT concat_ws(' ', column_name, data_type, is_nullable, identity_generation)
+			`SELECT concat_ws(' ', column_name, data_type, is_nullable, column_default,
+identity_generation)
 FROM information_schema.columns
 WHERE table_schema = current_schema() AND table_name = 'todos'
 ORDER BY ordinal_position`,
-			[]string{"id bigint NO ALWAYS", "title text NO"},
+			[]string{"id bigint NO ALWAYS", "title text NO", "done boolean NO false"},
 		},
 		{
 			"primary key",

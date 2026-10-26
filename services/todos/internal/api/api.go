@@ -16,11 +16,14 @@ type list struct {
 	Todos []todo.Todo `json:"todos"`
 }
 
-// Register serves the todos in store on router: GET /todos lists them and POST /todos adds one.
-// Other methods get 405, and logger gets the errors that reading and adding the todos run into.
+// Register serves the todos in store on router: GET /todos lists them, POST /todos adds one,
+// PATCH /todos/{id} changes one and DELETE /todos/{id} deletes one. Other methods get 405, and
+// logger gets the errors that the database runs into.
 func Register(router chi.Router, store *todo.Store, logger *slog.Logger) {
 	router.Get("/todos", listTodos(store, logger))
 	router.Post("/todos", addTodo(store, logger))
+	router.Patch("/todos/{id}", changeTodo(store, logger))
+	router.Delete("/todos/{id}", deleteTodo(store, logger))
 }
 
 // listTodos returns the handler of GET /todos. When the todos can't be read, the client gets a

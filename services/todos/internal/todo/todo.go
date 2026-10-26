@@ -9,16 +9,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// listSQL selects every todo, newest first (decision 104).
-const listSQL = `SELECT id, title FROM todos ORDER BY id DESC`
+// listSQL selects every todo, done or not, newest first (decision 104).
+const listSQL = `SELECT id, title, done FROM todos ORDER BY id DESC`
 
 // addSQL stores a todo with the title $1 and returns it.
-const addSQL = `INSERT INTO todos (title) VALUES ($1) RETURNING id, title`
+const addSQL = `INSERT INTO todos (title) VALUES ($1) RETURNING id, title, done`
 
 // Todo is one of the user's todos.
 type Todo struct {
 	ID    int64  `json:"id"`
 	Title string `json:"title"`
+	Done  bool   `json:"done"`
 }
 
 // Store keeps the todos in todos' database.
@@ -55,7 +56,7 @@ func (s *Store) Add(ctx context.Context, title string) (Todo, error) {
 
 	var added Todo
 
-	err = s.pool.QueryRow(ctx, addSQL, title).Scan(&added.ID, &added.Title)
+	err = s.pool.QueryRow(ctx, addSQL, title).Scan(&added.ID, &added.Title, &added.Done)
 	if err != nil {
 		return Todo{}, fmt.Errorf("add the todo: %w", err)
 	}

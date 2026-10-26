@@ -13,7 +13,7 @@ func TestPostTodosAddsATodo(t *testing.T) {
 
 	rec := post(t, router, `{"title":"  Buy <milk> & \"eggs\"  "}`)
 
-	want := `{"id":1,"title":"Buy <milk> & \"eggs\""}`
+	want := `{"id":1,"title":"Buy <milk> & \"eggs\"","done":false}`
 	if rec.Code != http.StatusCreated || rec.Body.String() != want ||
 		rec.Header().Get("Content-Type") != "application/json" {
 		t.Errorf("got %d %s (%s), want 201 %s as JSON",
