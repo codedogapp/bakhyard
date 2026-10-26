@@ -57,9 +57,6 @@ func TestPatchTodoRefusesABadMove(t *testing.T) {
 
 	list := get(t, router).Body.String()
 
-	const notChange = "the body isn't a JSON object with just a title, a done mark, a priority " +
-		"and the ID of a todo to go before or after\n"
-
 	for _, test := range []struct {
 		target, body string
 		code         int

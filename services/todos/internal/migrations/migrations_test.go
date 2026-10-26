@@ -26,7 +26,7 @@ func TestTheMigrationsMakeTheTodos(t *testing.T) {
 		{
 			"migrations",
 			"SELECT version_id::text FROM goose_db_version WHERE version_id > 0 ORDER BY id",
-			[]string{"1", "2", "3", "4"},
+			[]string{"1", "2", "3", "4", "5"},
 		},
 		{
 			"columns",
@@ -38,6 +38,7 @@ ORDER BY ordinal_position`,
 			[]string{
 				"id bigint NO ALWAYS", "title text NO", "done boolean NO false",
 				"priority text NO 'normal'::text", "position bigint NO BY DEFAULT",
+				"jira_key text YES",
 			},
 		},
 		{
@@ -118,6 +119,22 @@ func TestTheTodosStoredBeforeThePositionKeepTheirOrder(t *testing.T) {
 
 	want := []string{"5 5 Water", "4 4 Book", "3 3 Pay rent", "1 1 Buy milk"}
 	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestTheTodosStoredBeforeTheTicketNameNone(t *testing.T) {
+	schema := databasetest.NewSchema(t)
+
+	_, err := open(t, schema, upTo(t, "00004_position.sql")).Exec(t.Context(),
+		"INSERT INTO todos (title, priority) VALUES ('Buy milk', 'high')")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := texts(t, open(t, schema, migrations.FS()),
+		"SELECT concat_ws(' ', id, title, priority, (jira_key IS NULL)::text) FROM todos")
+	if want := []string{"1 Buy milk high true"}; !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
