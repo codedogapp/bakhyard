@@ -10,17 +10,13 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/codedogapp/bakhyard/internal/database"
 	"github.com/codedogapp/bakhyard/internal/env"
-	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/migrations"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/pin"
-	"github.com/codedogapp/bakhyard/services/gateway/internal/proxy"
-	"github.com/codedogapp/bakhyard/services/gateway/internal/secure"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/session"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/signin"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/tailscale"
@@ -53,12 +49,24 @@ type passwordReader func(ctx context.Context, serviceName, account string) (stri
 func main() {
 	password := keychain.NewReader(keychain.Security).Password
 
-	err := service.Run(os.Getenv, func(getenv func(string) string) (http.Handler, error) {
-		return routes(getenv, password)
-	})
+	err := service.Run(os.Getenv, served(password))
 	if err != nil {
 		slog.Error("failed", "err", err)
 		os.Exit(1)
+	}
+}
+
+// served returns the routes this build serves: the real gateway's, or the open ones of the build
+// for the end-to-end tests (decision 107), which it warns of.
+func served(password passwordReader) service.Routes {
+	if e2e {
+		slog.Warn("authentication is off: this gateway is built for the end-to-end tests")
+
+		return openRoutes
+	}
+
+	return func(getenv func(string) string) (http.Handler, error) {
+		return routes(getenv, password)
 	}
 }
 
@@ -89,39 +97,17 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 	}
 
 	logger := slog.Default()
-	identified := tailscale.RequireLogin(login, host, logger)
+	guard := locks{
+		identified: tailscale.RequireLogin(login, host, logger),
+		signedIn:   session.Require(sessions, logger),
+		// Signing out takes POST alone, so that a link or a prefetch can't sign the user out.
+		signing: func(router chi.Router) {
+			signin.New(settings, sessions, pins, logger).Register(router)
+			router.Method(http.MethodPost, "/auth/logout", session.SignOut(sessions, logger))
+		},
+	}
 
-	router := chi.NewRouter()
-	// Every response gets the security headers, refusals included (decision 95). Then refuse what
-	// other sites' pages send here with a method other than GET, HEAD or OPTIONS: the browser adds
-	// the user's cookies (decision 88). Then answer HEAD wherever GET is served.
-	router.Use(secure.Headers, http.NewCrossOriginProtection().Handler, middleware.GetHead)
-	// The gateway's own health check, so /healthz never reaches web (decision 59). It needs no
-	// login: process-compose's probe calls the gateway directly.
-	health.Register(router)
-	// Signing in and out needs the Tailscale identity only. Signing out takes POST alone, so that
-	// a link or a prefetch can't sign the user out.
-	router.Group(func(signingIn chi.Router) {
-		signingIn.Use(identified)
-		signin.New(settings, sessions, pins, logger).Register(signingIn)
-		signingIn.Method(http.MethodPost, "/auth/logout", session.SignOut(sessions, logger))
-	})
-	// The API needs a session as well (decision 86).
-	router.Group(func(api chi.Router) {
-		api.Use(identified, session.Require(sessions, logger), session.Hide)
-		proxy.Register(api, "home", upstream.home, logger)
-		proxy.Register(api, "notes", upstream.notes, logger)
-		proxy.Register(api, "todos", upstream.todos, logger)
-		proxy.RegisterUnclaimed(api)
-	})
-	// The app's files hold no data, so they need the Tailscale identity only. This group is the
-	// root router's child, so that its web fallback, chi's NotFound handler, reaches the root router.
-	router.Group(func(app chi.Router) {
-		app.Use(identified, session.Hide)
-		proxy.RegisterFallback(app, "web", upstream.web, logger)
-	})
-
-	return router, nil
+	return wire(upstream, guard, logger), nil
 }
 
 // upstreams are the URLs of the services that the gateway forwards to.
