@@ -9,9 +9,9 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-const rent = { id: 3, title: 'Pay the rent', done: false };
-const bank = { id: 2, title: 'Call the bank', done: false };
-const milk = { id: 1, title: 'Buy milk', done: true };
+const rent: Todo = { id: 3, title: 'Pay the rent', done: false, priority: 'normal' };
+const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
+const milk: Todo = { id: 1, title: 'Buy milk', done: true, priority: 'normal' };
 
 /** An editor over the list, with the page's dialog and the rows' Edit buttons, open on the todo with its Delete. */
 function deleting(todos: Todo[], todo: Todo) {
@@ -81,6 +81,21 @@ test.each([
     expect(focusAdd).not.toHaveBeenCalled();
   }
 );
+
+const urgentBank: Todo = { ...bank, priority: 'high' };
+
+test.each([
+  { todo: urgentBank, focus: 3 },
+  { todo: rent, focus: 1 },
+  { todo: milk, focus: 3 },
+])('moves the focus on from $todo.title in the page order, High first, to todo $focus', async ({ todo, focus }) => {
+  serve(deleted());
+  const { editor, edits } = deleting([rent, urgentBank, milk], todo);
+
+  await editor.delete();
+
+  expect(document.activeElement).toBe(edits.get(focus));
+});
 
 test('gives the focus to the Add field once no todo is left', async () => {
   serve(deleted());

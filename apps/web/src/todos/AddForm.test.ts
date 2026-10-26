@@ -2,14 +2,15 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import AddForm from './AddForm.svelte';
+import type { Todo } from './api';
 import { TodosState } from './state.svelte';
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const milk = { id: 1, title: 'Buy milk', done: false };
-const bank = { id: 2, title: 'Call the bank', done: false };
+const milk: Todo = { id: 1, title: 'Buy milk', done: false, priority: 'normal' };
+const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
 
 function renderForm(): TodosState {
   const list = new TodosState();

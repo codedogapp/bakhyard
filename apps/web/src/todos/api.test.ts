@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { addTodo, deleteTodo, fetchTodos, renameTodo, tickTodo } from './api';
+import { addTodo, deleteTodo, fetchTodos, renameTodo, type Todo, tickTodo } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -8,8 +8,8 @@ afterEach(() => {
 
 test('lists the todos through the gateway', async () => {
   const todos = [
-    { id: 2, title: 'Call home', done: false },
-    { id: 1, title: 'Buy milk', done: true },
+    { id: 2, title: 'Call home', done: false, priority: 'normal' },
+    { id: 1, title: 'Buy milk', done: true, priority: 'normal' },
   ];
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos }));
   vi.stubGlobal('fetch', fetchMock);
@@ -31,7 +31,7 @@ test('fails when the gateway can not be reached', async () => {
 });
 
 test('adds a todo with the title as typed', async () => {
-  const todo = { id: 4, title: 'Call the bank', done: false };
+  const todo: Todo = { id: 4, title: 'Call the bank', done: false, priority: 'normal' };
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(todo, { status: 201 }));
   vi.stubGlobal('fetch', fetchMock);
 
@@ -66,7 +66,7 @@ test('fails to add when the gateway can not be reached', async () => {
 });
 
 test.each([true, false])('saves the done mark %s through the gateway', async (done) => {
-  const todo = { id: 4, title: 'Call the bank', done };
+  const todo: Todo = { id: 4, title: 'Call the bank', done, priority: 'normal' };
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(todo));
   vi.stubGlobal('fetch', fetchMock);
 
@@ -97,7 +97,7 @@ test('fails to tick when the gateway can not be reached', async () => {
 });
 
 test('renames a todo with the title as typed', async () => {
-  const todo = { id: 4, title: 'Call the bank today', done: true };
+  const todo: Todo = { id: 4, title: 'Call the bank today', done: true, priority: 'normal' };
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(todo));
   vi.stubGlobal('fetch', fetchMock);
 

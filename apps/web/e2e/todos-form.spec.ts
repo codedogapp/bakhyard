@@ -22,7 +22,7 @@ async function serveTodos(page: Page, list: Todo[], add: (title: string) => Answ
 }
 
 function added(title: string): Answer {
-  return { status: 201, json: { id: 4, title: title.trim(), done: false } };
+  return { status: 201, json: { id: 4, title: title.trim(), done: false, priority: 'normal' } };
 }
 
 /** The add's status line; each row of the list has a status line of its own. */
@@ -36,7 +36,7 @@ test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
 });
 
-test('Enter adds the todo on top of the list', async ({ page }) => {
+test('Enter adds the todo on top of the Normal group', async ({ page }) => {
   const posted = await serveTodos(page, todos, added);
   await page.goto('/todos');
   const field = page.getByRole('textbox', { name: 'New todo' });
@@ -45,9 +45,11 @@ test('Enter adds the todo on top of the list', async ({ page }) => {
   await field.press('Enter');
 
   await expect(page.getByText('4 todos on the list.')).toBeVisible();
+  // The demo's first todo is High, so the new todo, a Normal one, comes after it.
   await expect(page.getByRole('main').getByRole('listitem').locator('label')).toHaveText([
+    titles[0],
     'Pick up the dry cleaning',
-    ...titles,
+    ...titles.slice(1),
   ]);
   await expect(addStatus(page)).toHaveText('Added');
   await expect(field).toHaveValue('');

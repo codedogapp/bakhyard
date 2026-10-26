@@ -15,7 +15,7 @@ test('has no todos until the list loads', () => {
 });
 
 test('loads the todos', async () => {
-  const todos = [{ id: 1, title: 'Buy milk', done: false }];
+  const todos = [{ id: 1, title: 'Buy milk', done: false, priority: 'normal' }];
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })));
   const list = new TodosState();
 
@@ -42,8 +42,21 @@ function loaded(todos: readonly Todo[] | undefined, draft: string): TodosState {
   return list;
 }
 
-const milk = { id: 1, title: 'Buy milk', done: false };
-const bank = { id: 2, title: 'Call the bank', done: false };
+const milk: Todo = { id: 1, title: 'Buy milk', done: false, priority: 'normal' };
+const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
+
+test('groups the todos by priority as they change, with no group until the list loads', () => {
+  const list = new TodosState();
+  expect(list.groups).toEqual([]);
+  const urgentBank: Todo = { ...bank, priority: 'high' };
+
+  list.todos = [milk, urgentBank];
+
+  expect(list.groups).toEqual([
+    { priority: 'high', todos: [urgentBank] },
+    { priority: 'normal', todos: [milk] },
+  ]);
+});
 
 test('adds the draft on top of the list and empties the draft', async () => {
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(bank, { status: 201 }));

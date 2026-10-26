@@ -2,6 +2,7 @@ import { flushSync } from 'svelte';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
+import type { Todo } from './api';
 import DeleteDialog from './DeleteDialog.svelte';
 import { Editor } from './editor.svelte';
 import { TodosState } from './state.svelte';
@@ -10,7 +11,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const bank = { id: 2, title: 'Call the bank', done: false };
+const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
 
 /** The dialog, open and asking about the todo whose editor is open, with a new title typed. */
 function asking(): Editor {

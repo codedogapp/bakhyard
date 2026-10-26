@@ -9,8 +9,8 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-const milk = { id: 1, title: 'Buy milk', done: true };
-const bank = { id: 2, title: 'Call the bank', done: false };
+const milk: Todo = { id: 1, title: 'Buy milk', done: true, priority: 'normal' };
+const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
 
 /** An editor over the list, open on its first todo, with the draft typed. */
 function editing(todos: Todo[], draft: string): { list: TodosState; editor: Editor } {

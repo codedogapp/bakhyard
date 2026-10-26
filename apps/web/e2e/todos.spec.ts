@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
 });
 
-test('the Todos page lists the todos, newest first', async ({ page }) => {
+test('the Todos page lists the todos', async ({ page }) => {
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos } }));
   await page.goto('/todos');
 
@@ -44,7 +44,9 @@ test('the Todos page loads the list again each time it shows', async ({ page }) 
 test('a long title wraps on a narrow screen', async ({ page }) => {
   const title = `Read ${'x'.repeat(200)}`;
   await page.setViewportSize({ width: 320, height: 640 });
-  await page.route('/api/todos', (route) => route.fulfill({ json: { todos: [{ id: 1, title }] } }));
+  await page.route('/api/todos', (route) =>
+    route.fulfill({ json: { todos: [{ id: 1, title, done: false, priority: 'normal' }] } })
+  );
   await page.goto('/todos');
 
   await expect(page.getByRole('main').getByRole('listitem').locator('label')).toHaveText(title);

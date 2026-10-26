@@ -1,3 +1,4 @@
+import type { Priority } from './api';
 import type { EditStatus } from './editor.svelte';
 import type { AddStatus, Tick } from './state.svelte';
 
@@ -11,6 +12,18 @@ export function todosSummary(count: number): string {
     default:
       return `${count} todos on the list.`;
   }
+}
+
+const priorityLabels: Record<Priority, string> = { high: 'High', normal: 'Normal', low: 'Low' };
+
+/** A priority's name: "High", "Normal" or "Low". */
+export function priorityLabel(priority: Priority): string {
+  return priorityLabels[priority];
+}
+
+/** A priority group's count: "1 todo" or "3 todos". */
+export function groupNote(count: number): string {
+  return count === 1 ? '1 todo' : `${count} todos`;
 }
 
 /** What the last add did: "Adding…", "Added", the service's reason or "Add failed"; blank before the first add. */

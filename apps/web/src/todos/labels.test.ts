@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { addLabel, editLabel, tickLabel, todosSummary } from './labels';
+import { addLabel, editLabel, groupNote, priorityLabel, tickLabel, todosSummary } from './labels';
 
 test.each([
   { count: 0, want: 'No todos on the list.' },
@@ -9,6 +9,22 @@ test.each([
   { count: 120, want: '120 todos on the list.' },
 ])('sums up $count todos as "$want"', ({ count, want }) => {
   expect(todosSummary(count)).toBe(want);
+});
+
+test.each([
+  { priority: 'high', want: 'High' },
+  { priority: 'normal', want: 'Normal' },
+  { priority: 'low', want: 'Low' },
+] as const)('names the priority $priority "$want"', ({ priority, want }) => {
+  expect(priorityLabel(priority)).toBe(want);
+});
+
+test.each([
+  { count: 1, want: '1 todo' },
+  { count: 2, want: '2 todos' },
+  { count: 120, want: '120 todos' },
+])('counts a group of $count as "$want"', ({ count, want }) => {
+  expect(groupNote(count)).toBe(want);
 });
 
 test.each([
