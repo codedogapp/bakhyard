@@ -5,6 +5,7 @@ import PageHead from '../shell/PageHead.svelte';
 import Section from '../shell/Section.svelte';
 import AddForm from './AddForm.svelte';
 import DeleteDialog from './DeleteDialog.svelte';
+import { Drag } from './drag.svelte';
 import { Editor } from './editor.svelte';
 import { Focus } from './focus';
 import { groupNote, priorityLabel, todosSummary } from './labels';
@@ -15,6 +16,7 @@ const list = new TodosState();
 let addField = $state<HTMLInputElement>();
 const focus = new Focus(() => addField?.focus());
 const editor = new Editor(list, focus);
+const drag = new Drag(list, editor);
 
 onMount(() => {
   void list.load();
@@ -30,7 +32,7 @@ onMount(() => {
     <Section title={priorityLabel(group.priority)} accent="priority" note={groupNote(group.todos.length)}>
       <ul class="card">
         {#each group.todos as todo (todo.id)}
-          <TodoRow {list} {todo} {editor} {focus} />
+          <TodoRow {list} {todo} {editor} {focus} {drag} />
         {/each}
       </ul>
     </Section>

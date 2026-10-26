@@ -1,7 +1,8 @@
 import { SvelteMap } from 'svelte/reactivity';
 
-import { addTodo, fetchTodos, type Place, type Refused, type Todo, tickTodo } from './api';
+import { addTodo, fetchTodos, moveTodo, type Place, type Priority, type Refused, type Todo, tickTodo } from './api';
 import { groupTodos } from './groups';
+import type { Target } from './target';
 
 /** The last add: running, or how it ended. */
 export type AddStatus = { kind: 'idle' | 'adding' | 'added' | 'failed' } | Refused;
@@ -25,6 +26,10 @@ export class TodosState {
   addStatus = $state.raw<AddStatus>({ kind: 'idle' });
   /** The ticks that run or have failed, by the todo's ID; a tick that succeeds leaves none. */
   readonly ticks = new SvelteMap<number, Tick>();
+  /** Whether a dropped todo is being saved; until it is, no drag starts. */
+  dropping = $state(false);
+  /** The todo whose last drop failed, if the last drop did; its row says so. */
+  dropFailed = $state<number>();
 
   /** Whether an add is running; until it ends, another add does nothing. */
   get busy(): boolean {
@@ -109,6 +114,37 @@ export class TodosState {
       return;
     }
     this.todos = rest.toSpliced('before' in place ? at : at + 1, 0, todo);
+  }
+
+  /**
+   * Puts the dropped todo in its new place and group at once, then saves both in one request; a failed save puts it
+   * back, next to the todo it was next to, with its priority (decision 120).
+   */
+  async drop(id: number, target: Target): Promise<void> {
+    const at = this.todos?.findIndex((todo) => todo.id === id) ?? -1;
+    const [todo, next, previous] = [this.todos?.[at], this.todos?.[at + 1], this.todos?.[at - 1]];
+    if (todo === undefined) {
+      return;
+    }
+    const back: Place | undefined = next ? { before: next.id } : previous && { after: previous.id };
+    this.dropping = true;
+    this.dropFailed = undefined;
+    this.put(id, target.place, target.priority);
+    try {
+      await moveTodo(id, target.place, target.priority === todo.priority ? undefined : target.priority);
+    } catch {
+      this.put(id, back, todo.priority);
+      this.dropFailed = id;
+    } finally {
+      this.dropping = false;
+    }
+  }
+
+  private put(id: number, place: Place | undefined, priority: Priority): void {
+    if (place) {
+      this.move(id, place);
+    }
+    this.change(id, (todo) => ({ ...todo, priority }));
   }
 
   private change(id: number, change: (todo: Todo) => Todo): void {

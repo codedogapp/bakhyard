@@ -50,6 +50,11 @@ export function tickLabel(tick: Tick | undefined): string {
   return tick.done ? 'Tick failed' : 'Untick failed';
 }
 
+/** What a row's status line says: a failed tick's text, else "Move failed" if the todo's last drop failed. */
+export function rowLabel(tick: Tick | undefined, dropFailed: boolean): string {
+  return tickLabel(tick) || (dropFailed ? 'Move failed' : '');
+}
+
 /**
  * What the editor's last save, delete or move did, unless a save or a delete succeeded: "Saving…", the service's
  * reason, "Save failed", "Deleting…", "Delete failed", "Moving…", "Moved up", "Moved down" or "Move failed".
