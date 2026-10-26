@@ -68,6 +68,7 @@ test.each<[string, Tickets, string[]]>([
   ],
   ['no open tickets', { kind: 'loaded', snapshot: { tickets: [] } }, []],
   ['a failure before any search succeeded', { kind: 'loaded', snapshot: { failure: 'search Jira: 401' } }, []],
+  ['an empty snapshot, as a stopping service answers', { kind: 'loaded', snapshot: {} }, []],
   ['tickets still loading', { kind: 'loading' }, []],
   ['Jira off', { kind: 'off' }, []],
   ['tickets that failed to load', { kind: 'failed' }, []],
