@@ -37,15 +37,22 @@ export function tickLabel(tick: Tick | undefined): string {
   return tick.done ? 'Tick failed' : 'Untick failed';
 }
 
-/** What the editor's last save did, unless it succeeded: "Saving…", the service's reason or "Save failed". */
+/**
+ * What the editor's last save or delete did, unless it succeeded: "Saving…", the service's reason, "Save failed",
+ * "Deleting…" or "Delete failed".
+ */
 export function editLabel(status: EditStatus): string {
   switch (status.kind) {
     case 'saving':
       return 'Saving…';
     case 'refused':
       return status.reason;
-    case 'failed':
+    case 'saveFailed':
       return 'Save failed';
+    case 'deleting':
+      return 'Deleting…';
+    case 'deleteFailed':
+      return 'Delete failed';
     default:
       return '';
   }

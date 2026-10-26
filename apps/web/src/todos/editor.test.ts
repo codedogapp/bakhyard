@@ -16,7 +16,7 @@ const bank = { id: 2, title: 'Call the bank', done: false };
 function editing(todos: Todo[], draft: string): { list: TodosState; editor: Editor } {
   const list = new TodosState();
   list.todos = todos;
-  const editor = new Editor(list);
+  const editor = new Editor(list, () => undefined);
   editor.open(todos[0]);
   editor.draft = draft;
   return { list, editor };
@@ -34,7 +34,7 @@ function button(): HTMLButtonElement {
 
 test('opens on one todo at a time, with its title, and drops the other draft', () => {
   const { editor } = editing([bank, milk], 'Call the bank today');
-  editor.status = { kind: 'failed' };
+  editor.status = { kind: 'saveFailed' };
 
   editor.open(milk);
 
@@ -109,7 +109,7 @@ test('says the save failed, keeps the draft, and saves on the next try', async (
   const { list, editor } = editing([bank, milk], 'Call the bank today');
 
   await editor.save();
-  expect(editor.status).toEqual({ kind: 'failed' });
+  expect(editor.status).toEqual({ kind: 'saveFailed' });
   expect([editor.id, editor.draft]).toEqual([2, 'Call the bank today']);
   await editor.save();
 
@@ -148,19 +148,31 @@ test.each([
   expect(editor.id).toBe(closes ? undefined : 2);
 });
 
-test('gives the focus back to the Edit button of the editor that closed, once', () => {
+test('gives the focus back to the Edit button of the todo whose editor closed', () => {
   const { editor } = editing([bank, milk], 'Call the bank today');
   const [bankEdit, milkEdit] = [button(), button()];
+  editor.editButton(2)(bankEdit);
+  editor.editButton(1)(milkEdit);
 
   editor.close();
-  editor.editButton(1)(milkEdit);
-  expect(document.activeElement).toBe(document.body);
-  editor.editButton(2)(bankEdit);
-  expect(document.activeElement).toBe(bankEdit);
-  bankEdit.blur();
-  editor.editButton(2)(bankEdit);
 
-  expect(document.activeElement).toBe(document.body);
+  expect(document.activeElement).toBe(bankEdit);
+});
+
+test('leaves the focus where the user moved it while the save ran', async () => {
+  const answer = Promise.withResolvers<Response>();
+  serve(answer.promise);
+  const { editor } = editing([bank, milk], 'Call the bank today');
+  editor.editButton(2)(button());
+  const elsewhere = button();
+
+  const save = editor.save();
+  elsewhere.focus();
+  answer.resolve(Response.json({ ...bank, title: 'Call the bank today' }));
+  await save;
+
+  expect(editor.id).toBeUndefined();
+  expect(document.activeElement).toBe(elsewhere);
 });
 
 test('focuses the field with the caret after the title', () => {

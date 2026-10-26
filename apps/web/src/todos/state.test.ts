@@ -184,3 +184,27 @@ test('clears a failed tick with the next one', async () => {
   expect(list.ticks.has(2)).toBe(false);
   expect(list.todos).toEqual([{ ...bank, done: true }, milk]);
 });
+
+test('takes a deleted todo off the list', () => {
+  const list = loaded([bank, milk], '');
+
+  list.remove(2);
+
+  expect(list.todos).toEqual([milk]);
+});
+
+test.each([
+  ['answers', (answer: PromiseWithResolvers<Response>) => answer.resolve(Response.json({ ...bank, done: true }))],
+  ['fails', (answer: PromiseWithResolvers<Response>) => answer.reject(new TypeError('Failed to fetch'))],
+])('keeps a deleted todo off the list when its tick %s later', async (_, end) => {
+  const answer = Promise.withResolvers<Response>();
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockReturnValue(answer.promise));
+  const list = loaded([bank, milk], '');
+
+  const tick = list.tick(2, true);
+  list.remove(2);
+  end(answer);
+  await tick;
+
+  expect(list.todos).toEqual([milk]);
+});

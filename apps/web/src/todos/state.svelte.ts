@@ -89,6 +89,11 @@ export class TodosState {
     this.change(renamed.id, (todo) => ({ ...todo, title: renamed.title }));
   }
 
+  /** Takes the deleted todo off the list. */
+  remove(id: number): void {
+    this.todos = this.todos?.filter((todo) => todo.id !== id);
+  }
+
   private change(id: number, change: (todo: Todo) => Todo): void {
     this.todos = this.todos?.map((todo) => (todo.id === id ? change(todo) : todo));
   }

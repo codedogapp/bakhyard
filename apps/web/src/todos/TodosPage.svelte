@@ -3,13 +3,15 @@ import { onMount } from 'svelte';
 
 import PageHead from '../shell/PageHead.svelte';
 import AddForm from './AddForm.svelte';
+import DeleteDialog from './DeleteDialog.svelte';
 import { Editor } from './editor.svelte';
 import { todosSummary } from './labels';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
 
 const list = new TodosState();
-const editor = new Editor(list);
+let addField = $state<HTMLInputElement>();
+const editor = new Editor(list, () => addField?.focus());
 
 onMount(() => {
   void list.load();
@@ -19,7 +21,7 @@ onMount(() => {
 <PageHead summary={list.todos && todosSummary(list.todos.length)}>Todos</PageHead>
 <div class="todos">
   {#if list.todos}
-    <AddForm {list} />
+    <AddForm {list} bind:field={addField} />
     {#if list.todos.length > 0}
       <ul class="card">
         {#each list.todos as todo (todo.id)}
@@ -31,6 +33,7 @@ onMount(() => {
     <p class="failed">Couldn't load the todos.</p>
   {/if}
 </div>
+<DeleteDialog {editor} />
 
 <style>
 .todos {
