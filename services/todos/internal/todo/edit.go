@@ -22,44 +22,79 @@ const deleteSQL = `DELETE FROM todos WHERE id = $1`
 // ErrNoTodo is the error for a todo that doesn't exist.
 var ErrNoTodo = errors.New("no such todo")
 
-// Change is what to change in a todo: its title, its done mark, its priority or any of them. A nil
-// field keeps its value.
+// Change is what to change in a todo: its title, its done mark, its priority, its place in the
+// list or any of them. A nil field keeps its value. Before or After names the todo to go right
+// before or right after in the list, never both (decision 118).
 type Change struct {
 	Title    *string   `json:"title"`
 	Done     *bool     `json:"done"`
 	Priority *Priority `json:"priority"`
+	Before   *int64    `json:"before"`
+	After    *int64    `json:"after"`
 }
 
 // Change makes change to the todo todoID and returns the todo. A new title is trimmed and must
 // follow Add's rule, or the error wraps ErrTitle; a priority that isn't High, Normal or Low gets
-// ErrPriority, and a todo that doesn't exist ErrNoTodo. Either way, nothing changes.
+// ErrPriority, a change with both Before and After ErrMove, a todo that doesn't exist ErrNoTodo,
+// and a todo to go next to that doesn't exist an error that wraps ErrNeighbour. Either way,
+// nothing changes.
 func (s *Store) Change(ctx context.Context, todoID int64, change Change) (Todo, error) {
+	change, err := checked(change)
+	if err != nil {
+		return Todo{}, err
+	}
+
+	var changed Todo
+
+	err = pgx.BeginFunc(ctx, s.pool, func(txn pgx.Tx) error {
+		if err := change.wait(ctx, txn); err != nil {
+			return err
+		}
+
+		err := txn.QueryRow(ctx, changeSQL, todoID, change.Title, change.Done, change.Priority).
+			Scan(&changed.ID, &changed.Title, &changed.Done, &changed.Priority)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoTodo
+		}
+
+		if err != nil {
+			return err
+		}
+
+		return change.move(ctx, txn, todoID)
+	})
+
+	switch {
+	case errors.Is(err, ErrNoTodo), errors.Is(err, ErrNeighbour):
+		return Todo{}, err
+	case err != nil:
+		return Todo{}, fmt.Errorf("change the todo: %w", err)
+	}
+
+	return changed, nil
+}
+
+// checked returns change with its title trimmed, or the error of the first rule that it breaks:
+// the title's, the priority's, then the move's.
+func checked(change Change) (Change, error) {
 	if change.Title != nil {
 		title, err := cleanTitle(*change.Title)
 		if err != nil {
-			return Todo{}, err
+			return Change{}, err
 		}
 
 		change.Title = new(title)
 	}
 
 	if change.Priority != nil && !change.Priority.valid() {
-		return Todo{}, ErrPriority
+		return Change{}, ErrPriority
 	}
 
-	var changed Todo
-
-	err := s.pool.QueryRow(ctx, changeSQL, todoID, change.Title, change.Done, change.Priority).
-		Scan(&changed.ID, &changed.Title, &changed.Done, &changed.Priority)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Todo{}, ErrNoTodo
+	if change.Before != nil && change.After != nil {
+		return Change{}, ErrMove
 	}
 
-	if err != nil {
-		return Todo{}, fmt.Errorf("change the todo: %w", err)
-	}
-
-	return changed, nil
+	return change, nil
 }
 
 // Delete deletes the todo todoID for good; a todo that doesn't exist gets ErrNoTodo.

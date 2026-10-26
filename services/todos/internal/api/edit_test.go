@@ -50,7 +50,8 @@ func TestPatchTodoChangesATodo(t *testing.T) {
 
 func TestPatchTodoRefusesABadBody(t *testing.T) {
 	const (
-		notChange   = "the body isn't a JSON object with just a title, a done mark and a priority\n"
+		notChange = "the body isn't a JSON object with just a title, a done mark, a priority " +
+			"and the ID of a todo to go before or after\n"
 		notPriority = "invalid priority: not high, normal or low\n"
 	)
 

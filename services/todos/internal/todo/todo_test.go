@@ -32,6 +32,22 @@ func TestListListsTheNewestFirst(t *testing.T) {
 	}
 }
 
+func TestListPutsTheNewerOfTwoTodosInOnePlaceFirst(t *testing.T) {
+	store, pool := newStore(t)
+	for _, title := range []string{"Buy milk", "Answer mail", "Call home"} {
+		add(t, pool, title)
+	}
+
+	// Nothing in todos puts two todos in one place, but the database's own tools can.
+	if _, err := pool.Exec(t.Context(), "UPDATE todos SET position = 7 WHERE id <> 2"); err != nil {
+		t.Fatal(err)
+	}
+
+	if ids := order(t, store); !slices.Equal(ids, []int64{3, 1, 2}) {
+		t.Errorf("got the order %v, want [3 1 2]", ids)
+	}
+}
+
 func TestListListsNothingWithoutTodos(t *testing.T) {
 	store, _ := newStore(t)
 
