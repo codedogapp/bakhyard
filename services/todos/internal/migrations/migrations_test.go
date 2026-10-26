@@ -26,7 +26,7 @@ func TestTheMigrationsMakeTheTodos(t *testing.T) {
 		{
 			"migrations",
 			"SELECT version_id::text FROM goose_db_version WHERE version_id > 0 ORDER BY id",
-			[]string{"1", "2", "3"},
+			[]string{"1", "2", "3", "4"},
 		},
 		{
 			"columns",
@@ -37,7 +37,7 @@ WHERE table_schema = current_schema() AND table_name = 'todos'
 ORDER BY ordinal_position`,
 			[]string{
 				"id bigint NO ALWAYS", "title text NO", "done boolean NO false",
-				"priority text NO 'normal'::text",
+				"priority text NO 'normal'::text", "position bigint NO BY DEFAULT",
 			},
 		},
 		{
@@ -79,18 +79,8 @@ func TestThePriorityIsHighNormalOrLow(t *testing.T) {
 
 func TestTheTodosStoredBeforeThePriorityAreNormal(t *testing.T) {
 	schema := databasetest.NewSchema(t)
-	before := fstest.MapFS{}
 
-	for _, name := range []string{"00001_todos.sql", "00002_done.sql"} {
-		data, err := fs.ReadFile(migrations.FS(), name)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		before[name] = &fstest.MapFile{Data: data}
-	}
-
-	_, err := open(t, schema, before).Exec(t.Context(),
+	_, err := open(t, schema, upTo(t, "00002_done.sql")).Exec(t.Context(),
 		"INSERT INTO todos (title, done) VALUES ('Buy milk', true)")
 	if err != nil {
 		t.Fatal(err)
@@ -101,6 +91,63 @@ func TestTheTodosStoredBeforeThePriorityAreNormal(t *testing.T) {
 	if want := []string{"1 Buy milk true normal"}; !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
+}
+
+func TestTheTodosStoredBeforeThePositionKeepTheirOrder(t *testing.T) {
+	schema := databasetest.NewSchema(t)
+	before := open(t, schema, upTo(t, "00003_priority.sql"))
+	// The update stores todo 1 after todo 4 on disk, and the delete leaves fewer todos than the
+	// highest ID.
+	for _, sql := range []string{
+		"INSERT INTO todos (title) VALUES ('Buy milk'), ('Call home'), ('Pay rent'), ('Book')",
+		"DELETE FROM todos WHERE id = 2",
+		"UPDATE todos SET done = true WHERE id = 1",
+	} {
+		if _, err := before.Exec(t.Context(), sql); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	pool := open(t, schema, migrations.FS())
+	if _, err := pool.Exec(t.Context(), "INSERT INTO todos (title) VALUES ('Water')"); err != nil {
+		t.Fatal(err)
+	}
+
+	got := texts(t, pool,
+		"SELECT concat_ws(' ', id, position, title) FROM todos ORDER BY position DESC, id DESC")
+
+	want := []string{"5 5 Water", "4 4 Book", "3 3 Pay rent", "1 1 Buy milk"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// upTo returns the migrations up to the one named last.
+func upTo(t *testing.T, last string) fs.FS {
+	t.Helper()
+
+	files := fstest.MapFS{}
+
+	names, err := fs.Glob(migrations.FS(), "*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range names {
+		data, err := fs.ReadFile(migrations.FS(), name)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		files[name] = &fstest.MapFile{Data: data}
+		if name == last {
+			return files
+		}
+	}
+
+	t.Fatalf("no migration %s", last)
+
+	return nil
 }
 
 // open opens schema and runs the migrations in files that it doesn't have yet.
