@@ -11,19 +11,22 @@ import (
 
 // listSQL selects every todo, done or not, in the list's order: a new todo on top, and a moved one
 // where the move put it (decisions 104 and 118). No two todos share a position, but the ID would
-// still put the newer first.
-const listSQL = `SELECT id, title, done, priority FROM todos ORDER BY position DESC, id DESC`
+// still put the newer first. A todo without a ticket gets an empty one.
+const listSQL = `SELECT id, title, done, priority, COALESCE(jira_key, '') FROM todos
+ORDER BY position DESC, id DESC`
 
 // addSQL stores a todo with the title $1 and returns it; the database makes it Normal and puts it
-// on top of the list.
+// on top of the list, without a ticket.
 const addSQL = `INSERT INTO todos (title) VALUES ($1) RETURNING id, title, done, priority`
 
-// Todo is one of the user's todos.
+// Todo is one of the user's todos. Ticket is the key of the Jira ticket that it names, or empty
+// for none, which the JSON leaves out (decision 125).
 type Todo struct {
 	ID       int64    `json:"id"`
 	Title    string   `json:"title"`
 	Done     bool     `json:"done"`
 	Priority Priority `json:"priority"`
+	Ticket   string   `json:"ticket,omitempty"`
 }
 
 // Store keeps the todos in todos' database.

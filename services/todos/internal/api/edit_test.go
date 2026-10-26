@@ -8,6 +8,10 @@ import (
 	"testing"
 )
 
+// notChange is PATCH's refusal of a body that isn't a change.
+const notChange = "the body isn't a JSON object with just a title, a done mark, a priority, " +
+	"a ticket and the ID of a todo to go before or after\n"
+
 func TestPatchTodoChangesATodo(t *testing.T) {
 	router, _, _ := todos(t)
 	post(t, router, `{"title":"Call home"}`)
@@ -49,11 +53,7 @@ func TestPatchTodoChangesATodo(t *testing.T) {
 }
 
 func TestPatchTodoRefusesABadBody(t *testing.T) {
-	const (
-		notChange = "the body isn't a JSON object with just a title, a done mark, a priority " +
-			"and the ID of a todo to go before or after\n"
-		notPriority = "invalid priority: not high, normal or low\n"
-	)
+	const notPriority = "invalid priority: not high, normal or low\n"
 
 	tests := []struct{ name, body, want string }{
 		{"empty", "", notChange},
