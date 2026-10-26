@@ -16,6 +16,7 @@ import { followNavigation } from './shell/navigation';
 import { pageAt, pageTitle, signedOutTitle } from './shell/page';
 import TabBar from './shell/TabBar.svelte';
 import TopBar from './shell/TopBar.svelte';
+import TodosPage from './todos/TodosPage.svelte';
 
 let path = $state(location.pathname);
 const page = $derived(pageAt(path));
@@ -65,6 +66,8 @@ $effect(() =>
       <NotesPage {notes} />
     {:else if page.kind === 'note'}
       <NotePage note={page.note} {notes} />
+    {:else if page.kind === 'todos'}
+      <TodosPage />
     {:else if page.kind === 'app'}
       <AppPage app={page.app} />
     {:else if page.kind === 'more'}

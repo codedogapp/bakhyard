@@ -1,4 +1,5 @@
 import type { Home } from '../src/home/api';
+import type { Todo } from '../src/todos/api';
 
 /** A made-up user's Home at the tests' time (fixtures.ts): three items, one of them late. */
 export const home: Home = {
@@ -24,3 +25,10 @@ export const home: Home = {
   ],
   week: { loggedHours: 31.5, targetHours: 40 },
 };
+
+/** A made-up user's todos, newest first. */
+export const todos: Todo[] = [
+  { id: 3, title: 'Write the release notes for 2.4' },
+  { id: 2, title: 'Book the car in for its winter tyres' },
+  { id: 1, title: 'Renew the passport' },
+];
