@@ -69,7 +69,7 @@ export class TodosState {
 
   /**
    * Ticks the todo done, or unticks it, at once, then saves it; a failed save puts the done mark back. The answer
-   * changes only the done mark, so it can't undo a rename whose answer came first.
+   * changes only the done mark, so it can't undo an edit whose answer came first.
    */
   async tick(id: number, done: boolean): Promise<void> {
     if (this.ticking(id)) {
@@ -87,9 +87,12 @@ export class TodosState {
     }
   }
 
-  /** Puts the renamed todo's title in the list; only the title, so it can't undo a tick whose answer came first. */
-  retitle(renamed: Todo): void {
-    this.change(renamed.id, (todo) => ({ ...todo, title: renamed.title }));
+  /**
+   * Puts the edited todo's title and priority in the list, which moves it to its priority's group; not its done mark,
+   * so it can't undo a tick whose answer came first.
+   */
+  applyEdit(edited: Todo): void {
+    this.change(edited.id, (todo) => ({ ...todo, title: edited.title, priority: edited.priority }));
   }
 
   /** Takes the deleted todo off the list. */

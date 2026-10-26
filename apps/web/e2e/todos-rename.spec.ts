@@ -50,7 +50,7 @@ test('Edit opens an editor with the title, and Enter saves the new one', async (
   await field.pressSequentially(' and the blog post');
   await field.press('Enter');
 
-  await expect(row.locator('label')).toHaveText(`${notes.title} and the blog post`);
+  await expect(row.getByRole('checkbox')).toHaveAccessibleName(`${notes.title} and the blog post`);
   await expect(row.getByRole('button', { name: `Edit ${notes.title} and the blog post` })).toBeFocused();
   await expect(field).toHaveCount(0);
   expect(sent).toEqual([`PATCH /api/todos/3 {"title":"${notes.title} and the blog post"}`]);
@@ -139,7 +139,7 @@ test('a failed save says so, and the next try saves', async ({ page }) => {
   failing = false;
   await page.getByRole('button', { name: 'Save' }).click();
 
-  await expect(page.getByRole('main').getByRole('listitem').nth(1).locator('label')).toHaveText(
+  await expect(page.getByRole('main').getByRole('listitem').nth(1).getByRole('checkbox')).toHaveAccessibleName(
     'Book the car in for its MOT'
   );
   expect(sent).toHaveLength(2);
@@ -168,7 +168,7 @@ test('while a save runs, the editor waits for it and no other opens', async ({ p
   await expect(field).toHaveValue('Write the release notes for 2.5');
   answer.resolve(renamed(notes.id, 'Write the release notes for 2.5'));
 
-  await expect(page.getByRole('main').getByRole('listitem').first().locator('label')).toHaveText(
+  await expect(page.getByRole('main').getByRole('listitem').first().getByRole('checkbox')).toHaveAccessibleName(
     'Write the release notes for 2.5'
   );
   await expect(otherEdit).toHaveAttribute('aria-disabled', 'false');
@@ -192,21 +192,28 @@ test("the row's tick failure stays in sight while its editor is open", async ({ 
   expect(sent).toEqual(['PATCH /api/todos/3 {"done":true}']);
 });
 
-test('the buttons wrap together under the field on a phone, and sit beside it on a desktop', async ({ page }) => {
+test('the priority and the buttons each wrap under the field on a phone, and sit beside it on a desktop', async ({
+  page,
+}) => {
   await serveRenames(page, renamed);
   await page.goto('/todos');
   await page.getByRole('button', { name: `Edit ${notes.title}` }).click();
   const controls = [
     page.getByRole('textbox', { name: 'Title' }),
+    page.getByRole('group', { name: 'Priority' }),
     page.getByRole('button', { name: 'Save' }),
     page.getByRole('button', { name: 'Cancel' }),
   ];
+  const bottom = (box: { y: number; height: number } | null) => (box?.y ?? 0) + (box?.height ?? 0);
 
-  // From 320 px up to the phones' widths, at which the field and Save alone would fit on a line.
+  // From 320 px up to the phones' widths, at which Save alone would fit beside the priority.
   for (const width of [320, 402, 440]) {
     await page.setViewportSize({ width, height: 800 });
-    const [field, save, cancel] = await Promise.all(controls.map((control) => control.boundingBox()));
-    expect(save?.y, `Save at ${width} px`).toBe((field?.y ?? 0) + (field?.height ?? 0) + 12);
+    const [field, priority, save, cancel] = await Promise.all(controls.map((control) => control.boundingBox()));
+    expect(priority?.y, `the priority at ${width} px`).toBe(bottom(field) + 12);
+    expect(priority?.x, `the priority at ${width} px`).toBe(field?.x);
+    expect(priority?.height, `the priority's lines at ${width} px`).toBe(44);
+    expect(save?.y, `Save at ${width} px`).toBe(bottom(priority) + 12);
     expect(cancel?.y, `Cancel at ${width} px`).toBe(save?.y);
     const scroll = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth
@@ -215,7 +222,8 @@ test('the buttons wrap together under the field on a phone, and sit beside it on
   }
   await page.setViewportSize({ width: 1024, height: 768 });
 
-  const [field, save, cancel] = await Promise.all(controls.map((control) => control.boundingBox()));
+  const [field, priority, save, cancel] = await Promise.all(controls.map((control) => control.boundingBox()));
+  expect(priority?.y).toBe(field?.y);
   expect(save?.y).toBe(field?.y);
   expect(cancel?.y).toBe(field?.y);
 });

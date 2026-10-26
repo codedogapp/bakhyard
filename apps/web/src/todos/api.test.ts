@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { addTodo, deleteTodo, fetchTodos, renameTodo, type Todo, tickTodo } from './api';
+import { addTodo, deleteTodo, editTodo, fetchTodos, type Todo, tickTodo } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -96,39 +96,51 @@ test('fails to tick when the gateway can not be reached', async () => {
   await expect(tickTodo(4, true)).rejects.toThrow('Failed to fetch');
 });
 
-test('renames a todo with the title as typed', async () => {
-  const todo: Todo = { id: 4, title: 'Call the bank today', done: true, priority: 'normal' };
+test('edits a todo with the title as typed and the priority', async () => {
+  const todo: Todo = { id: 4, title: 'Call the bank today', done: true, priority: 'high' };
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(todo));
   vi.stubGlobal('fetch', fetchMock);
 
-  await expect(renameTodo(4, ' Call the bank today ')).resolves.toEqual({ kind: 'renamed', todo });
+  await expect(editTodo(4, { title: ' Call the bank today ', priority: 'high' })).resolves.toEqual({
+    kind: 'edited',
+    todo,
+  });
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/todos/4', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: '{"title":" Call the bank today "}',
+    body: '{"title":" Call the bank today ","priority":"high"}',
   });
+});
+
+test('sends only what the edit changes', async () => {
+  const todo: Todo = { id: 4, title: 'Call the bank', done: false, priority: 'low' };
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(todo));
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(editTodo(4, { priority: 'low' })).resolves.toEqual({ kind: 'edited', todo });
+  expect(fetchMock.mock.calls[0][1]?.body).toBe('{"priority":"low"}');
 });
 
 test('gives the reason the service refused a new title for', async () => {
   const refusal = new Response('invalid title: empty once trimmed\n', { status: 400 });
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(refusal));
 
-  await expect(renameTodo(4, '\u0085')).resolves.toEqual({
+  await expect(editTodo(4, { title: '\u0085' })).resolves.toEqual({
     kind: 'refused',
     reason: 'invalid title: empty once trimmed',
   });
 });
 
-test.each([201, 204, 401, 404, 413, 500, 502])('fails to rename when the gateway answers with %i', async (status) => {
+test.each([201, 204, 401, 404, 413, 500, 502])('fails to edit when the gateway answers with %i', async (status) => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status })));
 
-  await expect(renameTodo(4, 'Call the bank')).rejects.toThrow(`PATCH /api/todos/4: ${status}`);
+  await expect(editTodo(4, { title: 'Call the bank' })).rejects.toThrow(`PATCH /api/todos/4: ${status}`);
 });
 
-test('fails to rename when the gateway can not be reached', async () => {
+test('fails to edit when the gateway can not be reached', async () => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
 
-  await expect(renameTodo(4, 'Call the bank')).rejects.toThrow('Failed to fetch');
+  await expect(editTodo(4, { priority: 'high' })).rejects.toThrow('Failed to fetch');
 });
 
 test.each([204, 404])('deletes a todo through the gateway, which answers %i', async (status) => {

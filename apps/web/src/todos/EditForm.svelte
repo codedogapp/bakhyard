@@ -2,6 +2,7 @@
 import type { Editor } from './editor.svelte';
 import { focusField } from './focus';
 import { editLabel } from './labels';
+import PriorityPicker from './PriorityPicker.svelte';
 
 let { editor }: { editor: Editor } = $props();
 
@@ -23,7 +24,11 @@ function submit(event: SubmitEvent): void {
       onkeydown={editor.keydown}
       {@attach focusField}
     >
-    <!-- The buttons wrap under the field on a narrow screen, and Delete under the others on the narrowest. -->
+    <!--
+      The priority and the buttons share the field's line on a desktop. On a narrower screen they wrap under it, each on
+      a line of its own on a phone, and Delete under the other buttons on the narrowest.
+    -->
+    <PriorityPicker {editor} />
     <span class="buttons">
       <button class="form-button" type="submit" aria-disabled={editor.busy}>Save</button>
       <button class="form-button" type="button" aria-disabled={editor.busy} onclick={() => editor.close()}>
