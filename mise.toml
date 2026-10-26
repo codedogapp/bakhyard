@@ -24,6 +24,10 @@ description = "Build the web app, then the services into bin/"
 depends = ["//apps/web:build"]
 run = "go build -o bin/ ./services/..."
 
+[tasks."build:e2e"]
+description = "Build the gateway without its locks, for the end-to-end tests, into bin/e2e/"
+run = "go build -tags e2e -o bin/e2e/ ./services/gateway"
+
 # A plain task, so mise passes SIGINT, SIGTERM and SIGHUP on to process-compose, which stops the
 # services. Its TUI needs the terminal, which mise takes away when it prefixes the output, as it
 # does once tasks run in parallel (docs/plan.md §6.8).
