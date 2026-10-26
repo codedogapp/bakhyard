@@ -2,6 +2,7 @@ import type { Page, Route } from '@playwright/test';
 
 import { home, todos } from './demo';
 import { expect, test } from './fixtures';
+import { aTodo, jiraOff } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 
@@ -9,7 +10,7 @@ type Answer = Parameters<Route['fulfill']>[0];
 async function serveRenames(page: Page, rename: (id: number, title: string) => Answer | Promise<Answer>) {
   const sent: string[] = [];
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos } }));
-  await page.route('/api/todos/*', async (route) => {
+  await page.route(aTodo, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     sent.push(`${request.method()} ${path} ${request.postData()}`);
@@ -33,6 +34,7 @@ const titles = todos.map((todo) => todo.title);
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await jiraOff(page);
 });
 
 test('Edit opens an editor with the title, and Enter saves the new one', async ({ page }) => {

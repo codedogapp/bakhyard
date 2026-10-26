@@ -3,15 +3,28 @@ import { afterEach, expect, test, vi } from 'vitest';
 
 import type { Todo } from './api';
 import TodosPage from './TodosPage.svelte';
+import { loadTickets, type Snapshot } from './tickets';
+
+// Spies that call through, so a test can wait for the tickets to load.
+vi.mock('./tickets', { spy: true });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
+
+/** Stubs fetch: the todos' calls go to `todos`, and the tickets' call gets `tickets`, by default the answer without Jira. */
+function stubFetch(todos: typeof fetch, tickets = new Response(null, { status: 404 })) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn<typeof fetch>((...args) => (args[0] === '/api/todos/tickets' ? Promise.resolve(tickets) : todos(...args)))
+  );
+}
 
 test('lists the todos, newest first, once the list loads', async () => {
   const load = Promise.withResolvers<Response>();
   const fetchMock = vi.fn<typeof fetch>().mockReturnValue(load.promise);
-  vi.stubGlobal('fetch', fetchMock);
+  stubFetch(fetchMock);
   render(TodosPage);
 
   expect(screen.getByRole('heading', { level: 1, name: 'Todos' })).toBeInTheDocument();
@@ -39,7 +52,7 @@ test('shows a section per priority, High first, each with its count and its todo
     { id: 2, title: 'Pay the rent', done: false, priority: 'high' },
     { id: 1, title: 'Buy milk', done: true, priority: 'high' },
   ];
-  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })));
+  stubFetch(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })));
   render(TodosPage);
 
   const heads = await screen.findAllByRole('heading', { level: 2, name: /priority$/ });
@@ -63,7 +76,7 @@ test('shows no list without todos, until the first is added', async () => {
     .mockResolvedValueOnce(
       Response.json({ id: 1, title: 'Buy milk', done: false, priority: 'normal' }, { status: 201 })
     );
-  vi.stubGlobal('fetch', fetchMock);
+  stubFetch(fetchMock);
   render(TodosPage);
 
   expect(await screen.findByText('No todos on the list.')).toBeInTheDocument();
@@ -78,7 +91,7 @@ test('shows no list without todos, until the first is added', async () => {
 });
 
 test('says when the list could not load', async () => {
-  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
+  stubFetch(vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
   render(TodosPage);
 
   expect(await screen.findByText("Couldn't load the todos.")).toBeInTheDocument();
@@ -87,152 +100,53 @@ test('says when the list could not load', async () => {
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 });
 
-const milk: Todo = { id: 1, title: 'Buy milk', done: true, priority: 'normal' };
-const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
+const ticket = {
+  key: 'WEB-12',
+  summary: 'Show the order history',
+  status: 'In Review',
+  category: 'in-progress',
+  url: 'https://jira.example.com/browse/WEB-12',
+} as const;
+const snapshot: Snapshot = { tickets: [ticket], searched: '2026-10-26T00:41:00Z' };
 
-test('ticks a todo from its box or its title, and unticks it', async () => {
-  const fetchMock = vi
-    .fn<typeof fetch>()
-    .mockResolvedValueOnce(Response.json({ todos: [bank, milk] }))
-    .mockResolvedValueOnce(Response.json({ ...bank, done: true }))
-    .mockResolvedValueOnce(Response.json({ ...milk, done: false }));
-  vi.stubGlobal('fetch', fetchMock);
+test('loads my Jira tickets with the todos, and shows them after the groups', async () => {
+  const todos: Todo[] = [{ id: 1, title: 'Buy milk', done: false, priority: 'normal' }];
+  stubFetch(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })), Response.json(snapshot));
   render(TodosPage);
-  const box = await screen.findByRole('checkbox', { name: 'Call the bank' });
-  expect(box).not.toBeChecked();
-  expect(screen.getByRole('checkbox', { name: 'Buy milk' })).toBeChecked();
 
-  await fireEvent.click(box);
-  expect(box).toBeChecked();
-  await fireEvent.click(screen.getByText('Buy milk'));
-
-  await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Buy milk' })).not.toBeChecked());
-  expect(box).toBeChecked();
-  const patch = (body: string) => ({ method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body });
-  expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/todos/2', patch('{"done":true}'));
-  expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/todos/1', patch('{"done":false}'));
+  const head = await screen.findByRole('heading', { level: 2, name: 'Jira tickets' });
+  const heads = screen.getAllByRole('heading', { level: 2 }).map((each) => each.textContent);
+  expect(heads).toEqual(['Normal priority', 'Jira tickets']);
+  expect(within(head.closest('section') as HTMLElement).getByRole('link')).toHaveAttribute('href', ticket.url);
+  expect(fetch).toHaveBeenCalledWith('/api/todos/tickets');
 });
 
-test('puts the box back and says so when a tick fails', async () => {
-  const fetchMock = vi
-    .fn<typeof fetch>()
-    .mockResolvedValueOnce(Response.json({ todos: [bank, milk] }))
-    .mockResolvedValueOnce(new Response(null, { status: 502 }))
-    .mockRejectedValueOnce(new TypeError('Failed to fetch'));
-  vi.stubGlobal('fetch', fetchMock);
+test('holds the tickets back until the todos load, so the todos never push them down', async () => {
+  const load = Promise.withResolvers<Response>();
+  stubFetch(vi.fn<typeof fetch>().mockReturnValue(load.promise), Response.json(snapshot));
   render(TodosPage);
-  const [bankRow, milkRow] = within(await screen.findByRole('list')).getAllByRole('listitem');
-  expect(within(bankRow).getByRole('status')).toHaveTextContent('');
 
-  await fireEvent.click(within(bankRow).getByRole('checkbox'));
-  await fireEvent.click(within(milkRow).getByRole('checkbox'));
+  await waitFor(() => expect(loadTickets).toHaveResolvedWith({ kind: 'loaded', snapshot }));
+  expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
+  load.resolve(Response.json({ todos: [] }));
 
-  expect(await within(bankRow).findByText('Tick failed')).toHaveAttribute('role', 'status');
-  expect(await within(milkRow).findByText('Untick failed')).toHaveAttribute('role', 'status');
-  expect(within(bankRow).getByRole('checkbox')).not.toBeChecked();
-  expect(within(milkRow).getByRole('checkbox')).toBeChecked();
+  expect(await screen.findByRole('heading', { level: 2, name: 'Jira tickets' })).toBeInTheDocument();
 });
 
-test('ticks a todo once at a time', async () => {
-  const answer = Promise.withResolvers<Response>();
-  const fetchMock = vi
-    .fn<typeof fetch>()
-    .mockResolvedValueOnce(Response.json({ todos: [bank] }))
-    .mockReturnValueOnce(answer.promise);
-  vi.stubGlobal('fetch', fetchMock);
+test('shows the tickets after the line that says the todos could not load', async () => {
+  stubFetch(vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')), Response.json(snapshot));
   render(TodosPage);
-  const box = await screen.findByRole('checkbox', { name: 'Call the bank' });
 
-  await fireEvent.click(box);
-  expect(box).toHaveAttribute('aria-disabled', 'true');
-  await fireEvent.click(box);
-  expect(box).toBeChecked();
-  answer.resolve(Response.json({ ...bank, done: true }));
-
-  await waitFor(() => expect(box).toHaveAttribute('aria-disabled', 'false'));
-  expect(box).toBeChecked();
-  expect(fetchMock).toHaveBeenCalledTimes(2);
+  const head = await screen.findByRole('heading', { level: 2, name: 'Jira tickets' });
+  const failed = screen.getByText("Couldn't load the todos.");
+  expect(failed.compareDocumentPosition(head)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 });
 
-test('renames a todo in its row, then gives the focus back to its Edit button', async () => {
-  const fetchMock = vi
-    .fn<typeof fetch>()
-    .mockResolvedValueOnce(Response.json({ todos: [bank, milk] }))
-    .mockResolvedValueOnce(Response.json({ ...bank, title: 'Call the bank today' }));
-  vi.stubGlobal('fetch', fetchMock);
+test('shows no tickets without Jira', async () => {
+  stubFetch(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos: [] })));
   render(TodosPage);
 
-  // A click that the browser dispatches at once: the field has the focus before the click returns.
-  (await screen.findByRole('button', { name: 'Edit Call the bank' })).click();
-  const field = screen.getByRole<HTMLInputElement>('textbox', { name: 'Title' });
-  expect(field).toHaveFocus();
-  expect([field.selectionStart, field.selectionEnd]).toEqual([13, 13]);
-  expect(screen.queryByRole('checkbox', { name: 'Call the bank' })).not.toBeInTheDocument();
-  await fireEvent.input(field, { target: { value: 'Call the bank today' } });
-  await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Call the bank today' })).toHaveFocus());
-  expect(screen.getByRole('checkbox', { name: 'Call the bank today' })).not.toBeChecked();
-  expect(screen.queryByRole('textbox', { name: 'Title' })).not.toBeInTheDocument();
-  expect(fetchMock).toHaveBeenLastCalledWith('/api/todos/2', expect.objectContaining({ method: 'PATCH' }));
-});
-
-test('closes the editor on Cancel or Escape, with no request', async () => {
-  const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({ todos: [bank, milk] }));
-  vi.stubGlobal('fetch', fetchMock);
-  render(TodosPage);
-
-  await fireEvent.click(await screen.findByRole('button', { name: 'Edit Buy milk' }));
-  await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Buy milk' })).toHaveFocus());
-  await fireEvent.click(screen.getByRole('button', { name: 'Edit Buy milk' }));
-  await fireEvent.keyDown(screen.getByRole('textbox', { name: 'Title' }), { key: 'Escape' });
-
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Buy milk' })).toHaveFocus());
-  expect(screen.getByRole('checkbox', { name: 'Buy milk' })).toBeChecked();
-  expect(fetchMock).toHaveBeenCalledOnce();
-});
-
-test('shows the save running, then the reason the service refused the title for', async () => {
-  const answer = Promise.withResolvers<Response>();
-  const fetchMock = vi
-    .fn<typeof fetch>()
-    .mockResolvedValueOnce(Response.json({ todos: [bank, milk] }))
-    .mockReturnValueOnce(answer.promise);
-  vi.stubGlobal('fetch', fetchMock);
-  render(TodosPage);
-
-  await fireEvent.click(await screen.findByRole('button', { name: 'Edit Call the bank' }));
-  await fireEvent.input(screen.getByRole('textbox', { name: 'Title' }), { target: { value: 'Call\tthe bank' } });
-  await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-  expect(screen.getByRole('textbox', { name: 'Title' })).toHaveAttribute('readonly');
-  for (const name of ['Save', 'Cancel', 'Edit Buy milk']) {
-    expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true');
-  }
-  expect(screen.getByText('Saving…')).toHaveAttribute('role', 'status');
-  answer.resolve(new Response('invalid title: has a control character\n', { status: 400 }));
-
-  expect(await screen.findByText('invalid title: has a control character')).toHaveAttribute('role', 'status');
-  expect(screen.getByRole('textbox', { name: 'Title' })).not.toHaveAttribute('readonly');
-  expect(screen.getByRole('button', { name: 'Edit Buy milk' })).toHaveAttribute('aria-disabled', 'false');
-});
-
-test('deletes a todo from its editor, then gives the focus to the Add field once none is left', async () => {
-  const fetchMock = vi
-    .fn<typeof fetch>()
-    .mockResolvedValueOnce(Response.json({ todos: [bank] }))
-    .mockResolvedValueOnce(new Response(null, { status: 204 }));
-  vi.stubGlobal('fetch', fetchMock);
-  render(TodosPage);
-
-  await fireEvent.click(await screen.findByRole('button', { name: 'Edit Call the bank' }));
-  await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-  const dialog = screen.getByRole('alertdialog', { name: 'Delete this todo?' });
-  await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
-
-  await waitFor(() => expect(screen.getByRole('textbox', { name: 'New todo' })).toHaveFocus());
-  expect(screen.getByText('No todos on the list.')).toBeInTheDocument();
-  expect(screen.queryByRole('list')).not.toBeInTheDocument();
-  expect(fetchMock).toHaveBeenLastCalledWith('/api/todos/2', { method: 'DELETE' });
+  await waitFor(() => expect(loadTickets).toHaveResolvedWith({ kind: 'off' }));
+  expect(await screen.findByText('No todos on the list.')).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
 });

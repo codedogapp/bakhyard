@@ -1,8 +1,10 @@
 import { home, todos } from './demo';
 import { expect, test } from './fixtures';
+import { jiraOff } from './jira';
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await jiraOff(page);
 });
 
 test('the Todos page lists the todos', async ({ page }) => {

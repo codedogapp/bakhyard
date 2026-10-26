@@ -3,6 +3,7 @@ import type { Page, Route } from '@playwright/test';
 import type { Todo } from '../src/todos/api';
 import { home, todos } from './demo';
 import { expect, test } from './fixtures';
+import { aTodo, jiraOff } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 
@@ -10,7 +11,7 @@ type Answer = Parameters<Route['fulfill']>[0];
 async function serveDeletes(page: Page, answer: () => Answer | Promise<Answer>, list: Todo[] = todos) {
   const sent: string[] = [];
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos: list } }));
-  await page.route('/api/todos/*', async (route) => {
+  await page.route(aTodo, async (route) => {
     sent.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`);
     await route.fulfill(await answer());
   });
@@ -34,6 +35,7 @@ const dialogName = 'Delete this todo?';
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await jiraOff(page);
 });
 
 test('Delete asks in a modal dialog that names the todo as stored, with the focus on Cancel', async ({ page }) => {

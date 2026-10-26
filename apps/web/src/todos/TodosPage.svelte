@@ -8,18 +8,24 @@ import DeleteDialog from './DeleteDialog.svelte';
 import { Drag } from './drag.svelte';
 import { Editor } from './editor.svelte';
 import { Focus } from './focus';
+import JiraTickets from './JiraTickets.svelte';
 import { groupNote, priorityLabel, todosSummary } from './labels';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
+import { loadTickets, type Tickets } from './tickets';
 
 const list = new TodosState();
 let addField = $state<HTMLInputElement>();
 const focus = new Focus(() => addField?.focus());
 const editor = new Editor(list, focus);
 const drag = new Drag(list, editor);
+let tickets = $state.raw<Tickets>({ kind: 'loading' });
 
 onMount(() => {
   void list.load();
+  void loadTickets().then((loaded) => {
+    tickets = loaded;
+  });
 });
 </script>
 
@@ -39,6 +45,10 @@ onMount(() => {
   {/each}
 {:else if list.failed}
   <p class="failed">Couldn't load the todos.</p>
+{/if}
+<!-- The tickets wait for the todos to load or fail, so the todos never push them down. -->
+{#if list.todos || list.failed}
+  <JiraTickets {tickets} />
 {/if}
 <DeleteDialog {editor} />
 

@@ -3,6 +3,7 @@ import type { Page, Route } from '@playwright/test';
 import type { Todo } from '../src/todos/api';
 import { home, todos } from './demo';
 import { expect, test } from './fixtures';
+import { jiraOff } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 
@@ -34,6 +35,7 @@ const titles = todos.map((todo) => todo.title);
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await jiraOff(page);
 });
 
 test('Enter adds the todo on top of the Normal group', async ({ page }) => {
