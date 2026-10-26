@@ -23,6 +23,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
   },
   test: {
+    // The end-to-end specs in e2e/ are Playwright's.
+    include: ['src/**/*.test.ts'],
     environment: 'jsdom',
     // A fixed zone that isn't UTC and has no daylight saving, so a test that mixes up local and UTC time fails everywhere.
     env: { TZ: 'Asia/Tokyo' },

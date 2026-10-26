@@ -46,6 +46,18 @@ description = "Fail on unused files, exports or dependencies (knip)"
 depends = [":install"]
 run = "pnpm run unused"
 
+[tasks.browsers]
+description = "Install the browsers the end-to-end tests run in, and on Linux their system libraries (Playwright)"
+depends = [":install"]
+# A headless run needs only Chromium's headless shell. --with-deps installs the libraries with apt
+# and sudo on Linux, and does nothing on macOS.
+run = "pnpm exec playwright install --with-deps --only-shell chromium webkit"
+
+[tasks.e2e]
+description = "Run the end-to-end tests on the built app, in a desktop Chromium and a phone WebKit (Playwright)"
+depends = ["//:build", "//:build:e2e", ":browsers"]
+run = "pnpm run e2e"
+
 [tasks.audit]
 description = "Fail on dependencies with known vulnerabilities (pnpm audit)"
 run = "pnpm audit"

@@ -40,7 +40,7 @@ It builds the app and the services, then runs them in process-compose's terminal
 mise run check
 ```
 
-It runs the local quality gate for the Go code and the web app: formatting, linting, the tests with their coverage thresholds, and the vulnerability scans. The Go tests need a database of their own, which [docs/setup.md](docs/setup.md#the-test-database) shows how to make. `mise tasks ls --all` lists every task.
+It runs the local quality gate for the Go code and the web app: formatting, linting, the tests with their coverage thresholds, and the vulnerability scans. Then it builds the app and runs the end-to-end tests in Chromium and WebKit, which Playwright downloads the first time. The Go tests need a database of their own, which [docs/setup.md](docs/setup.md#the-test-database) shows how to make. `mise tasks ls --all` lists every task.
 
 A change is done when the gate passes and its pull request's CI is green, including SonarQube Cloud's quality gate. SonarQube Cloud runs only in CI.
 
