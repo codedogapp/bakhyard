@@ -20,7 +20,7 @@ function submit(event: SubmitEvent): void {
       type="text"
       aria-label="Title"
       readonly={editor.busy}
-      bind:value={editor.draft}
+      bind:value={editor.draft.title}
       onkeydown={editor.keydown}
       {@attach focusField}
     >

@@ -73,8 +73,8 @@ function moving(item: Todo) {
   const focusAdd = vi.fn<() => void>();
   const editor = new Editor(state, new Focus(focusAdd));
   editor.open(item);
-  editor.draft = `${item.title} today`;
-  editor.priority = 'low';
+  editor.draft.title = `${item.title} today`;
+  editor.draft.priority = 'low';
   const button = document.body.appendChild(document.createElement('button'));
   return { state, editor, button, focusAdd };
 }
@@ -105,8 +105,8 @@ test.each([
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith(`/api/todos/${item.id}`, expect.objectContaining({ body }));
     expect(ids(state)).toEqual(want);
     expect(editor.id).toBe(item.id);
-    expect(editor.draft).toBe(`${item.title} today`);
-    expect(editor.priority).toBe('low');
+    expect(editor.draft.title).toBe(`${item.title} today`);
+    expect(editor.draft.priority).toBe('low');
     expect(editor.status).toEqual({ kind: 'moved', direction });
   }
 );
@@ -171,7 +171,7 @@ test('says the move failed, keeps the list and the draft, and moves on the next 
   expect(editor.status).toEqual({ kind: 'moveFailed' });
   expect(state.todos).toBe(list);
   expect(editor.id).toBe(4);
-  expect(editor.draft).toBe('Todo 4 today');
+  expect(editor.draft.title).toBe('Todo 4 today');
 
   await editor.move('up', button);
 

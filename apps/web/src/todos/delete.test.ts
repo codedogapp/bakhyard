@@ -28,7 +28,7 @@ function deleting(todos: Todo[], todo: Todo) {
     focus.editButton(id)(edit);
   }
   editor.open(todo);
-  editor.draft = `${todo.title} today`;
+  editor.draft.title = `${todo.title} today`;
   const deleteButton = button();
   editor.deleteButton(deleteButton);
   return { list, editor, focus, dialog, edits, deleteButton, focusAdd };
@@ -58,7 +58,7 @@ test('asks in the dialog before a delete, and closes it on Cancel with no reques
   editor.cancelDelete();
 
   expect(dialog.open).toBe(false);
-  expect([editor.id, editor.draft]).toEqual([2, 'Call the bank today']);
+  expect([editor.id, editor.draft.title]).toEqual([2, 'Call the bank today']);
   expect(list.todos).toEqual([bank, milk]);
   expect(fetchMock).not.toHaveBeenCalled();
 });
@@ -115,7 +115,7 @@ test('says the delete failed, keeps the editor and the draft, and deletes on the
 
   await editor.delete();
   expect(editor.status).toEqual({ kind: 'deleteFailed' });
-  expect([editor.id, editor.draft]).toEqual([2, 'Call the bank today']);
+  expect([editor.id, editor.draft.title]).toEqual([2, 'Call the bank today']);
   expect(list.todos).toEqual([bank, milk]);
   await editor.delete();
 
@@ -137,7 +137,7 @@ test('changes nothing else while a delete runs', async () => {
   editor.confirmDelete();
   expect(dialog.open).toBe(false);
   await Promise.all([editor.save(), editor.delete()]);
-  expect([editor.id, editor.draft, list.todos]).toEqual([2, 'Call the bank today', [bank, milk]]);
+  expect([editor.id, editor.draft.title, list.todos]).toEqual([2, 'Call the bank today', [bank, milk]]);
   answer.resolve(deleted());
   await deleteRun;
 

@@ -20,7 +20,7 @@ function editing(todos: Todo[], draft: string): { list: TodosState; editor: Edit
   const focus = new Focus(() => undefined);
   const editor = new Editor(list, focus);
   editor.open(todos[0]);
-  editor.draft = draft;
+  editor.draft.title = draft;
   return { list, editor, focus };
 }
 
@@ -36,12 +36,12 @@ function button(): HTMLButtonElement {
 
 test('opens on one todo at a time, with its title and priority, and drops the other draft', () => {
   const { editor } = editing([bank, milk], 'Call the bank today');
-  editor.priority = 'high';
+  editor.draft.priority = 'high';
   editor.status = { kind: 'saveFailed' };
 
   editor.open(milk);
 
-  expect([editor.id, editor.draft, editor.priority]).toEqual([1, 'Buy milk', 'low']);
+  expect([editor.id, editor.draft.title, editor.draft.priority]).toEqual([1, 'Buy milk', 'low']);
   expect(editor.status).toEqual({ kind: 'idle' });
 });
 
@@ -66,7 +66,7 @@ test.each([
   const saved: Todo = { ...bank, title: draft, priority };
   const fetchMock = serve(Response.json(saved));
   const { list, editor } = editing([bank, milk], draft);
-  editor.priority = priority;
+  editor.draft.priority = priority;
 
   await editor.save();
 
@@ -100,7 +100,7 @@ test('sends a title that differs only in its spaces, which the service trims', a
 test('does nothing with a blank draft, even with a new priority', async () => {
   const fetchMock = serve(Response.json(bank));
   const { editor } = editing([bank, milk], ' \t ');
-  editor.priority = 'high';
+  editor.draft.priority = 'high';
 
   await editor.save();
 
@@ -112,12 +112,12 @@ test('does nothing with a blank draft, even with a new priority', async () => {
 test('keeps the editor and the draft, with the reason, when the service refuses the title', async () => {
   serve(new Response('invalid title: has a control character\n', { status: 400 }));
   const { list, editor } = editing([bank, milk], 'Call\tthe bank');
-  editor.priority = 'high';
+  editor.draft.priority = 'high';
 
   await editor.save();
 
   expect(editor.status).toEqual({ kind: 'refused', reason: 'invalid title: has a control character' });
-  expect([editor.id, editor.draft, editor.priority]).toEqual([2, 'Call\tthe bank', 'high']);
+  expect([editor.id, editor.draft.title, editor.draft.priority]).toEqual([2, 'Call\tthe bank', 'high']);
   expect(list.todos).toEqual([bank, milk]);
 });
 
@@ -128,11 +128,11 @@ test('says the save failed, keeps the draft, and saves on the next try', async (
     .mockResolvedValueOnce(Response.json({ ...bank, title: 'Call the bank today', priority: 'low' }));
   vi.stubGlobal('fetch', fetchMock);
   const { list, editor } = editing([bank, milk], 'Call the bank today');
-  editor.priority = 'low';
+  editor.draft.priority = 'low';
 
   await editor.save();
   expect(editor.status).toEqual({ kind: 'saveFailed' });
-  expect([editor.id, editor.draft, editor.priority]).toEqual([2, 'Call the bank today', 'low']);
+  expect([editor.id, editor.draft.title, editor.draft.priority]).toEqual([2, 'Call the bank today', 'low']);
   await editor.save();
 
   expect(list.todos).toEqual([{ ...bank, title: 'Call the bank today', priority: 'low' }, milk]);
@@ -150,7 +150,7 @@ test('changes nothing else while a save runs', async () => {
   editor.close();
   editor.keydown(new KeyboardEvent('keydown', { key: 'Escape' }));
   await editor.save();
-  expect([editor.id, editor.draft]).toEqual([2, 'Call the bank today']);
+  expect([editor.id, editor.draft.title]).toEqual([2, 'Call the bank today']);
   answer.resolve(Response.json({ ...bank, title: 'Call the bank today' }));
   await save;
 
