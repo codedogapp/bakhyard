@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"slices"
@@ -51,6 +52,19 @@ func jiraClient(getenv func(string) string, password passwordReader) (*jira.Clie
 	}
 
 	return jira.New(jira.Settings{Site: site, API: address, Email: email, Token: token}), nil
+}
+
+// poll starts searching Jira with client, until ctx ends, and returns the poller that keeps what
+// the searches find, or nil when Jira is off and client is nil.
+func poll(ctx context.Context, client *jira.Client, logger *slog.Logger) *jira.Poller {
+	if client == nil {
+		return nil
+	}
+
+	poller := jira.NewPoller(client.Search, logger)
+	go poller.Run(ctx)
+
+	return poller
 }
 
 // jiraURL returns the URL in the setting name. It must be an https URL, so that the token

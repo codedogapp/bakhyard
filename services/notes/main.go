@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -27,7 +28,7 @@ func main() {
 	}
 }
 
-func routes(getenv func(string) string) (http.Handler, error) {
+func routes(_ context.Context, getenv func(string) string) (http.Handler, error) {
 	root, err := open(getenv)
 	if err != nil {
 		return nil, err

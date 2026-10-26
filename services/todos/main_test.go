@@ -14,7 +14,7 @@ import (
 func TestTodosServesTheTodos(t *testing.T) {
 	database, items := todosEnv(t)
 
-	router, err := routes(database, keychainWith(items))
+	router, err := routes(t.Context(), database, keychainWith(items))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestTodosStartsAgainOnItsMigratedDatabase(t *testing.T) {
 
 	// The second start finds the migrations done; running them again would fail.
 	for range 2 {
-		_, err := routes(database, keychainWith(items))
+		_, err := routes(t.Context(), database, keychainWith(items))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +78,7 @@ func TestTodosNeedsItsDatabase(t *testing.T) {
 		{unreachable, nil, "read the database password: no Keychain item bakhyard/postgres-todos"},
 		{unreachable, items, "reach the database: "},
 	} {
-		_, err := routes(databaseAt(test.database), keychainWith(test.items))
+		_, err := routes(t.Context(), databaseAt(test.database), keychainWith(test.items))
 		if err == nil || !strings.HasPrefix(err.Error(), test.want) {
 			t.Errorf("with the database %q and the items %v: got %v, want an error that starts "+
 				"with %s", test.database, test.items, err, test.want)

@@ -1,13 +1,13 @@
 package api_test
 
 import (
-	"bytes"
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"strings"
 	"testing"
+	"testing/synctest"
 
 	"github.com/go-chi/chi/v5"
 
@@ -15,93 +15,103 @@ import (
 	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
 )
 
-// onePage is a Jira search's only page, with two tickets.
-const onePage = `{"isLast":true,"issues":[
-	{"id":"10002","key":"PAY-2","fields":{"summary":"Answer \"Re: <the plan>\"",
-		"status":{"name":"In Review","statusCategory":{"key":"indeterminate"}}}},
-	{"id":"10001","key":"PAY-1","fields":{"summary":"Export the report",
-		"status":{"name":"To Do","statusCategory":{"key":"new"}}}}]}`
-
-func TestGetTicketsListsTheOpenTickets(t *testing.T) {
-	for _, test := range []struct{ page, want string }{
+// A bubble's clock starts at midnight UTC on 1 January 2000, when the poller searches first.
+func TestGetTicketsAnswersWhatThePollerFound(t *testing.T) {
+	tickets := []jira.Ticket{
 		{
-			onePage,
+			Key: "PAY-2", Summary: `Answer "Re: <the plan>"`, Status: "In Review",
+			Category: jira.InProgress, URL: "https://acme.example/browse/PAY-2",
+		},
+		{
+			Key: "PAY-1", Summary: "Export the report", Status: "To Do", Category: jira.ToDo,
+			URL: "https://acme.example/browse/PAY-1",
+		},
+	}
+
+	for _, test := range []struct {
+		tickets []jira.Ticket
+		err     error
+		want    string
+	}{
+		{
+			tickets, nil,
 			`{"tickets":[{"key":"PAY-2","summary":"Answer \"Re: <the plan>\"",` +
 				`"status":"In Review","category":"in-progress",` +
 				`"url":"https://acme.example/browse/PAY-2"},` +
 				`{"key":"PAY-1","summary":"Export the report","status":"To Do",` +
-				`"category":"to-do","url":"https://acme.example/browse/PAY-1"}]}`,
+				`"category":"to-do","url":"https://acme.example/browse/PAY-1"}],` +
+				`"searched":"2000-01-01T00:00:00Z"}`,
 		},
-		{`{"isLast":true,"issues":[]}`, `{"tickets":[]}`},
+		{[]jira.Ticket{}, nil, `{"tickets":[],"searched":"2000-01-01T00:00:00Z"}`},
+		{
+			nil, errors.New("search Jira: 401 Unauthorized"),
+			`{"failure":"search Jira: 401 Unauthorized"}`,
+		},
 	} {
-		router, _ := withJira(t, func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = w.Write([]byte(test.page))
-		})
+		synctest.Test(t, func(t *testing.T) {
+			router := withJira(t, func(context.Context) ([]jira.Ticket, error) {
+				return test.tickets, test.err
+			})
 
-		rec := getTickets(t, router)
-		if rec.Code != http.StatusOK || rec.Body.String() != test.want ||
-			rec.Header().Get("Content-Type") != "application/json" {
-			t.Errorf("got %d %s (%s), want 200 %s as JSON", rec.Code, rec.Body,
-				rec.Header().Get("Content-Type"), test.want)
-		}
+			rec := getTickets(t.Context(), router)
+			if rec.Code != http.StatusOK || rec.Body.String() != test.want ||
+				rec.Header().Get("Content-Type") != "application/json" {
+				t.Errorf("got %d %s (%s), want 200 %s as JSON", rec.Code, rec.Body,
+					rec.Header().Get("Content-Type"), test.want)
+			}
+		})
 	}
 }
 
-func TestGetTicketsFailsWhenJiraFails(t *testing.T) {
-	router, logs := withJira(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
+func TestGetTicketsAnswersNothingToAClientThatLeft(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		router := withJira(t, func(ctx context.Context) ([]jira.Ticket, error) {
+			<-ctx.Done()
+
+			return nil, ctx.Err()
+		})
+
+		gone, leave := context.WithCancel(t.Context())
+		leave()
+
+		rec := getTickets(gone, router)
+		if rec.Body.Len() != 0 || len(rec.Header()) != 0 {
+			t.Errorf("got %s %v, want nothing", rec.Body, rec.Header())
+		}
 	})
-
-	rec := getTickets(t, router)
-	if rec.Code != http.StatusBadGateway || rec.Body.String() != "Bad Gateway\n" {
-		t.Errorf("got %d %q, want a plain 502", rec.Code, rec.Body)
-	}
-
-	want := `msg="list the tickets" err="search Jira: 500 Internal Server Error"`
-	if !strings.Contains(logs.String(), want) {
-		t.Errorf("got the logs %q, want %s", logs, want)
-	}
 }
 
 func TestGetTicketsNeedsJira(t *testing.T) {
 	router := chi.NewRouter()
 	api.Register(router, nil, nil, slog.New(slog.DiscardHandler))
 
-	rec := getTickets(t, router)
+	rec := getTickets(t.Context(), router)
 	if rec.Code != http.StatusNotFound || rec.Body.String() != "Jira is not set up\n" {
 		t.Errorf("got %d %q, want a plain 404", rec.Code, rec.Body)
 	}
 }
 
-// withJira returns a router whose Jira's REST API answers with handler, and the logs that the
-// router writes. It serves no todos.
-func withJira(t *testing.T, handler http.HandlerFunc) (http.Handler, *bytes.Buffer) {
+// withJira returns a router whose Jira poller searches with search, until the test ends. It
+// serves no todos.
+func withJira(
+	t *testing.T,
+	search func(context.Context) ([]jira.Ticket, error),
+) http.Handler {
 	t.Helper()
 
-	server := httptest.NewServer(handler)
-	t.Cleanup(server.Close)
-
-	site, siteErr := url.Parse("https://acme.example")
-	address, apiErr := url.Parse(server.URL)
-
-	if siteErr != nil || apiErr != nil {
-		t.Fatal(siteErr, apiErr)
-	}
-
-	var logs bytes.Buffer
+	poller := jira.NewPoller(search, slog.New(slog.DiscardHandler))
+	go poller.Run(t.Context())
 
 	router := chi.NewRouter()
-	api.Register(router, nil, jira.New(jira.Settings{Site: site, API: address}),
-		slog.New(slog.NewTextHandler(&logs, nil)))
+	api.Register(router, nil, poller, slog.New(slog.DiscardHandler))
 
-	return router, &logs
+	return router
 }
 
-// getTickets returns router's answer to GET /todos/tickets.
-func getTickets(t *testing.T, router http.Handler) *httptest.ResponseRecorder {
-	t.Helper()
-
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/todos/tickets", nil)
+// getTickets returns router's answer to GET /todos/tickets, from a client that leaves when ctx
+// ends.
+func getTickets(ctx context.Context, router http.Handler) *httptest.ResponseRecorder {
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/todos/tickets", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 

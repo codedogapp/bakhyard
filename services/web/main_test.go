@@ -8,7 +8,7 @@ import (
 
 // Built or not, the embedded app never answers /healthz in the health check's place.
 func TestWebAnswersItsHealthCheck(t *testing.T) {
-	router, err := routes(func(string) string { return "" })
+	router, err := routes(t.Context(), func(string) string { return "" })
 	if err != nil {
 		t.Fatal(err)
 	}

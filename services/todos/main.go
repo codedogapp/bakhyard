@@ -35,18 +35,25 @@ type passwordReader func(ctx context.Context, serviceName, account string) (stri
 
 func main() {
 	keys := keychain.NewReader(keychain.Security)
+	served := func(ctx context.Context, getenv func(string) string) (http.Handler, error) {
+		return routes(ctx, getenv, keys.Password)
+	}
 
-	err := service.Run(os.Getenv, func(getenv func(string) string) (http.Handler, error) {
-		return routes(getenv, keys.Password)
-	})
+	err := service.Run(os.Getenv, served)
 	if err != nil {
 		slog.Error("failed", "err", err)
 		os.Exit(1)
 	}
 }
 
-func routes(getenv func(string) string, password passwordReader) (http.Handler, error) {
-	tickets, err := jiraClient(getenv, password)
+// routes returns todos' handler. With Jira set up, it searches Jira in the background until ctx
+// ends.
+func routes(
+	ctx context.Context,
+	getenv func(string) string,
+	password passwordReader,
+) (http.Handler, error) {
+	client, err := jiraClient(getenv, password)
 	if err != nil {
 		return nil, err
 	}
@@ -56,11 +63,12 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 		return nil, err
 	}
 
+	logger := slog.Default()
 	router := chi.NewRouter()
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, store, tickets, slog.Default())
+	api.Register(router, store, poll(ctx, client, logger), logger)
 
 	return router, nil
 }
