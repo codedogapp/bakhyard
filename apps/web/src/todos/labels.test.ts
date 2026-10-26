@@ -60,6 +60,10 @@ test.each([
   { status: { kind: 'saveFailed' }, want: 'Save failed' },
   { status: { kind: 'deleting' }, want: 'Deleting…' },
   { status: { kind: 'deleteFailed' }, want: 'Delete failed' },
+  { status: { kind: 'moving' }, want: 'Moving…' },
+  { status: { kind: 'moved', direction: 'up' }, want: 'Moved up' },
+  { status: { kind: 'moved', direction: 'down' }, want: 'Moved down' },
+  { status: { kind: 'moveFailed' }, want: 'Move failed' },
 ] as const)('labels the edit $status.kind as "$want"', ({ status, want }) => {
   expect(editLabel(status)).toBe(want);
 });

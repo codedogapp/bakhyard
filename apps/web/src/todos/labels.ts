@@ -51,8 +51,8 @@ export function tickLabel(tick: Tick | undefined): string {
 }
 
 /**
- * What the editor's last save or delete did, unless it succeeded: "Saving…", the service's reason, "Save failed",
- * "Deleting…" or "Delete failed".
+ * What the editor's last save, delete or move did, unless a save or a delete succeeded: "Saving…", the service's
+ * reason, "Save failed", "Deleting…", "Delete failed", "Moving…", "Moved up", "Moved down" or "Move failed".
  */
 export function editLabel(status: EditStatus): string {
   switch (status.kind) {
@@ -66,6 +66,12 @@ export function editLabel(status: EditStatus): string {
       return 'Deleting…';
     case 'deleteFailed':
       return 'Delete failed';
+    case 'moving':
+      return 'Moving…';
+    case 'moved':
+      return status.direction === 'up' ? 'Moved up' : 'Moved down';
+    case 'moveFailed':
+      return 'Move failed';
     default:
       return '';
   }

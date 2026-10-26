@@ -26,7 +26,8 @@ function submit(event: SubmitEvent): void {
     >
     <!--
       The priority and the buttons share the field's line on a desktop. On a narrower screen they wrap under it, each on
-      a line of its own on a phone, and Delete under the other buttons on the narrowest.
+      a line of its own on a phone, and Delete under the other buttons on the narrowest. The Move buttons come last, so
+      they wrap first.
     -->
     <PriorityPicker {editor} />
     <span class="buttons">
@@ -42,6 +43,28 @@ function submit(event: SubmitEvent): void {
         {@attach editor.deleteButton}
       >
         Delete
+      </button>
+    </span>
+    <!--
+      Each moves the todo at once, without Save. aria-disabled, not disabled, so the focus stays on a button that has
+      taken the todo to its group's end, or whose move runs.
+    -->
+    <span class="buttons">
+      <button
+        class="form-button"
+        type="button"
+        aria-disabled={editor.busy || !editor.canMove('up')}
+        onclick={(event) => void editor.move('up', event.currentTarget)}
+      >
+        Move up
+      </button>
+      <button
+        class="form-button"
+        type="button"
+        aria-disabled={editor.busy || !editor.canMove('down')}
+        onclick={(event) => void editor.move('down', event.currentTarget)}
+      >
+        Move down
       </button>
     </span>
   </div>
