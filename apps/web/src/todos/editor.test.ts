@@ -10,7 +10,7 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-const milk: Todo = { id: 1, title: 'Buy milk', done: true, priority: 'normal' };
+const milk: Todo = { id: 1, title: 'Buy milk', done: true, priority: 'low' };
 const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
 
 /** An editor over the list, open on its first todo, with the draft typed. */
@@ -34,14 +34,14 @@ function button(): HTMLButtonElement {
   return document.body.appendChild(document.createElement('button'));
 }
 
-test('opens on one todo at a time, with its title, and drops the other draft', () => {
+test('opens on one todo at a time, with its title and priority, and drops the other draft', () => {
   const { editor } = editing([bank, milk], 'Call the bank today');
+  editor.priority = 'high';
   editor.status = { kind: 'saveFailed' };
 
   editor.open(milk);
 
-  expect(editor.id).toBe(1);
-  expect(editor.draft).toBe('Buy milk');
+  expect([editor.id, editor.draft, editor.priority]).toEqual([1, 'Buy milk', 'low']);
   expect(editor.status).toEqual({ kind: 'idle' });
 });
 
@@ -59,7 +59,24 @@ test('saves the draft as typed, takes the new title and closes', async () => {
   expect(fetchMock.mock.calls[0][1]?.body).toBe('{"title":" Call the bank today"}');
 });
 
-test('closes with no request when the title is left as it was', async () => {
+test.each([
+  { draft: 'Call the bank', priority: 'high', body: '{"priority":"high"}' },
+  { draft: 'Call the bank today', priority: 'low', body: '{"title":"Call the bank today","priority":"low"}' },
+] as const)('saves what changed in one request, $body, takes it and closes', async ({ draft, priority, body }) => {
+  const saved: Todo = { ...bank, title: draft, priority };
+  const fetchMock = serve(Response.json(saved));
+  const { list, editor } = editing([bank, milk], draft);
+  editor.priority = priority;
+
+  await editor.save();
+
+  expect(fetchMock).toHaveBeenCalledOnce();
+  expect(fetchMock.mock.calls[0][1]?.body).toBe(body);
+  expect(list.todos).toEqual([saved, milk]);
+  expect(editor.id).toBeUndefined();
+});
+
+test('closes with no request when neither the title nor the priority changed', async () => {
   const fetchMock = serve(Response.json(bank));
   const { editor } = editing([bank, milk], 'Call the bank');
 
@@ -80,9 +97,10 @@ test('sends a title that differs only in its spaces, which the service trims', a
   expect(list.todos).toEqual([bank, milk]);
 });
 
-test('does nothing with a blank draft', async () => {
+test('does nothing with a blank draft, even with a new priority', async () => {
   const fetchMock = serve(Response.json(bank));
   const { editor } = editing([bank, milk], ' \t ');
+  editor.priority = 'high';
 
   await editor.save();
 
@@ -94,11 +112,12 @@ test('does nothing with a blank draft', async () => {
 test('keeps the editor and the draft, with the reason, when the service refuses the title', async () => {
   serve(new Response('invalid title: has a control character\n', { status: 400 }));
   const { list, editor } = editing([bank, milk], 'Call\tthe bank');
+  editor.priority = 'high';
 
   await editor.save();
 
   expect(editor.status).toEqual({ kind: 'refused', reason: 'invalid title: has a control character' });
-  expect([editor.id, editor.draft]).toEqual([2, 'Call\tthe bank']);
+  expect([editor.id, editor.draft, editor.priority]).toEqual([2, 'Call\tthe bank', 'high']);
   expect(list.todos).toEqual([bank, milk]);
 });
 
@@ -106,16 +125,17 @@ test('says the save failed, keeps the draft, and saves on the next try', async (
   const fetchMock = vi
     .fn<typeof fetch>()
     .mockRejectedValueOnce(new TypeError('Failed to fetch'))
-    .mockResolvedValueOnce(Response.json({ ...bank, title: 'Call the bank today' }));
+    .mockResolvedValueOnce(Response.json({ ...bank, title: 'Call the bank today', priority: 'low' }));
   vi.stubGlobal('fetch', fetchMock);
   const { list, editor } = editing([bank, milk], 'Call the bank today');
+  editor.priority = 'low';
 
   await editor.save();
   expect(editor.status).toEqual({ kind: 'saveFailed' });
-  expect([editor.id, editor.draft]).toEqual([2, 'Call the bank today']);
+  expect([editor.id, editor.draft, editor.priority]).toEqual([2, 'Call the bank today', 'low']);
   await editor.save();
 
-  expect(list.todos).toEqual([{ ...bank, title: 'Call the bank today' }, milk]);
+  expect(list.todos).toEqual([{ ...bank, title: 'Call the bank today', priority: 'low' }, milk]);
   expect(editor.id).toBeUndefined();
 });
 

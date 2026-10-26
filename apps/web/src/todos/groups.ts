@@ -1,7 +1,7 @@
 import type { Priority, Todo } from './api';
 
-/** The priorities in the page's order. */
-const priorities: readonly Priority[] = ['high', 'normal', 'low'];
+/** The priorities in the page's order, which the groups and the editor's options follow. */
+export const priorities: readonly Priority[] = ['high', 'normal', 'low'];
 
 /** A priority's todos, in the list's order. */
 export interface Group {

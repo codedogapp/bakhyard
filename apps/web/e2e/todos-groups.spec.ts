@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import type { Todo } from '../src/todos/api';
 import { home, todos } from './demo';
 import { expect, test } from './fixtures';
+import { group, heads } from './groups';
 
 const [notes, car, passport] = todos;
 const cleaning: Todo = { id: 4, title: 'Pick up the dry cleaning', done: false, priority: 'normal' };
@@ -15,19 +16,6 @@ async function serveTodos(page: Page, list: Todo[]) {
       : route.fulfill({ json: { todos: list } })
   );
   await page.route('/api/todos/*', (route) => route.fulfill({ status: 204 }));
-}
-
-/** The heads of the page's priority groups, in order. */
-function heads(page: Page) {
-  return page.getByRole('main').getByRole('heading', { level: 2 });
-}
-
-/** The section of the priority group with the head. */
-function group(page: Page, head: string) {
-  return page
-    .getByRole('main')
-    .locator('section')
-    .filter({ has: page.getByRole('heading', { level: 2, name: head }) });
 }
 
 test.beforeEach(async ({ page }) => {

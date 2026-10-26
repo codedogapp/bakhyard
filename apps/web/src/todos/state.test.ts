@@ -137,12 +137,12 @@ test.each([true, false])('ticks the done mark %s at once, then saves it', async 
   const tick = list.tick(2, done);
   expect(list.todos).toEqual([{ ...bank, done }, milk]);
   expect(list.ticking(2)).toBe(true);
-  // A rename that the service stored after the tick answers first; the tick's answer has the old title.
-  list.retitle({ ...bank, title: 'Call the bank today', done });
+  // An edit that the service stored after the tick answers first; the tick's answer has the old title and priority.
+  list.applyEdit({ ...bank, title: 'Call the bank today', priority: 'high', done });
   answer.resolve(Response.json({ ...bank, done }));
   await tick;
 
-  expect(list.todos).toEqual([{ ...bank, title: 'Call the bank today', done }, milk]);
+  expect(list.todos).toEqual([{ ...bank, title: 'Call the bank today', priority: 'high', done }, milk]);
   expect(list.ticking(2)).toBe(false);
   expect(list.ticks.size).toBe(0);
   expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ done });
@@ -204,6 +204,18 @@ test('takes a deleted todo off the list', () => {
   list.remove(2);
 
   expect(list.todos).toEqual([milk]);
+});
+
+test("puts an edit's title and priority in the list, which moves the todo to its group, but not its done mark", () => {
+  const list = loaded([bank, milk], '');
+
+  list.applyEdit({ ...bank, title: 'Call the bank today', done: true, priority: 'high' });
+
+  expect(list.todos).toEqual([{ ...bank, title: 'Call the bank today', priority: 'high' }, milk]);
+  expect(list.groups.map(({ priority, todos }) => [priority, todos.map(({ id }) => id)])).toEqual([
+    ['high', [2]],
+    ['normal', [1]],
+  ]);
 });
 
 test.each([

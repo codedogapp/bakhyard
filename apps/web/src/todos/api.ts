@@ -32,8 +32,11 @@ export type Refused = { kind: 'refused'; reason: string };
 /** How an add ended: the new todo, or the service's reason for refusing its title. */
 export type Added = { kind: 'added'; todo: Todo } | Refused;
 
-/** How a rename ended: the renamed todo, or the service's reason for refusing the new title. */
-export type Renamed = { kind: 'renamed'; todo: Todo } | Refused;
+/** What the row's editor changes in a todo: its title, its priority or both. */
+export type Edit = Partial<Pick<Todo, 'title' | 'priority'>>;
+
+/** How an edit ended: the edited todo, or the service's reason for refusing the new title. */
+export type Edited = { kind: 'edited'; todo: Todo } | Refused;
 
 async function refusal(response: Response): Promise<Refused> {
   return { kind: 'refused', reason: (await response.text()).trim() };
@@ -74,9 +77,12 @@ export async function tickTodo(id: number, done: boolean): Promise<Todo> {
   return response.json();
 }
 
-/** Renames the todo with the title as typed, which the service trims and checks; fails on any answer but a 200 or a 400. */
-export async function renameTodo(id: number, title: string): Promise<Renamed> {
-  const response = await patchTodo(id, { title });
+/**
+ * Changes the todo's title, as typed, which the service trims and checks, its priority, or both; the service keeps
+ * what the edit leaves out. Fails on any answer but a 200 or a 400.
+ */
+export async function editTodo(id: number, edit: Edit): Promise<Edited> {
+  const response = await patchTodo(id, edit);
   if (response.status === 400) {
     return refusal(response);
   }
@@ -84,7 +90,7 @@ export async function renameTodo(id: number, title: string): Promise<Renamed> {
     throw new Error(`PATCH ${url}/${id}: ${response.status}`);
   }
   const todo: Todo = await response.json();
-  return { kind: 'renamed', todo };
+  return { kind: 'edited', todo };
 }
 
 /**
