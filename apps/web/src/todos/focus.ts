@@ -33,8 +33,9 @@ export class Focus {
   }
 
   /**
-   * Gives the focus to the button, or to the Add field without one, if the focus went with the closed editor or stayed
-   * in a closed dialog, as WebKit leaves it after a click: the user may have moved on while a save or a delete ran.
+   * Gives the focus to the button, or to the Add field without one, if the focus went with the closed editor or the
+   * moved row, or stayed in a closed dialog, as WebKit leaves it after a click: the user may have moved on while a
+   * save, a delete or a move ran.
    */
   recover(button: HTMLButtonElement | undefined): void {
     const focused = document.activeElement;

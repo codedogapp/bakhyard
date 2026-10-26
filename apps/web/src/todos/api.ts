@@ -16,7 +16,10 @@ interface Listing {
 
 const url = '/api/todos';
 
-/** Lists the todos, newest first; fails when the gateway can't be reached or answers with an error. */
+/**
+ * Lists the todos in the service's order, newest first until the user moves them; fails when the gateway can't be
+ * reached or answers with an error.
+ */
 export async function fetchTodos(): Promise<Todo[]> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -59,8 +62,11 @@ export async function addTodo(title: string): Promise<Added> {
   return { kind: 'added', todo };
 }
 
+/** Where a move puts a todo: right before another, that is above it in the list, or right after it, below. */
+export type Place = { before: number } | { after: number };
+
 /** Sends the change to the todo; the service changes only what the change names. */
-function patchTodo(id: number, change: Partial<Omit<Todo, 'id'>>): Promise<Response> {
+function patchTodo(id: number, change: Partial<Omit<Todo, 'id'>> | Place): Promise<Response> {
   return fetch(`${url}/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -91,6 +97,14 @@ export async function editTodo(id: number, edit: Edit): Promise<Edited> {
   }
   const todo: Todo = await response.json();
   return { kind: 'edited', todo };
+}
+
+/** Moves the todo right before or right after another; fails on any answer but a 200. */
+export async function moveTodo(id: number, place: Place): Promise<void> {
+  const response = await patchTodo(id, place);
+  if (response.status !== 200) {
+    throw new Error(`PATCH ${url}/${id}: ${response.status}`);
+  }
 }
 
 /**

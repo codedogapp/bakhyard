@@ -1,6 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 
-import { addTodo, fetchTodos, type Refused, type Todo, tickTodo } from './api';
+import { addTodo, fetchTodos, type Place, type Refused, type Todo, tickTodo } from './api';
 import { groupTodos } from './groups';
 
 /** The last add: running, or how it ended. */
@@ -14,7 +14,7 @@ export interface Tick {
 
 /** The Todos page's list. The page makes a new one each time it shows, so the list has the todos added since. */
 export class TodosState {
-  /** The todos, newest first; undefined until the list loads. */
+  /** The todos, in the service's order, kept as the page adds and moves them; undefined until the list loads. */
   todos = $state.raw<readonly Todo[]>();
   /** The todos in a group per priority, in the page's order; none until the list loads. */
   readonly groups = $derived(groupTodos(this.todos ?? []));
@@ -98,6 +98,17 @@ export class TodosState {
   /** Takes the deleted todo off the list. */
   remove(id: number): void {
     this.todos = this.todos?.filter((todo) => todo.id !== id);
+  }
+
+  /** Puts the moved todo right before or right after the other, as the service did; the rest keep their order. */
+  move(id: number, place: Place): void {
+    const todo = this.todos?.find((each) => each.id === id);
+    const rest = this.todos?.filter((each) => each.id !== id) ?? [];
+    const at = rest.findIndex((each) => each.id === ('before' in place ? place.before : place.after));
+    if (todo === undefined || at < 0) {
+      return;
+    }
+    this.todos = rest.toSpliced('before' in place ? at : at + 1, 0, todo);
   }
 
   private change(id: number, change: (todo: Todo) => Todo): void {

@@ -2,14 +2,18 @@ import { flushSync } from 'svelte';
 import type { Attachment } from 'svelte/attachments';
 import { on } from 'svelte/events';
 
-import { deleteTodo, type Edit, editTodo, type Priority, type Refused, type Todo } from './api';
+import { deleteTodo, type Edit, editTodo, moveTodo, type Priority, type Refused, type Todo } from './api';
 import type { Focus } from './focus';
+import { type Direction, stepPlace } from './groups';
 import type { TodosState } from './state.svelte';
 
-/** The editor's last save or delete: running, or how it ended; one that succeeds closes the editor. */
-export type EditStatus = { kind: 'idle' | 'saving' | 'saveFailed' | 'deleting' | 'deleteFailed' } | Refused;
+/** The editor's last save, delete or move: running, or how it ended; a save or delete that succeeds closes it. */
+export type EditStatus =
+  | { kind: 'idle' | 'saving' | 'saveFailed' | 'deleting' | 'deleteFailed' | 'moving' | 'moveFailed' }
+  | { kind: 'moved'; direction: Direction }
+  | Refused;
 
-/** The Todos page's editor, open in one todo's row at a time, which renames the todo, sets its priority or deletes it. */
+/** The Todos page's editor, open in one todo's row at a time, which renames, prioritises, moves or deletes the todo. */
 export class Editor {
   /** The todo whose editor is open; undefined while none is. */
   id = $state<number>();
@@ -35,9 +39,9 @@ export class Editor {
     return this.#list.todos?.find(({ id }) => id === this.id);
   }
 
-  /** Whether a save or a delete is running; until it ends, the editor stays open as it is and no other opens. */
+  /** Whether a save, delete or move is running; until it ends, the editor stays open as it is and no other opens. */
   get busy(): boolean {
-    return this.status.kind === 'saving' || this.status.kind === 'deleting';
+    return this.status.kind === 'saving' || this.status.kind === 'deleting' || this.status.kind === 'moving';
   }
 
   /**
@@ -135,6 +139,36 @@ export class Editor {
       this.status = { kind: 'idle' };
     });
     this.#focus.recoverEdit(neighbour);
+  }
+
+  /** Whether the todo can move a step that way in its group, which it can't past the group's end. */
+  canMove(direction: Direction): boolean {
+    const todo = this.todo;
+    return todo !== undefined && stepPlace(this.#list.groups, todo, direction) !== undefined;
+  }
+
+  /**
+   * Moves the todo a step up or down its group in the service, then its row on the page, and keeps the editor open with
+   * the draft and the priority picked. The focus goes back to the button pressed if the row's move took it away.
+   */
+  async move(direction: Direction, button: HTMLButtonElement): Promise<void> {
+    const todo = this.todo;
+    const place = todo && stepPlace(this.#list.groups, todo, direction);
+    if (this.busy || todo === undefined || place === undefined) {
+      return;
+    }
+    this.status = { kind: 'moving' };
+    try {
+      await moveTodo(todo.id, place);
+    } catch {
+      this.status = { kind: 'moveFailed' };
+      return;
+    }
+    flushSync(() => {
+      this.#list.move(todo.id, place);
+      this.status = { kind: 'moved', direction };
+    });
+    this.#focus.recover(button);
   }
 
   /** Closes the editor on Escape, unless the key ends an IME composition. */
