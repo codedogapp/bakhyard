@@ -21,7 +21,7 @@ function asking(): Editor {
   const editor = new Editor(list, new Focus(() => undefined));
   render(DeleteDialog, { editor });
   editor.open(bank);
-  editor.draft = 'Call the bank today';
+  editor.draft.title = 'Call the bank today';
   flushSync();
   editor.confirmDelete();
   return editor;

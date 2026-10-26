@@ -24,7 +24,7 @@ function click(event: MouseEvent): void {
         value={priority}
         aria-disabled={editor.busy}
         onclick={click}
-        bind:group={editor.priority}
+        bind:group={editor.draft.priority}
       >
       {priorityLabel(priority)}
     </label>

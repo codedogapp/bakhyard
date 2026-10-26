@@ -39,7 +39,7 @@ test('takes the priority picked as the new one', async () => {
 
   await fireEvent.click(screen.getByRole('radio', { name: 'High' }));
 
-  expect(editor.priority).toBe('high');
+  expect(editor.draft.priority).toBe('high');
   expect(screen.getByRole('radio', { name: 'High' })).toBeChecked();
   expect(screen.getByRole('radio', { name: 'Low' })).not.toBeChecked();
 });
@@ -48,14 +48,14 @@ test('keeps the priority while a save runs, and takes a pick again once it has f
   const answer = Promise.withResolvers<Response>();
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockReturnValue(answer.promise));
   const editor = picking();
-  editor.draft = 'Call the bank today';
+  editor.draft.title = 'Call the bank today';
   const high = screen.getByRole('radio', { name: 'High' });
 
   const save = editor.save();
   flushSync();
   expect(high).toHaveAttribute('aria-disabled', 'true');
   await fireEvent.click(high);
-  expect(editor.priority).toBe('low');
+  expect(editor.draft.priority).toBe('low');
   expect(high).not.toBeChecked();
   answer.resolve(new Response(null, { status: 502 }));
   await save;
@@ -63,5 +63,5 @@ test('keeps the priority while a save runs, and takes a pick again once it has f
 
   expect(high).toHaveAttribute('aria-disabled', 'false');
   await fireEvent.click(high);
-  expect(editor.priority).toBe('high');
+  expect(editor.draft.priority).toBe('high');
 });

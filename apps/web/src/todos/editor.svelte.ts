@@ -2,7 +2,8 @@ import { flushSync } from 'svelte';
 import type { Attachment } from 'svelte/attachments';
 import { on } from 'svelte/events';
 
-import { deleteTodo, type Edit, editTodo, moveTodo, type Priority, type Refused, type Todo } from './api';
+import { deleteTodo, editTodo, moveTodo, type Refused, type Todo } from './api';
+import { Draft } from './draft.svelte';
 import type { Focus } from './focus';
 import { type Direction, stepPlace } from './groups';
 import type { TodosState } from './state.svelte';
@@ -17,10 +18,8 @@ export type EditStatus =
 export class Editor {
   /** The todo whose editor is open; undefined while none is. */
   id = $state<number>();
-  /** The new title, as typed in the editor. */
-  draft = $state('');
-  /** The new priority, as picked in the editor. */
-  priority = $state<Priority>('normal');
+  /** The title and the priority as the editor has them, until a save. */
+  readonly draft = new Draft();
   status = $state.raw<EditStatus>({ kind: 'idle' });
   readonly #list: TodosState;
   readonly #focus: Focus;
@@ -54,8 +53,7 @@ export class Editor {
     }
     flushSync(() => {
       this.id = todo.id;
-      this.draft = todo.title;
-      this.priority = todo.priority;
+      this.draft.reset(todo);
       this.status = { kind: 'idle' };
     });
   }
@@ -73,16 +71,16 @@ export class Editor {
   }
 
   /**
-   * Saves what changed, the draft as the todo's title, which the service trims and checks, the priority or both, and
-   * closes the editor; a refused or failed save keeps it open with the draft. Nothing changed closes it with no
-   * request; a blank title does nothing.
+   * Saves what the draft changes, its title, which the service trims and checks, its priority or both, and closes the
+   * editor; a refused or failed save keeps it open with the draft. Nothing changed closes it with no request; a blank
+   * title does nothing.
    */
   async save(): Promise<void> {
     const todo = this.todo;
-    if (this.busy || todo === undefined || this.draft.trim() === '') {
+    if (this.busy || todo === undefined || this.draft.title.trim() === '') {
       return;
     }
-    const edit = this.#edit(todo);
+    const edit = this.draft.changes(todo);
     if (edit === undefined) {
       this.close();
       return;
@@ -149,7 +147,7 @@ export class Editor {
 
   /**
    * Moves the todo a step up or down its group in the service, then its row on the page, and keeps the editor open with
-   * the draft and the priority picked. The focus goes back to the button pressed if the row's move took it away.
+   * its draft. The focus goes back to the button pressed if the row's move took it away.
    */
   async move(direction: Direction, button: HTMLButtonElement): Promise<void> {
     const todo = this.todo;
@@ -191,18 +189,6 @@ export class Editor {
   readonly deleteButton: Attachment<HTMLButtonElement> = (button) => {
     this.#deleteButton = button;
   };
-
-  /** What the editor changes in the todo, its title, its priority or both; undefined if neither changed. */
-  #edit(todo: Todo): Edit | undefined {
-    const edit: Edit = {};
-    if (this.draft !== todo.title) {
-      edit.title = this.draft;
-    }
-    if (this.priority !== todo.priority) {
-      edit.priority = this.priority;
-    }
-    return Object.keys(edit).length > 0 ? edit : undefined;
-  }
 
   /** The ID of the todo after this one on the page, else of the one before it, across the groups. */
   #neighbour(id: number): number | undefined {
