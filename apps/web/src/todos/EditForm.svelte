@@ -1,12 +1,12 @@
 <script lang="ts">
-import { renameLabel } from './labels';
-import { focusField, type Rename } from './rename.svelte';
+import { type Editor, focusField } from './editor.svelte';
+import { editLabel } from './labels';
 
-let { rename }: { rename: Rename } = $props();
+let { editor }: { editor: Editor } = $props();
 
 function submit(event: SubmitEvent): void {
   event.preventDefault();
-  void rename.save();
+  void editor.save();
 }
 </script>
 
@@ -17,20 +17,20 @@ function submit(event: SubmitEvent): void {
       class="form-field"
       type="text"
       aria-label="Title"
-      readonly={rename.saving}
-      bind:value={rename.draft}
-      onkeydown={rename.keydown}
+      readonly={editor.busy}
+      bind:value={editor.draft}
+      onkeydown={editor.keydown}
       {@attach focusField}
     >
     <!-- The buttons wrap together, under the field, on a narrow screen. -->
     <span class="buttons">
-      <button class="form-button" type="submit" aria-disabled={rename.saving}>Save</button>
-      <button class="form-button" type="button" aria-disabled={rename.saving} onclick={() => rename.close()}>
+      <button class="form-button" type="submit" aria-disabled={editor.busy}>Save</button>
+      <button class="form-button" type="button" aria-disabled={editor.busy} onclick={() => editor.close()}>
         Cancel
       </button>
     </span>
   </div>
-  <p class="form-status" role="status">{renameLabel(rename.status)}</p>
+  <p class="form-status" role="status">{editLabel(editor.status)}</p>
 </form>
 
 <style>
