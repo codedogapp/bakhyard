@@ -59,6 +59,9 @@ function answer(url: string): Response {
   if (url === '/api/notes/files/Work/Plan.md') {
     return new Response('# Plan\n\n## Goals\nShip it.');
   }
+  if (url === '/api/todos') {
+    return Response.json({ todos: [{ id: 1, title: 'Buy milk' }] });
+  }
   return Response.json(home);
 }
 
@@ -164,6 +167,14 @@ test('opens a note, and keeps the Notes page as the user left it while the app r
   expect(screen.getByText('Work').closest('details')).toHaveProperty('open', true);
   expect(screen.getByRole('link', { name: 'Plan' })).toHaveAttribute('href', '/notes/Work/Plan');
   expect(vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/notes')).toHaveLength(1);
+});
+
+test('shows the todos at /todos', async () => {
+  history.replaceState(null, '', '/todos');
+  render(App);
+
+  expect(await screen.findByText('1 todo on the list.')).toBeInTheDocument();
+  expect(document.title).toBe('Todos · Bakhyard');
 });
 
 test('leaves navigations to the browser once it goes away', () => {
