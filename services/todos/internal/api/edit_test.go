@@ -13,13 +13,25 @@ func TestPatchTodoChangesATodo(t *testing.T) {
 	post(t, router, `{"title":"Call home"}`)
 	post(t, router, `{"title":"Buy milk"}`)
 
+	const (
+		ticked  = `{"id":2,"title":"Buy milk","done":true,"priority":"normal"}`
+		renamed = `{"id":2,"title":"Buy <oat> milk","done":true,"priority":"normal"}`
+		raised  = `{"id":2,"title":"Buy <oat> milk","done":true,"priority":"high"}`
+		lowered = `{"id":2,"title":"Buy <oat> milk","done":true,"priority":"low"}`
+	)
+
 	for _, test := range []struct{ body, want string }{
-		{`{"done":true}`, `{"id":2,"title":"Buy milk","done":true}`},
-		{`{"title":"  Buy <oat> milk "}`, `{"id":2,"title":"Buy <oat> milk","done":true}`},
-		{`{"title":null,"done":null}`, `{"id":2,"title":"Buy <oat> milk","done":true}`},
-		{`{}`, `{"id":2,"title":"Buy <oat> milk","done":true}`},
-		{`null`, `{"id":2,"title":"Buy <oat> milk","done":true}`},
-		{`{"title":"Buy milk","done":false}`, `{"id":2,"title":"Buy milk","done":false}`},
+		{`{"done":true}`, ticked},
+		{`{"title":"  Buy <oat> milk "}`, renamed},
+		{`{"priority":"high"}`, raised},
+		{`{"title":null,"done":null,"priority":null}`, raised},
+		{`{}`, raised},
+		{`null`, raised},
+		{`{"priority":"low"}`, lowered},
+		{
+			`{"title":"Buy milk","done":false,"priority":"normal"}`,
+			`{"id":2,"title":"Buy milk","done":false,"priority":"normal"}`,
+		},
 	} {
 		rec := patch(t, router, "/todos/2", test.body)
 		if rec.Code != http.StatusOK || rec.Body.String() != test.want ||
@@ -28,7 +40,8 @@ func TestPatchTodoChangesATodo(t *testing.T) {
 				rec.Header().Get("Content-Type"), test.want)
 		}
 
-		want := `{"todos":[` + test.want + `,{"id":1,"title":"Call home","done":false}]}`
+		want := `{"todos":[` + test.want +
+			`,{"id":1,"title":"Call home","done":false,"priority":"normal"}]}`
 		if got := get(t, router).Body.String(); got != want {
 			t.Fatalf("%s: got the list %s, want %s", test.body, got, want)
 		}
@@ -36,7 +49,10 @@ func TestPatchTodoChangesATodo(t *testing.T) {
 }
 
 func TestPatchTodoRefusesABadBody(t *testing.T) {
-	const notChange = "the body isn't a JSON object with just a title and a done mark\n"
+	const (
+		notChange   = "the body isn't a JSON object with just a title, a done mark and a priority\n"
+		notPriority = "invalid priority: not high, normal or low\n"
+	)
 
 	tests := []struct{ name, body, want string }{
 		{"empty", "", notChange},
@@ -45,6 +61,9 @@ func TestPatchTodoRefusesABadBody(t *testing.T) {
 		{"a string as done", `{"done":"true"}`, notChange},
 		{"a number as done", `{"done":1}`, notChange},
 		{"a number as title", `{"title":5}`, notChange},
+		{"a number as priority", `{"priority":1}`, notChange},
+		{"a list as priority", `{"priority":["high"]}`, notChange},
+		{"a capital member", `{"Priority":"high"}`, notChange},
 		{"an unknown member", `{"done":true,"id":1}`, notChange},
 		{"a duplicate member", `{"done":true,"done":false}`, notChange},
 		{"trailing data", `{"done":true}{}`, notChange},
@@ -55,6 +74,17 @@ func TestPatchTodoRefusesABadBody(t *testing.T) {
 			"invalid title: over 500 characters\n",
 		},
 		{"an escaped NUL", `{"title":"Buy\u0000milk"}`, "invalid title: has a control character\n"},
+		{"a capital priority", `{"priority":"High"}`, notPriority},
+		{"an empty priority", `{"priority":""}`, notPriority},
+		{
+			"another priority",
+			`{"title":"Buy oat milk","done":true,"priority":"urgent"}`,
+			notPriority,
+		},
+		{
+			"a blank title and another priority", `{"title":" ","priority":"urgent"}`,
+			"invalid title: empty once trimmed\n",
+		},
 	}
 
 	router, _, _ := todos(t)
@@ -71,7 +101,7 @@ func TestPatchTodoRefusesABadBody(t *testing.T) {
 		})
 	}
 
-	want := `{"todos":[{"id":1,"title":"Buy milk","done":false}]}`
+	want := `{"todos":[{"id":1,"title":"Buy milk","done":false,"priority":"normal"}]}`
 	if got := get(t, router).Body.String(); got != want {
 		t.Errorf("got the list %s, want the todo unchanged", got)
 	}
@@ -104,7 +134,7 @@ func TestDeleteTodoDeletesATodo(t *testing.T) {
 		t.Errorf("got %d %q, want 204 without a body", rec.Code, rec.Body)
 	}
 
-	want := `{"todos":[{"id":2,"title":"Call home","done":false}]}`
+	want := `{"todos":[{"id":2,"title":"Call home","done":false,"priority":"normal"}]}`
 	if got := get(t, router).Body.String(); got != want {
 		t.Errorf("got the list %s, want %s", got, want)
 	}

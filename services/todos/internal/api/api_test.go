@@ -37,8 +37,8 @@ func TestGetTodosListsTheTodos(t *testing.T) {
 
 	rec = get(t, router)
 
-	want := `{"todos":[{"id":2,"title":"Answer \"Re: <the plan>\"","done":false},` +
-		`{"id":1,"title":"Buy milk","done":false}]}`
+	want := `{"todos":[{"id":2,"title":"Answer \"Re: <the plan>\"","done":false,` +
+		`"priority":"normal"},{"id":1,"title":"Buy milk","done":false,"priority":"normal"}]}`
 	if rec.Code != http.StatusOK || rec.Body.String() != want {
 		t.Errorf("got %d %s, want 200 %s", rec.Code, rec.Body, want)
 	}

@@ -19,17 +19,35 @@ func TestChangeChangesOnlyWhatItNames(t *testing.T) {
 		change todo.Change
 		want   todo.Todo
 	}{
-		{"tick", todo.Change{Done: new(true)}, todo.Todo{ID: 1, Title: "Buy milk", Done: true}},
+		{
+			"tick",
+			todo.Change{Done: new(true)},
+			todo.Todo{ID: 1, Title: "Buy milk", Done: true, Priority: todo.Normal},
+		},
 		{
 			"rename, trimmed",
 			todo.Change{Title: new("\t Buy oat milk \n")},
-			todo.Todo{ID: 1, Title: "Buy oat milk", Done: true},
+			todo.Todo{ID: 1, Title: "Buy oat milk", Done: true, Priority: todo.Normal},
 		},
-		{"nothing", todo.Change{}, todo.Todo{ID: 1, Title: "Buy oat milk", Done: true}},
 		{
-			"both",
-			todo.Change{Title: new("Buy milk"), Done: new(false)},
-			todo.Todo{ID: 1, Title: "Buy milk"},
+			"raise",
+			todo.Change{Priority: new(todo.High)},
+			todo.Todo{ID: 1, Title: "Buy oat milk", Done: true, Priority: todo.High},
+		},
+		{
+			"nothing",
+			todo.Change{},
+			todo.Todo{ID: 1, Title: "Buy oat milk", Done: true, Priority: todo.High},
+		},
+		{
+			"lower",
+			todo.Change{Priority: new(todo.Low)},
+			todo.Todo{ID: 1, Title: "Buy oat milk", Done: true, Priority: todo.Low},
+		},
+		{
+			"all three",
+			todo.Change{Title: new("Buy milk"), Done: new(false), Priority: new(todo.Normal)},
+			todo.Todo{ID: 1, Title: "Buy milk", Priority: todo.Normal},
 		},
 	} {
 		got, err := store.Change(t.Context(), 1, test.change)
@@ -38,7 +56,7 @@ func TestChangeChangesOnlyWhatItNames(t *testing.T) {
 		}
 
 		list, err := store.List(t.Context())
-		want := []todo.Todo{{ID: 2, Title: "Call home"}, test.want}
+		want := []todo.Todo{{ID: 2, Title: "Call home", Priority: todo.Normal}, test.want}
 
 		if err != nil || !slices.Equal(list, want) {
 			t.Fatalf("%s: got the list %+v (%v), want %+v", test.name, list, err, want)
@@ -55,15 +73,41 @@ func TestChangeRefusesABadTitle(t *testing.T) {
 		{"long", strings.Repeat("é", 501), "invalid title: over 500 characters"},
 		{"a control character", "Buy\u0007milk", "invalid title: has a control character"},
 	} {
-		_, err := store.Change(t.Context(), 1, todo.Change{Title: new(test.title), Done: new(true)})
+		_, err := store.Change(t.Context(), 1, todo.Change{
+			Title: new(test.title), Done: new(true), Priority: new(todo.High),
+		})
 		if !errors.Is(err, todo.ErrTitle) || err.Error() != test.want {
 			t.Errorf("%s: got %v, want %s", test.name, err, test.want)
 		}
 	}
 
 	got, err := store.List(t.Context())
-	if want := []todo.Todo{{ID: 1, Title: "Buy milk"}}; err != nil || !slices.Equal(got, want) {
-		t.Errorf("got %+v (%v), want the todo unchanged, not done", got, err)
+
+	want := []todo.Todo{{ID: 1, Title: "Buy milk", Priority: todo.Normal}}
+	if err != nil || !slices.Equal(got, want) {
+		t.Errorf("got %+v (%v), want the todo unchanged, not done and Normal", got, err)
+	}
+}
+
+func TestChangeRefusesAnotherPriority(t *testing.T) {
+	store, pool := newStore(t)
+	add(t, pool, "Buy milk")
+
+	for _, priority := range []todo.Priority{"", "High", "NORMAL", "urgent", " low", "low\n"} {
+		_, err := store.Change(t.Context(), 1, todo.Change{
+			Title: new("Buy oat milk"), Done: new(true), Priority: new(priority),
+		})
+		if !errors.Is(err, todo.ErrPriority) ||
+			err.Error() != "invalid priority: not high, normal or low" {
+			t.Errorf("%q: got %v, want %v", priority, err, todo.ErrPriority)
+		}
+	}
+
+	got, err := store.List(t.Context())
+
+	want := []todo.Todo{{ID: 1, Title: "Buy milk", Priority: todo.Normal}}
+	if err != nil || !slices.Equal(got, want) {
+		t.Errorf("got %+v (%v), want the todo unchanged, not done and Normal", got, err)
 	}
 }
 
@@ -84,7 +128,9 @@ func TestChangeAndDeleteFindNoTodo(t *testing.T) {
 	}
 
 	got, err := store.List(t.Context())
-	if want := []todo.Todo{{ID: 1, Title: "Buy milk"}}; err != nil || !slices.Equal(got, want) {
+
+	want := []todo.Todo{{ID: 1, Title: "Buy milk", Priority: todo.Normal}}
+	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("got %+v (%v), want the todo unchanged", got, err)
 	}
 }
@@ -101,7 +147,10 @@ func TestDeleteDeletesOneTodoForGood(t *testing.T) {
 
 	got, err := store.List(t.Context())
 
-	want := []todo.Todo{{ID: 3, Title: "Call home"}, {ID: 1, Title: "Buy milk"}}
+	want := []todo.Todo{
+		{ID: 3, Title: "Call home", Priority: todo.Normal},
+		{ID: 1, Title: "Buy milk", Priority: todo.Normal},
+	}
 	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("got %+v (%v), want %+v", got, err, want)
 	}

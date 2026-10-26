@@ -23,7 +23,9 @@ func TestListListsTheNewestFirst(t *testing.T) {
 	got, err := store.List(t.Context())
 
 	want := []todo.Todo{
-		{ID: 3, Title: "Call home"}, {ID: 2, Title: "Answer mail"}, {ID: 1, Title: "Buy milk"},
+		{ID: 3, Title: "Call home", Priority: todo.Normal},
+		{ID: 2, Title: "Answer mail", Priority: todo.Normal},
+		{ID: 1, Title: "Buy milk", Priority: todo.Normal},
 	}
 	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("got %+v (%v), want %+v", got, err, want)

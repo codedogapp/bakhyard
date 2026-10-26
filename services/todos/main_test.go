@@ -29,11 +29,11 @@ func TestTodosServesTheTodos(t *testing.T) {
 		{http.MethodHead, "/todos", "", http.StatusOK, `{"todos":[]}`},
 		{
 			http.MethodPost, "/todos", `{"title":"Buy milk"}`,
-			http.StatusCreated, `{"id":1,"title":"Buy milk","done":false}`,
+			http.StatusCreated, `{"id":1,"title":"Buy milk","done":false,"priority":"normal"}`,
 		},
 		{
 			http.MethodPatch, "/todos/1", `{"done":true}`,
-			http.StatusOK, `{"id":1,"title":"Buy milk","done":true}`,
+			http.StatusOK, `{"id":1,"title":"Buy milk","done":true,"priority":"normal"}`,
 		},
 		{http.MethodDelete, "/todos/1", "", http.StatusNoContent, ""},
 		{http.MethodPut, "/todos", "", http.StatusMethodNotAllowed, ""},
