@@ -74,7 +74,7 @@ description = "Scan the dependencies for known vulnerabilities (govulncheck)"
 run = "govulncheck ./..."
 
 [tasks.check]
-description = "Run the local quality gate"
+description = "Run the local quality gate, then the end-to-end tests"
 depends = [
     "fmt:check",
     "lint",
@@ -84,6 +84,9 @@ depends = [
     "vuln",
     "//apps/web:check",
 ]
+# The end-to-end tests come last because they build the web app, which the Go gates read
+# while they run: the web service embeds it.
+run = "mise run //apps/web:e2e"
 
 [tasks.sonar-issues]
 description = "List open SonarQube Cloud issues"

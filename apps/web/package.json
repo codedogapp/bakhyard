@@ -7,8 +7,9 @@
     "build": "vite build",
     "format": "biome check --write",
     "lint": "biome ci --error-on-warnings",
-    "typecheck": "rm -rf .svelte-check && svelte-check --tsgo --tsconfig ./tsconfig.app.json --fail-on-warnings && tsc -p tsconfig.node.json",
+    "typecheck": "rm -rf .svelte-check && svelte-check --tsgo --tsconfig ./tsconfig.app.json --fail-on-warnings && tsc -p tsconfig.node.json && tsc -p tsconfig.e2e.json",
     "test": "vitest run --coverage",
+    "e2e": "playwright test",
     "unused": "knip"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",
+    "@playwright/test": "1.64.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/svelte": "5.4.2",
