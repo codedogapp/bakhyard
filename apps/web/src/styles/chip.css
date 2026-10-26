@@ -1,0 +1,13 @@
+/* §7's chip (decision 123): mono capitals in an ink outline, or on an ink fill. */
+.chip {
+  padding: 3px 6px;
+  border: 1px solid var(--ink);
+  font: 400 10px / 1.2 var(--font-mono);
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.chip-filled {
+  background: var(--ink);
+  color: var(--paper);
+}
