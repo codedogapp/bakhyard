@@ -21,16 +21,21 @@ func TestTodosServesTheTodos(t *testing.T) {
 
 	// A recorder keeps what the GET handler writes for HEAD; a server would drop it.
 	for _, test := range []struct {
-		method, target string
-		code           int
-		body           string
+		method, target, request string
+		code                    int
+		body                    string
 	}{
-		{http.MethodGet, "/todos", http.StatusOK, `{"todos":[]}`},
-		{http.MethodHead, "/todos", http.StatusOK, `{"todos":[]}`},
-		{http.MethodPost, "/todos", http.StatusMethodNotAllowed, ""},
-		{http.MethodGet, "/healthz", http.StatusOK, `{"status":"ok"}`},
+		{http.MethodGet, "/todos", "", http.StatusOK, `{"todos":[]}`},
+		{http.MethodHead, "/todos", "", http.StatusOK, `{"todos":[]}`},
+		{
+			http.MethodPost, "/todos", `{"title":"Buy milk"}`,
+			http.StatusCreated, `{"id":1,"title":"Buy milk"}`,
+		},
+		{http.MethodPut, "/todos", "", http.StatusMethodNotAllowed, ""},
+		{http.MethodGet, "/healthz", "", http.StatusOK, `{"status":"ok"}`},
 	} {
-		req := httptest.NewRequestWithContext(t.Context(), test.method, test.target, nil)
+		req := httptest.NewRequestWithContext(t.Context(), test.method, test.target,
+			strings.NewReader(test.request))
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
 
