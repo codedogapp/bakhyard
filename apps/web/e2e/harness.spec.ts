@@ -19,15 +19,19 @@ test('a problem in the page fails the test', async ({ page }) => {
   test.fail();
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
   await page.goto('/');
-  // Nothing here checks the problem, so only the fixture can fail the test.
-  await Promise.all([page.waitForEvent('console'), page.evaluate(() => console.error('Something broke.'))]);
+  const [message] = await Promise.all([
+    page.waitForEvent('console'),
+    page.evaluate(() => console.error('Something broke.')),
+  ]);
+  // This checks only that the page logged the error: the fixture's check, after the test, is what must fail it.
+  expect(message.text()).toBe('Something broke.');
 });
 
 test('an API call that the test does not answer is a problem', async ({ context, baseURL }) => {
   const page = await context.newPage();
   const problems = await watch(page);
-  await page.goto('/');
-  await expect.poll(() => problems).toContain(`unanswered: GET ${baseURL}/api/home`);
+  await Promise.all([page.waitForEvent('requestfailed'), page.goto('/')]);
+  expect(problems).toContain(`unanswered: GET ${baseURL}/api/home`);
 });
 
 test('a console error is a problem', async ({ context }) => {
