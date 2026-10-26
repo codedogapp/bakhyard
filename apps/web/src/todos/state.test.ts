@@ -115,7 +115,7 @@ test('keeps the draft and the list when the add fails', async () => {
   expect(list.busy).toBe(false);
 });
 
-test.each([true, false])('ticks the done mark %s at once, then shows the todo as saved', async (done) => {
+test.each([true, false])('ticks the done mark %s at once, then saves it', async (done) => {
   const answer = Promise.withResolvers<Response>();
   const fetchMock = vi.fn<typeof fetch>().mockReturnValue(answer.promise);
   vi.stubGlobal('fetch', fetchMock);
@@ -124,7 +124,9 @@ test.each([true, false])('ticks the done mark %s at once, then shows the todo as
   const tick = list.tick(2, done);
   expect(list.todos).toEqual([{ ...bank, done }, milk]);
   expect(list.ticking(2)).toBe(true);
-  answer.resolve(Response.json({ ...bank, title: 'Call the bank today', done }));
+  // A rename that the service stored after the tick answers first; the tick's answer has the old title.
+  list.retitle({ ...bank, title: 'Call the bank today', done });
+  answer.resolve(Response.json({ ...bank, done }));
   await tick;
 
   expect(list.todos).toEqual([{ ...bank, title: 'Call the bank today', done }, milk]);

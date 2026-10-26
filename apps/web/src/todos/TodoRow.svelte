@@ -1,9 +1,13 @@
 <script lang="ts">
 import type { Todo } from './api';
 import { tickLabel } from './labels';
+import RenameForm from './RenameForm.svelte';
+import type { Rename } from './rename.svelte';
 import type { TodosState } from './state.svelte';
 
-let { list, todo }: { list: TodosState; todo: Todo } = $props();
+let { list, todo, rename }: { list: TodosState; todo: Todo; rename: Rename } = $props();
+
+const editing = $derived(rename.id === todo.id);
 
 function click(event: MouseEvent & { currentTarget: HTMLInputElement }): void {
   if (list.ticking(todo.id)) {
@@ -14,14 +18,30 @@ function click(event: MouseEvent & { currentTarget: HTMLInputElement }): void {
 }
 </script>
 
-<!-- The title labels the box, so a tap anywhere on it ticks the todo. -->
 <li class={{ done: todo.done }}>
-  <label>
-    <!-- aria-disabled, not disabled, so focus stays on the box while its tick runs. -->
-    <input type="checkbox" checked={todo.done} aria-disabled={list.ticking(todo.id)} onclick={click}>
-    <span>{todo.title}</span>
-  </label>
+  {#if editing}
+    <RenameForm {rename} />
+  {:else}
+    <!-- The title labels the box, so a tap anywhere on it ticks the todo. -->
+    <label>
+      <!-- aria-disabled, not disabled, so focus stays on the box while its tick runs. -->
+      <input type="checkbox" checked={todo.done} aria-disabled={list.ticking(todo.id)} onclick={click}>
+      <span>{todo.title}</span>
+    </label>
+  {/if}
   <p class="status" role="status">{tickLabel(list.ticks.get(todo.id))}</p>
+  {#if !editing}
+    <button
+      class="edit"
+      type="button"
+      aria-label="Edit {todo.title}"
+      aria-disabled={rename.saving}
+      onclick={() => rename.open(todo)}
+      {@attach rename.editButton(todo.id)}
+    >
+      Edit
+    </button>
+  {/if}
 </li>
 
 <style>
@@ -37,6 +57,10 @@ li:not(:first-child) {
 @media (hover: hover) {
   li:hover {
     background: var(--fill);
+  }
+
+  .edit:hover {
+    color: var(--ink);
   }
 }
 
@@ -88,5 +112,24 @@ input:checked {
 
 .status:not(:empty) {
   padding-right: 20px;
+}
+
+/* In the status line's style, and 48 px tall, as a tap target that takes in the 20 px gap before it. */
+.edit {
+  flex: none;
+  margin-left: -20px;
+  padding: 12px 20px;
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font: 400 11px / 24px var(--font-mono);
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+/* Inside the target, as a tab's, so it neither crosses the card's edge nor sits off-centre. */
+.edit:focus-visible {
+  outline-offset: -5px;
 }
 </style>

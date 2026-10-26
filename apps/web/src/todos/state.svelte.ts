@@ -1,9 +1,9 @@
 import { SvelteMap } from 'svelte/reactivity';
 
-import { addTodo, fetchTodos, type Todo, tickTodo } from './api';
+import { addTodo, fetchTodos, type Refused, type Todo, tickTodo } from './api';
 
 /** The last add: running, or how it ended. */
-export type AddStatus = { kind: 'idle' | 'adding' | 'added' | 'failed' } | { kind: 'refused'; reason: string };
+export type AddStatus = { kind: 'idle' | 'adding' | 'added' | 'failed' } | Refused;
 
 /** A todo's last tick, to done or not, while it runs or once it has failed; a failed tick put the done mark back. */
 export interface Tick {
@@ -64,7 +64,10 @@ export class TodosState {
     }
   }
 
-  /** Ticks the todo done, or unticks it, at once, then saves it; a failed save puts the done mark back. */
+  /**
+   * Ticks the todo done, or unticks it, at once, then saves it; a failed save puts the done mark back. The answer
+   * changes only the done mark, so it can't undo a rename whose answer came first.
+   */
   async tick(id: number, done: boolean): Promise<void> {
     if (this.ticking(id)) {
       return;
@@ -73,12 +76,17 @@ export class TodosState {
     this.change(id, (todo) => ({ ...todo, done }));
     try {
       const saved = await tickTodo(id, done);
-      this.change(id, () => saved);
+      this.change(id, (todo) => ({ ...todo, done: saved.done }));
       this.ticks.delete(id);
     } catch {
       this.change(id, (todo) => ({ ...todo, done: !done }));
       this.ticks.set(id, { kind: 'failed', done });
     }
+  }
+
+  /** Puts the renamed todo's title in the list; only the title, so it can't undo a tick whose answer came first. */
+  retitle(renamed: Todo): void {
+    this.change(renamed.id, (todo) => ({ ...todo, title: renamed.title }));
   }
 
   private change(id: number, change: (todo: Todo) => Todo): void {

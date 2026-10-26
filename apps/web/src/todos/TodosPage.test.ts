@@ -26,7 +26,8 @@ test('lists the todos, newest first, once the list loads', async () => {
 
   expect(await screen.findByText('2 todos on the list.')).toBeInTheDocument();
   const rows = within(screen.getByRole('list')).getAllByRole('listitem');
-  expect(rows.map((row) => row.textContent?.trim())).toEqual(['Call <b>home</b>', 'Buy milk']);
+  expect(rows.map((row) => row.querySelector('label')?.textContent?.trim())).toEqual(['Call <b>home</b>', 'Buy milk']);
+  expect(screen.getByRole('button', { name: 'Edit Call <b>home</b>' })).toHaveTextContent('Edit');
   expect(screen.getByRole('textbox', { name: 'New todo' })).toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/todos');
 });
@@ -124,4 +125,68 @@ test('ticks a todo once at a time', async () => {
   await waitFor(() => expect(box).toHaveAttribute('aria-disabled', 'false'));
   expect(box).toBeChecked();
   expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+test('renames a todo in its row, then gives the focus back to its Edit button', async () => {
+  const fetchMock = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ todos: [bank, milk] }))
+    .mockResolvedValueOnce(Response.json({ ...bank, title: 'Call the bank today' }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(TodosPage);
+
+  // A click that the browser dispatches at once: the field has the focus before the click returns.
+  (await screen.findByRole('button', { name: 'Edit Call the bank' })).click();
+  const field = screen.getByRole<HTMLInputElement>('textbox', { name: 'Title' });
+  expect(field).toHaveFocus();
+  expect([field.selectionStart, field.selectionEnd]).toEqual([13, 13]);
+  expect(screen.queryByRole('checkbox', { name: 'Call the bank' })).not.toBeInTheDocument();
+  await fireEvent.input(field, { target: { value: 'Call the bank today' } });
+  await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Call the bank today' })).toHaveFocus());
+  expect(screen.getByRole('checkbox', { name: 'Call the bank today' })).not.toBeChecked();
+  expect(screen.queryByRole('textbox', { name: 'Title' })).not.toBeInTheDocument();
+  expect(fetchMock).toHaveBeenLastCalledWith('/api/todos/2', expect.objectContaining({ method: 'PATCH' }));
+});
+
+test('closes the editor on Cancel or Escape, with no request', async () => {
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({ todos: [bank, milk] }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(TodosPage);
+
+  await fireEvent.click(await screen.findByRole('button', { name: 'Edit Buy milk' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Buy milk' })).toHaveFocus());
+  await fireEvent.click(screen.getByRole('button', { name: 'Edit Buy milk' }));
+  await fireEvent.keyDown(screen.getByRole('textbox', { name: 'Title' }), { key: 'Escape' });
+
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Buy milk' })).toHaveFocus());
+  expect(screen.getByRole('checkbox', { name: 'Buy milk' })).toBeChecked();
+  expect(fetchMock).toHaveBeenCalledOnce();
+});
+
+test('shows the save running, then the reason the service refused the title for', async () => {
+  const answer = Promise.withResolvers<Response>();
+  const fetchMock = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ todos: [bank, milk] }))
+    .mockReturnValueOnce(answer.promise);
+  vi.stubGlobal('fetch', fetchMock);
+  render(TodosPage);
+
+  await fireEvent.click(await screen.findByRole('button', { name: 'Edit Call the bank' }));
+  await fireEvent.input(screen.getByRole('textbox', { name: 'Title' }), { target: { value: 'Call\tthe bank' } });
+  await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+  expect(screen.getByRole('textbox', { name: 'Title' })).toHaveAttribute('readonly');
+  for (const name of ['Save', 'Cancel', 'Edit Buy milk']) {
+    expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true');
+  }
+  expect(screen.getByText('Saving…')).toHaveAttribute('role', 'status');
+  answer.resolve(new Response('invalid title: has a control character\n', { status: 400 }));
+
+  expect(await screen.findByText('invalid title: has a control character')).toHaveAttribute('role', 'status');
+  expect(screen.getByRole('textbox', { name: 'Title' })).not.toHaveAttribute('readonly');
+  expect(screen.getByRole('button', { name: 'Edit Buy milk' })).toHaveAttribute('aria-disabled', 'false');
 });

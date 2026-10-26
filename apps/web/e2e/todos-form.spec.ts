@@ -45,7 +45,10 @@ test('Enter adds the todo on top of the list', async ({ page }) => {
   await field.press('Enter');
 
   await expect(page.getByText('4 todos on the list.')).toBeVisible();
-  await expect(page.getByRole('main').getByRole('listitem')).toHaveText(['Pick up the dry cleaning', ...titles]);
+  await expect(page.getByRole('main').getByRole('listitem').locator('label')).toHaveText([
+    'Pick up the dry cleaning',
+    ...titles,
+  ]);
   await expect(addStatus(page)).toHaveText('Added');
   await expect(field).toHaveValue('');
   await expect(field).toBeFocused();
@@ -62,7 +65,7 @@ test('the Add button adds the first todo', async ({ page }) => {
   await page.getByRole('button', { name: 'Add' }).click();
 
   await expect(page.getByText('1 todo on the list.')).toBeVisible();
-  await expect(page.getByRole('main').getByRole('listitem')).toHaveText(['Pick up the dry cleaning']);
+  await expect(page.getByRole('main').getByRole('listitem').locator('label')).toHaveText(['Pick up the dry cleaning']);
 });
 
 test('a refused title stays in the field, with the reason', async ({ page }) => {
@@ -76,7 +79,7 @@ test('a refused title stays in the field, with the reason', async ({ page }) => 
 
   await expect(addStatus(page)).toHaveText('invalid title: over 500 characters');
   await expect(field).toHaveValue(title);
-  await expect(page.getByRole('main').getByRole('listitem')).toHaveText(titles);
+  await expect(page.getByRole('main').getByRole('listitem').locator('label')).toHaveText(titles);
 });
 
 test('a failed add keeps the text', async ({ page }) => {

@@ -22,8 +22,18 @@ export async function fetchTodos(): Promise<Todo[]> {
   return body.todos;
 }
 
+/** The service's reason for refusing a title. */
+export type Refused = { kind: 'refused'; reason: string };
+
 /** How an add ended: the new todo, or the service's reason for refusing its title. */
-export type Added = { kind: 'added'; todo: Todo } | { kind: 'refused'; reason: string };
+export type Added = { kind: 'added'; todo: Todo } | Refused;
+
+/** How a rename ended: the renamed todo, or the service's reason for refusing the new title. */
+export type Renamed = { kind: 'renamed'; todo: Todo } | Refused;
+
+async function refusal(response: Response): Promise<Refused> {
+  return { kind: 'refused', reason: (await response.text()).trim() };
+}
 
 /** Adds a todo with the title as typed, which the service trims and checks; fails on any answer but a 201 or a 400. */
 export async function addTodo(title: string): Promise<Added> {
@@ -33,7 +43,7 @@ export async function addTodo(title: string): Promise<Added> {
     body: JSON.stringify({ title }),
   });
   if (response.status === 400) {
-    return { kind: 'refused', reason: (await response.text()).trim() };
+    return refusal(response);
   }
   if (response.status !== 201) {
     throw new Error(`POST ${url}: ${response.status}`);
@@ -42,15 +52,33 @@ export async function addTodo(title: string): Promise<Added> {
   return { kind: 'added', todo };
 }
 
-/** Ticks the todo done, or unticks it, and gives the todo as the service stored it; fails on any answer but a 200. */
-export async function tickTodo(id: number, done: boolean): Promise<Todo> {
-  const response = await fetch(`${url}/${id}`, {
+/** Sends the change to the todo; the service changes only what the change names. */
+function patchTodo(id: number, change: Partial<Omit<Todo, 'id'>>): Promise<Response> {
+  return fetch(`${url}/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ done }),
+    body: JSON.stringify(change),
   });
+}
+
+/** Ticks the todo done, or unticks it, and gives the todo as the service stored it; fails on any answer but a 200. */
+export async function tickTodo(id: number, done: boolean): Promise<Todo> {
+  const response = await patchTodo(id, { done });
   if (response.status !== 200) {
     throw new Error(`PATCH ${url}/${id}: ${response.status}`);
   }
   return response.json();
+}
+
+/** Renames the todo with the title as typed, which the service trims and checks; fails on any answer but a 200 or a 400. */
+export async function renameTodo(id: number, title: string): Promise<Renamed> {
+  const response = await patchTodo(id, { title });
+  if (response.status === 400) {
+    return refusal(response);
+  }
+  if (response.status !== 200) {
+    throw new Error(`PATCH ${url}/${id}: ${response.status}`);
+  }
+  const todo: Todo = await response.json();
+  return { kind: 'renamed', todo };
 }

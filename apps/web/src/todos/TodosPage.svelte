@@ -4,10 +4,12 @@ import { onMount } from 'svelte';
 import PageHead from '../shell/PageHead.svelte';
 import AddForm from './AddForm.svelte';
 import { todosSummary } from './labels';
+import { Rename } from './rename.svelte';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
 
 const list = new TodosState();
+const rename = new Rename(list);
 
 onMount(() => {
   void list.load();
@@ -21,7 +23,7 @@ onMount(() => {
     {#if list.todos.length > 0}
       <ul class="card">
         {#each list.todos as todo (todo.id)}
-          <TodoRow {list} {todo} />
+          <TodoRow {list} {todo} {rename} />
         {/each}
       </ul>
     {/if}
