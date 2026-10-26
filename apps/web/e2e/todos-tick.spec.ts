@@ -47,7 +47,9 @@ test('a click on the box ticks the todo, and another unticks it', async ({ page 
 
   await expect(box).not.toBeChecked();
   await expect(title).toHaveCSS('text-decoration-line', 'none');
-  await expect(page.getByRole('main').getByRole('listitem')).toHaveText(todos.map((todo) => todo.title));
+  await expect(page.getByRole('main').getByRole('listitem').locator('label')).toHaveText(
+    todos.map((todo) => todo.title)
+  );
   await expect.poll(() => sent).toEqual(['PATCH /api/todos/3 {"done":true}', 'PATCH /api/todos/3 {"done":false}']);
 });
 

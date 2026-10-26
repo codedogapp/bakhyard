@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { addLabel, tickLabel, todosSummary } from './labels';
+import { addLabel, renameLabel, tickLabel, todosSummary } from './labels';
 
 test.each([
   { count: 0, want: 'No todos on the list.' },
@@ -32,4 +32,16 @@ test.each([
   { tick: { kind: 'failed', done: false }, want: 'Untick failed' },
 ] as const)('labels the tick $tick as "$want"', ({ tick, want }) => {
   expect(tickLabel(tick)).toBe(want);
+});
+
+test.each([
+  { status: { kind: 'idle' }, want: '' },
+  { status: { kind: 'saving' }, want: 'Saving…' },
+  {
+    status: { kind: 'refused', reason: 'invalid title: empty once trimmed' },
+    want: 'invalid title: empty once trimmed',
+  },
+  { status: { kind: 'failed' }, want: 'Save failed' },
+] as const)('labels the rename $status.kind as "$want"', ({ status, want }) => {
+  expect(renameLabel(status)).toBe(want);
 });

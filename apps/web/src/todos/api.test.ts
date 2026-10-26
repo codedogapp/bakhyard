@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { addTodo, fetchTodos, tickTodo } from './api';
+import { addTodo, fetchTodos, renameTodo, tickTodo } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -94,4 +94,39 @@ test('fails to tick when the gateway can not be reached', async () => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
 
   await expect(tickTodo(4, true)).rejects.toThrow('Failed to fetch');
+});
+
+test('renames a todo with the title as typed', async () => {
+  const todo = { id: 4, title: 'Call the bank today', done: true };
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(todo));
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(renameTodo(4, ' Call the bank today ')).resolves.toEqual({ kind: 'renamed', todo });
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/todos/4', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"title":" Call the bank today "}',
+  });
+});
+
+test('gives the reason the service refused a new title for', async () => {
+  const refusal = new Response('invalid title: empty once trimmed\n', { status: 400 });
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(refusal));
+
+  await expect(renameTodo(4, '\u0085')).resolves.toEqual({
+    kind: 'refused',
+    reason: 'invalid title: empty once trimmed',
+  });
+});
+
+test.each([201, 204, 401, 404, 413, 500, 502])('fails to rename when the gateway answers with %i', async (status) => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status })));
+
+  await expect(renameTodo(4, 'Call the bank')).rejects.toThrow(`PATCH /api/todos/4: ${status}`);
+});
+
+test('fails to rename when the gateway can not be reached', async () => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
+
+  await expect(renameTodo(4, 'Call the bank')).rejects.toThrow('Failed to fetch');
 });
