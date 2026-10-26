@@ -15,9 +15,10 @@ import (
 const listSQL = `SELECT id, title, done, priority, COALESCE(jira_key, '') FROM todos
 ORDER BY position DESC, id DESC`
 
-// addSQL stores a todo with the title $1 and returns it; the database makes it Normal and puts it
-// on top of the list, without a ticket.
-const addSQL = `INSERT INTO todos (title) VALUES ($1) RETURNING id, title, done, priority`
+// addSQL stores a todo with the title $1 and the ticket $2, none when empty, and returns it; the
+// database makes it Normal and puts it on top of the list.
+const addSQL = `INSERT INTO todos (title, jira_key) VALUES ($1, NULLIF($2, ''))
+RETURNING id, title, done, priority, COALESCE(jira_key, '')`
 
 // Todo is one of the user's todos. Ticket is the key of the Jira ticket that it names, or empty
 // for none, which the JSON leaves out (decision 125).
@@ -27,6 +28,13 @@ type Todo struct {
 	Done     bool     `json:"done"`
 	Priority Priority `json:"priority"`
 	Ticket   string   `json:"ticket,omitempty"`
+}
+
+// Addition is a todo to add: its title, and the key of the Jira ticket that it names, or empty
+// for none (decision 128).
+type Addition struct {
+	Title  string `json:"title"`
+	Ticket string `json:"ticket"`
 }
 
 // Store keeps the todos in todos' database.
@@ -52,19 +60,24 @@ func (s *Store) List(ctx context.Context) ([]Todo, error) {
 	return todos, nil
 }
 
-// Add trims title, stores it as a new todo, which is Normal and on top of the list, and returns
-// the todo. A title that is empty once trimmed, has more than 500 characters or has a control
-// character gets an error that wraps ErrTitle, and nothing is stored.
-func (s *Store) Add(ctx context.Context, title string) (Todo, error) {
-	title, err := cleanTitle(title)
+// Add trims addition's title, stores it as a new todo, which is Normal and on top of the list and
+// names addition's ticket, and returns the todo. A title that is empty once trimmed, has more than
+// 500 characters or has a control character gets an error that wraps ErrTitle; a good title with a
+// ticket that is neither empty nor a Jira key gets ErrTicket. Either way, nothing is stored.
+func (s *Store) Add(ctx context.Context, addition Addition) (Todo, error) {
+	title, err := cleanTitle(addition.Title)
 	if err != nil {
 		return Todo{}, err
 	}
 
+	if !validTicket(addition.Ticket) {
+		return Todo{}, ErrTicket
+	}
+
 	var added Todo
 
-	err = s.pool.QueryRow(ctx, addSQL, title).
-		Scan(&added.ID, &added.Title, &added.Done, &added.Priority)
+	err = s.pool.QueryRow(ctx, addSQL, title, addition.Ticket).
+		Scan(&added.ID, &added.Title, &added.Done, &added.Priority, &added.Ticket)
 	if err != nil {
 		return Todo{}, fmt.Errorf("add the todo: %w", err)
 	}

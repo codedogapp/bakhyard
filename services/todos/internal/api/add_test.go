@@ -8,6 +8,9 @@ import (
 	"testing"
 )
 
+// notAddition is the refusal of a body that isn't a todo to add.
+const notAddition = "the body isn't a JSON object with just a title and a ticket\n"
+
 func TestPostTodosAddsATodo(t *testing.T) {
 	router, _, _ := todos(t)
 
@@ -26,20 +29,18 @@ func TestPostTodosAddsATodo(t *testing.T) {
 }
 
 func TestPostTodosRefusesABadBody(t *testing.T) {
-	const notTitle = "the body isn't a JSON object with just a title\n"
-
 	tests := []struct{ name, body, want string }{
-		{"empty", "", notTitle},
-		{"invalid JSON", `{"title":`, notTitle},
-		{"a string", `"Buy milk"`, notTitle},
-		{"a list", `["Buy milk"]`, notTitle},
-		{"a number as title", `{"title":5}`, notTitle},
-		{"an unknown member", `{"title":"Buy milk","done":true}`, notTitle},
-		{"a priority", `{"title":"Buy milk","priority":"high"}`, notTitle},
-		{"a duplicate member", `{"title":"Buy milk","title":"Call home"}`, notTitle},
-		{"trailing data", `{"title":"Buy milk"}{}`, notTitle},
-		{"invalid UTF-8", "{\"title\":\"Buy \xff\"}", notTitle},
-		{"a lone surrogate", `{"title":"Buy \ud800"}`, notTitle},
+		{"empty", "", notAddition},
+		{"invalid JSON", `{"title":`, notAddition},
+		{"a string", `"Buy milk"`, notAddition},
+		{"a list", `["Buy milk"]`, notAddition},
+		{"a number as title", `{"title":5}`, notAddition},
+		{"an unknown member", `{"title":"Buy milk","done":true}`, notAddition},
+		{"a priority", `{"title":"Buy milk","priority":"high"}`, notAddition},
+		{"a duplicate member", `{"title":"Buy milk","title":"Call home"}`, notAddition},
+		{"trailing data", `{"title":"Buy milk"}{}`, notAddition},
+		{"invalid UTF-8", "{\"title\":\"Buy \xff\"}", notAddition},
+		{"a lone surrogate", `{"title":"Buy \ud800"}`, notAddition},
 		{"null", `null`, "invalid title: empty once trimmed\n"},
 		{"a null title", `{"title":null}`, "invalid title: empty once trimmed\n"},
 		{"no title", `{}`, "invalid title: empty once trimmed\n"},

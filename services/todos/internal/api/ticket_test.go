@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 )
@@ -90,20 +91,69 @@ func TestPatchTodoRefusesABadTicket(t *testing.T) {
 	}
 }
 
-func TestPostTodoTakesNoTicket(t *testing.T) {
+func TestPostTodosLinksATicket(t *testing.T) {
+	const linked = `{"id":1,"title":"Fix the date picker","done":false,"priority":"normal",` +
+		`"ticket":"WEB-9"}`
+
 	router, _, _ := todos(t)
 
-	rec := post(t, router, `{"title":"Buy milk","ticket":"ABC-1"}`)
-	if rec.Code != http.StatusBadRequest ||
-		rec.Body.String() != "the body isn't a JSON object with just a title\n" {
-		t.Errorf(
-			"got %d %q, want the plain 400 of a body that isn't a new todo",
-			rec.Code,
-			rec.Body,
-		)
+	rec := post(t, router, `{"title":" Fix the date picker","ticket":"WEB-9"}`)
+	if rec.Code != http.StatusCreated || rec.Body.String() != linked ||
+		rec.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("got %d %s (%s), want 201 %s as JSON",
+			rec.Code, rec.Body, rec.Header().Get("Content-Type"), linked)
+	}
+
+	list := linked
+
+	for i, body := range []string{
+		`{"title":"Buy milk","ticket":""}`,
+		`{"title":"Buy milk","ticket":null}`,
+		`{"title":"Buy milk"}`,
+	} {
+		want := fmt.Sprintf(`{"id":%d,"title":"Buy milk","done":false,"priority":"normal"}`, i+2)
+
+		rec := post(t, router, body)
+		if rec.Code != http.StatusCreated || rec.Body.String() != want {
+			t.Fatalf("%s: got %d %s, want 201 %s, without a ticket", body, rec.Code, rec.Body, want)
+		}
+
+		list = want + "," + list
+	}
+
+	if got := get(t, router).Body.String(); got != `{"todos":[`+list+`]}` {
+		t.Errorf("got the list %s, want the four todos, the first with its ticket", got)
+	}
+}
+
+func TestPostTodosRefusesABadTicket(t *testing.T) {
+	const notTicket = "invalid ticket: not a Jira key such as ABC-123\n"
+
+	router, _, _ := todos(t)
+
+	for _, test := range []struct{ name, body, want string }{
+		{"lower case", `{"title":"Buy milk","ticket":"abc-1"}`, notTicket},
+		{"white space", `{"title":"Buy milk","ticket":" ABC-1"}`, notTicket},
+		{"an escaped line break", `{"title":"Buy milk","ticket":"ABC-1\n"}`, notTicket},
+		{"and a bad title", `{"title":" ","ticket":"abc-1"}`, "invalid title: empty once trimmed\n"},
+		{"a number", `{"title":"Buy milk","ticket":123}`, notAddition},
+		{"a list", `{"title":"Buy milk","ticket":["ABC-1"]}`, notAddition},
+		{"an object", `{"title":"Buy milk","ticket":{"key":"ABC-1"}}`, notAddition},
+		{"a boolean", `{"title":"Buy milk","ticket":false}`, notAddition},
+		{"a capital member", `{"title":"Buy milk","Ticket":"ABC-1"}`, notAddition},
+		{"a duplicate member", `{"title":"Buy milk","ticket":"ABC-1","ticket":""}`, notAddition},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rec := post(t, router, test.body)
+			if rec.Code != http.StatusBadRequest || rec.Body.String() != test.want ||
+				rec.Header().Get("Content-Type") != "text/plain; charset=utf-8" {
+				t.Errorf("got %d %q (%s), want a plain 400 %q",
+					rec.Code, rec.Body, rec.Header().Get("Content-Type"), test.want)
+			}
+		})
 	}
 
 	if got := get(t, router).Body.String(); got != `{"todos":[]}` {
-		t.Errorf("got the list %s, want no todo", got)
+		t.Errorf("got the list %s, want nothing stored", got)
 	}
 }
