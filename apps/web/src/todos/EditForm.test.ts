@@ -7,6 +7,7 @@ import EditForm from './EditForm.svelte';
 import { Editor } from './editor.svelte';
 import { Focus } from './focus';
 import { TodosState } from './state.svelte';
+import type { Ticket } from './tickets';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -15,13 +16,13 @@ afterEach(() => {
 const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
 const milk: Todo = { id: 1, title: 'Buy milk', done: false, priority: 'normal' };
 
-/** The editor's form, open on the bank, the first of two todos in its group. */
-function editing(): TodosState {
+/** The editor's form, open on the bank, the first of two todos in its group, with my open tickets. */
+function editing(open: ReadonlyMap<string, Ticket> = new Map()): TodosState {
   const list = new TodosState();
   list.todos = [bank, milk];
   const editor = new Editor(list, new Focus(() => undefined));
   editor.open(bank);
-  render(EditForm, { editor });
+  render(EditForm, { editor, open });
   return list;
 }
 
@@ -41,6 +42,20 @@ test('offers the moves after the other buttons, the way past the group’s end m
   expect(moveUp()).toHaveAttribute('aria-disabled', 'true');
   expect(moveDown()).toHaveAttribute('aria-disabled', 'false');
   expect(moveDown()).toHaveAttribute('type', 'button');
+});
+
+test('offers my open tickets after the priority and before the buttons', () => {
+  const url = 'https://jira.example.com/browse/WEB-9';
+  editing(new Map([['WEB-9', { key: 'WEB-9', summary: 'Fix it', status: 'To Do', category: 'to-do', url }]]));
+
+  const [low, ticket, save] = [
+    screen.getByRole('radio', { name: 'Low' }),
+    screen.getByRole('combobox', { name: 'Ticket' }),
+    screen.getByRole('button', { name: 'Save' }),
+  ];
+  expect(low.compareDocumentPosition(ticket)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  expect(ticket.compareDocumentPosition(save)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  expect(screen.getByRole('option', { name: 'WEB-9 · Fix it' })).toBeInTheDocument();
 });
 
 test('moves the todo down a step, then says so, and turns the muted end around', async () => {

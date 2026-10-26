@@ -206,16 +206,24 @@ test('takes a deleted todo off the list', () => {
   expect(list.todos).toEqual([milk]);
 });
 
-test("puts an edit's title and priority in the list, which moves the todo to its group, but not its done mark", () => {
+test("puts an edit's title, priority and ticket in the list, which moves the todo to its group, but not its done mark", () => {
   const list = loaded([bank, milk], '');
 
-  list.applyEdit({ ...bank, title: 'Call the bank today', done: true, priority: 'high' });
+  list.applyEdit({ ...bank, title: 'Call the bank today', done: true, priority: 'high', ticket: 'WEB-9' });
 
-  expect(list.todos).toEqual([{ ...bank, title: 'Call the bank today', priority: 'high' }, milk]);
+  expect(list.todos).toEqual([{ ...bank, title: 'Call the bank today', priority: 'high', ticket: 'WEB-9' }, milk]);
   expect(list.groups.map(({ priority, todos }) => [priority, todos.map(({ id }) => id)])).toEqual([
     ['high', [2]],
     ['normal', [1]],
   ]);
+});
+
+test("takes the ticket off the list's todo when the edit's answer has none", () => {
+  const list = loaded([{ ...bank, ticket: 'WEB-4' }, milk], '');
+
+  list.applyEdit(bank);
+
+  expect(list.todos?.[0].ticket).toBeUndefined();
 });
 
 test.each([
