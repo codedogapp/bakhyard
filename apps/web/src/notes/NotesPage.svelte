@@ -21,11 +21,17 @@ onMount(() => {
 
 <PageHead summary={tree && notesSummary(tree.count)}>Notes</PageHead>
 <div class="notes">
-  <div class="tools">
-    <input type="search" aria-label="Filter notes" placeholder="Filter notes" bind:value={notes.filter}>
+  <div class="tools form-row">
+    <input
+      class="form-field"
+      type="search"
+      aria-label="Filter notes"
+      placeholder="Filter notes"
+      bind:value={notes.filter}
+    >
     <!-- aria-disabled, not disabled, so focus stays on the button while it waits. -->
-    <button type="button" aria-disabled={notes.busy} onclick={() => notes.sync()}>Sync</button>
-    <p class="status" role="status">{syncLabel(notes.status)}</p>
+    <button class="form-button" type="button" aria-disabled={notes.busy} onclick={() => notes.sync()}>Sync</button>
+    <p class="form-status" role="status">{syncLabel(notes.status)}</p>
   </div>
   {#if tree && (filtering || tree.count > 0)}
     <div class="card">
@@ -45,71 +51,8 @@ onMount(() => {
   padding: 0 var(--page-padding) 64px;
 }
 
-/* Sync's status takes a line of its own under the filter, once it has something to say. */
 .tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 12px;
   margin-bottom: 30px;
-}
-
-input {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 44px;
-  padding: 10px 14px;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  background: var(--surface);
-  color: inherit;
-  /* 16 px, so iOS doesn't zoom in on focus. */
-  font: inherit;
-  appearance: none;
-}
-
-input:hover {
-  border-color: var(--ink);
-}
-
-input::placeholder {
-  color: var(--ink-muted);
-}
-
-button {
-  flex: none;
-  min-height: 44px;
-  padding: 14px 22px;
-  border: 1px solid var(--ink);
-  border-radius: 0;
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-  font: 400 12px / 1.2 var(--font-mono);
-  letter-spacing: 0.045em;
-  text-transform: uppercase;
-}
-
-button:hover {
-  background: var(--fill);
-}
-
-button[aria-disabled="true"] {
-  color: var(--ink-muted);
-  cursor: default;
-}
-
-/* Never hidden: a live region has to be there before its first change for screen readers to announce it. */
-.status {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--ink-muted);
-  font: 400 11px / 1.6 var(--font-mono);
-  letter-spacing: 0.045em;
-  text-transform: uppercase;
-}
-
-.status:not(:empty) {
-  margin-top: 12px;
 }
 
 .card {
