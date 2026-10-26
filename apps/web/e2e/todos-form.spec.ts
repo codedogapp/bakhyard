@@ -103,8 +103,9 @@ test('the form adds one todo at a time', async ({ page }) => {
   await expect(field).not.toBeEditable();
   await expect(button).toHaveAttribute('aria-disabled', 'true');
   await field.press('Enter');
-  // Playwright waits for an aria-disabled button to be enabled; a person's click doesn't.
-  await button.click({ force: true });
+  // A click on an aria-disabled button still submits the form, but Playwright's click() waits for
+  // the button to be enabled, so the click is dispatched, as element.click() does.
+  await button.dispatchEvent('click');
   answer.resolve();
 
   await expect(page.getByRole('main').getByRole('status')).toHaveText('Added');
