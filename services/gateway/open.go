@@ -17,7 +17,10 @@ func openRoutes(getenv func(string) string) (http.Handler, error) {
 	}
 
 	open := func(next http.Handler) http.Handler { return next }
-	guard := locks{identified: open, signedIn: open, signing: func(chi.Router) {}}
+	noSigning := func(chi.Router) {
+		// Nobody signs in or out of a gateway without locks.
+	}
+	guard := locks{identified: open, signedIn: open, signing: noSigning}
 
 	return wire(upstream, guard, slog.Default()), nil
 }
