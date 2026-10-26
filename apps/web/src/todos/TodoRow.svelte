@@ -9,7 +9,7 @@ import type { TodosState } from './state.svelte';
 import TicketBadge from './TicketBadge.svelte';
 import type { Ticket } from './tickets';
 
-// `open` holds my open tickets by key, which give a linked todo's badge its status.
+// `open` holds my open tickets by key, which give a linked todo's badge its status and the editor its choices.
 let {
   list,
   todo,
@@ -39,7 +39,7 @@ function click(event: MouseEvent & { currentTarget: HTMLInputElement }): void {
 
 <li class={[{ done: todo.done }, drag.look(todo.id)]} {@attach drag.row(todo.id)}>
   {#if editing}
-    <EditForm {editor} />
+    <EditForm {editor} {open} />
   {:else}
     <!-- The title labels the box, so a tap anywhere on it ticks the todo. -->
     <label>

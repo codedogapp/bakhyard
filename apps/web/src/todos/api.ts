@@ -37,10 +37,10 @@ export type Refused = { kind: 'refused'; reason: string };
 /** How an add ended: the new todo, or the service's reason for refusing its title. */
 export type Added = { kind: 'added'; todo: Todo } | Refused;
 
-/** What the row's editor changes in a todo: its title, its priority or both. */
-export type Edit = Partial<Pick<Todo, 'title' | 'priority'>>;
+/** What the row's editor changes in a todo: its title, its priority, its ticket, which "" unlinks, or several. */
+export type Edit = Partial<Pick<Todo, 'title' | 'priority' | 'ticket'>>;
 
-/** How an edit ended: the edited todo, or the service's reason for refusing the new title. */
+/** How an edit ended: the edited todo, or the service's reason for refusing the edit. */
 export type Edited = { kind: 'edited'; todo: Todo } | Refused;
 
 async function refusal(response: Response): Promise<Refused> {
@@ -86,8 +86,8 @@ export async function tickTodo(id: number, done: boolean): Promise<Todo> {
 }
 
 /**
- * Changes the todo's title, as typed, which the service trims and checks, its priority, or both; the service keeps
- * what the edit leaves out. Fails on any answer but a 200 or a 400.
+ * Changes the todo's title, as typed, which the service trims and checks, its priority, its ticket, or several; the
+ * service keeps what the edit leaves out. Fails on any answer but a 200 or a 400.
  */
 export async function editTodo(id: number, edit: Edit): Promise<Edited> {
   const response = await patchTodo(id, edit);

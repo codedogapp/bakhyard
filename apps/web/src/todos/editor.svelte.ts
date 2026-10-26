@@ -14,11 +14,11 @@ export type EditStatus =
   | { kind: 'moved'; direction: Direction }
   | Refused;
 
-/** The Todos page's editor, open in one todo's row at a time, which renames, prioritises, moves or deletes the todo. */
+/** The Todos page's editor, open in one row at a time, which renames, prioritises, links, moves or deletes its todo. */
 export class Editor {
   /** The todo whose editor is open; undefined while none is. */
   id = $state<number>();
-  /** The title and the priority as the editor has them, until a save. */
+  /** The title, the priority and the ticket as the editor has them, until a save. */
   readonly draft = new Draft();
   status = $state.raw<EditStatus>({ kind: 'idle' });
   readonly #list: TodosState;
@@ -44,8 +44,8 @@ export class Editor {
   }
 
   /**
-   * Opens the todo's editor with its title and priority, and drops any other's draft. The editor shows at once, so its
-   * field takes the focus inside the tap's click handler: iOS brings up the keyboard only for such a focus.
+   * Opens the todo's editor with its title, priority and ticket, and drops any other's draft. The editor shows at once,
+   * so its field takes the focus inside the tap's click handler: iOS brings up the keyboard only for such a focus.
    */
   open(todo: Todo): void {
     if (this.busy) {
@@ -71,9 +71,9 @@ export class Editor {
   }
 
   /**
-   * Saves what the draft changes, its title, which the service trims and checks, its priority or both, and closes the
-   * editor; a refused or failed save keeps it open with the draft. Nothing changed closes it with no request; a blank
-   * title does nothing.
+   * Saves what the draft changes, its title, which the service trims and checks, its priority, its ticket, or several,
+   * and closes the editor; a refused or failed save keeps it open with the draft. Nothing changed closes it with no
+   * request; a blank title does nothing.
    */
   async save(): Promise<void> {
     const todo = this.todo;

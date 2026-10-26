@@ -93,11 +93,12 @@ export class TodosState {
   }
 
   /**
-   * Puts the edited todo's title and priority in the list, which moves it to its priority's group; not its done mark,
-   * so it can't undo a tick whose answer came first.
+   * Puts the edited todo's title, priority and ticket, or the lack of one, in the list, which moves it to its
+   * priority's group; not its done mark, so it can't undo a tick whose answer came first.
    */
   applyEdit(edited: Todo): void {
-    this.change(edited.id, (todo) => ({ ...todo, title: edited.title, priority: edited.priority }));
+    const { title, priority, ticket } = edited;
+    this.change(edited.id, (todo) => ({ ...todo, title, priority, ticket }));
   }
 
   /** Takes the deleted todo off the list. */

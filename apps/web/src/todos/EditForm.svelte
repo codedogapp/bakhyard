@@ -3,8 +3,11 @@ import type { Editor } from './editor.svelte';
 import { focusField } from './focus';
 import { editLabel } from './labels';
 import PriorityPicker from './PriorityPicker.svelte';
+import TicketPicker from './TicketPicker.svelte';
+import type { Ticket } from './tickets';
 
-let { editor }: { editor: Editor } = $props();
+// `open` holds my open tickets by key, which the ticket picker offers.
+let { editor, open }: { editor: Editor; open: ReadonlyMap<string, Ticket> } = $props();
 
 function submit(event: SubmitEvent): void {
   event.preventDefault();
@@ -25,11 +28,12 @@ function submit(event: SubmitEvent): void {
       {@attach focusField}
     >
     <!--
-      The priority and the buttons share the field's line on a desktop. On a narrower screen they wrap under it, each on
-      a line of its own on a phone, and Delete under the other buttons on the narrowest. The Move buttons come last, so
-      they wrap first.
+      The priority, the ticket and the buttons share the field's line on a wide screen, and wrap under it in that order
+      as the screen narrows: each on a line of its own on a phone, and Delete under the other buttons on the narrowest.
+      The Move buttons come last, so they wrap first.
     -->
     <PriorityPicker {editor} />
+    <TicketPicker {editor} {open} />
     <span class="buttons">
       <button class="form-button" type="submit" aria-disabled={editor.busy}>Save</button>
       <button class="form-button" type="button" aria-disabled={editor.busy} onclick={() => editor.close()}>

@@ -1,6 +1,7 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import type { Todo } from '../src/todos/api';
+import { bounds } from './bounds';
 import { home, tickets } from './demo';
 import { expect, test } from './fixtures';
 import { group } from './groups';
@@ -23,15 +24,6 @@ function box(page: Page, name: string) {
 /** The row of the todo with the title. */
 function row(page: Page, title: string) {
   return page.getByRole('listitem').filter({ has: page.getByRole('checkbox', { name: title }) });
-}
-
-/** The box of what the locator finds, which shows. */
-async function bounds(locator: Locator) {
-  const found = await locator.boundingBox();
-  if (!found) {
-    throw new Error(`${locator} has no box`);
-  }
-  return found;
 }
 
 /** What makes text look like the list rows' mono label. */

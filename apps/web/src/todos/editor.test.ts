@@ -34,14 +34,20 @@ function button(): HTMLButtonElement {
   return document.body.appendChild(document.createElement('button'));
 }
 
-test('opens on one todo at a time, with its title and priority, and drops the other draft', () => {
-  const { editor } = editing([bank, milk], 'Call the bank today');
+test('opens on one todo at a time, with its title, priority and ticket, and drops the other draft', () => {
+  const { editor } = editing([bank, { ...milk, ticket: 'WEB-4' }], 'Call the bank today');
   editor.draft.priority = 'high';
+  editor.draft.ticket = 'WEB-9';
   editor.status = { kind: 'saveFailed' };
 
-  editor.open(milk);
+  editor.open({ ...milk, ticket: 'WEB-4' });
 
-  expect([editor.id, editor.draft.title, editor.draft.priority]).toEqual([1, 'Buy milk', 'low']);
+  expect([editor.id, editor.draft.title, editor.draft.priority, editor.draft.ticket]).toEqual([
+    1,
+    'Buy milk',
+    'low',
+    'WEB-4',
+  ]);
   expect(editor.status).toEqual({ kind: 'idle' });
 });
 
@@ -60,23 +66,45 @@ test('saves the draft as typed, takes the new title and closes', async () => {
 });
 
 test.each([
-  { draft: 'Call the bank', priority: 'high', body: '{"priority":"high"}' },
-  { draft: 'Call the bank today', priority: 'low', body: '{"title":"Call the bank today","priority":"low"}' },
-] as const)('saves what changed in one request, $body, takes it and closes', async ({ draft, priority, body }) => {
-  const saved: Todo = { ...bank, title: draft, priority };
-  const fetchMock = serve(Response.json(saved));
-  const { list, editor } = editing([bank, milk], draft);
-  editor.draft.priority = priority;
+  { draft: 'Call the bank', priority: 'high', ticket: '', body: '{"priority":"high"}' },
+  { draft: 'Call the bank', priority: 'normal', ticket: 'WEB-9', body: '{"ticket":"WEB-9"}' },
+  {
+    draft: 'Call the bank today',
+    priority: 'low',
+    ticket: 'WEB-9',
+    body: '{"title":"Call the bank today","priority":"low","ticket":"WEB-9"}',
+  },
+] as const)(
+  'saves what changed in one request, $body, takes it and closes',
+  async ({ draft, priority, ticket, body }) => {
+    const saved: Todo = { ...bank, title: draft, priority, ...(ticket && { ticket }) };
+    const fetchMock = serve(Response.json(saved));
+    const { list, editor } = editing([bank, milk], draft);
+    editor.draft.priority = priority;
+    editor.draft.ticket = ticket;
+
+    await editor.save();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][1]?.body).toBe(body);
+    expect(list.todos).toEqual([saved, milk]);
+    expect(editor.id).toBeUndefined();
+  }
+);
+
+test('unlinks the ticket with an empty key, and takes the answer that has none', async () => {
+  const fetchMock = serve(Response.json(bank));
+  const { list, editor } = editing([{ ...bank, ticket: 'WEB-4' }, milk], 'Call the bank');
+  editor.draft.ticket = '';
 
   await editor.save();
 
-  expect(fetchMock).toHaveBeenCalledOnce();
-  expect(fetchMock.mock.calls[0][1]?.body).toBe(body);
-  expect(list.todos).toEqual([saved, milk]);
+  expect(fetchMock.mock.calls[0][1]?.body).toBe('{"ticket":""}');
+  expect(list.todos?.[0].ticket).toBeUndefined();
   expect(editor.id).toBeUndefined();
 });
 
-test('closes with no request when neither the title nor the priority changed', async () => {
+test('closes with no request when neither the title, the priority nor the ticket changed', async () => {
   const fetchMock = serve(Response.json(bank));
   const { editor } = editing([bank, milk], 'Call the bank');
 
