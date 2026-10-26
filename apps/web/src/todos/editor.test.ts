@@ -1,7 +1,8 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
 import type { Todo } from './api';
-import { Editor, focusField } from './editor.svelte';
+import { Editor } from './editor.svelte';
+import { Focus } from './focus';
 import { TodosState } from './state.svelte';
 
 afterEach(() => {
@@ -13,13 +14,14 @@ const milk: Todo = { id: 1, title: 'Buy milk', done: true, priority: 'normal' };
 const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
 
 /** An editor over the list, open on its first todo, with the draft typed. */
-function editing(todos: Todo[], draft: string): { list: TodosState; editor: Editor } {
+function editing(todos: Todo[], draft: string): { list: TodosState; editor: Editor; focus: Focus } {
   const list = new TodosState();
   list.todos = todos;
-  const editor = new Editor(list, () => undefined);
+  const focus = new Focus(() => undefined);
+  const editor = new Editor(list, focus);
   editor.open(todos[0]);
   editor.draft = draft;
-  return { list, editor };
+  return { list, editor, focus };
 }
 
 function serve(answer: Response | Promise<Response>) {
@@ -149,10 +151,10 @@ test.each([
 });
 
 test('gives the focus back to the Edit button of the todo whose editor closed', () => {
-  const { editor } = editing([bank, milk], 'Call the bank today');
+  const { editor, focus } = editing([bank, milk], 'Call the bank today');
   const [bankEdit, milkEdit] = [button(), button()];
-  editor.editButton(2)(bankEdit);
-  editor.editButton(1)(milkEdit);
+  focus.editButton(2)(bankEdit);
+  focus.editButton(1)(milkEdit);
 
   editor.close();
 
@@ -162,8 +164,8 @@ test('gives the focus back to the Edit button of the todo whose editor closed', 
 test('leaves the focus where the user moved it while the save ran', async () => {
   const answer = Promise.withResolvers<Response>();
   serve(answer.promise);
-  const { editor } = editing([bank, milk], 'Call the bank today');
-  editor.editButton(2)(button());
+  const { editor, focus } = editing([bank, milk], 'Call the bank today');
+  focus.editButton(2)(button());
   const elsewhere = button();
 
   const save = editor.save();
@@ -173,15 +175,4 @@ test('leaves the focus where the user moved it while the save ran', async () => 
 
   expect(editor.id).toBeUndefined();
   expect(document.activeElement).toBe(elsewhere);
-});
-
-test('focuses the field with the caret after the title', () => {
-  const input = document.body.appendChild(document.createElement('input'));
-  input.value = 'Call the bank';
-  input.setSelectionRange(0, 4);
-
-  focusField(input);
-
-  expect(document.activeElement).toBe(input);
-  expect([input.selectionStart, input.selectionEnd]).toEqual([13, 13]);
 });

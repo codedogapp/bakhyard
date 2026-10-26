@@ -2,6 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 
 import type { Todo } from './api';
 import { Editor } from './editor.svelte';
+import { Focus } from './focus';
 import { TodosState } from './state.svelte';
 
 afterEach(() => {
@@ -18,18 +19,19 @@ function deleting(todos: Todo[], todo: Todo) {
   const list = new TodosState();
   list.todos = todos;
   const focusAdd = vi.fn<() => void>();
-  const editor = new Editor(list, focusAdd);
+  const focus = new Focus(focusAdd);
+  const editor = new Editor(list, focus);
   const dialog = document.body.appendChild(document.createElement('dialog'));
   editor.dialog(dialog);
   const edits = new Map(todos.map(({ id }) => [id, button()]));
   for (const [id, edit] of edits) {
-    editor.editButton(id)(edit);
+    focus.editButton(id)(edit);
   }
   editor.open(todo);
   editor.draft = `${todo.title} today`;
   const deleteButton = button();
   editor.deleteButton(deleteButton);
-  return { list, editor, dialog, edits, deleteButton, focusAdd };
+  return { list, editor, focus, dialog, edits, deleteButton, focusAdd };
 }
 
 function serve(...answers: (Response | Promise<Response>)[]) {
@@ -193,12 +195,12 @@ test('leaves the focus where the user moved it while the delete ran', async () =
 test('gives the focus to a todo added while the delete ran', async () => {
   const answer = Promise.withResolvers<Response>();
   serve(answer.promise);
-  const { list, editor, focusAdd } = deleting([bank], bank);
+  const { list, editor, focus, focusAdd } = deleting([bank], bank);
 
   const deleteRun = editor.delete();
   list.todos = [milk, bank];
   const milkEdit = button();
-  editor.editButton(1)(milkEdit);
+  focus.editButton(1)(milkEdit);
   answer.resolve(deleted());
   await deleteRun;
 

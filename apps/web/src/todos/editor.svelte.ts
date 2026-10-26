@@ -3,16 +3,11 @@ import type { Attachment } from 'svelte/attachments';
 import { on } from 'svelte/events';
 
 import { deleteTodo, type Refused, renameTodo, type Todo } from './api';
+import type { Focus } from './focus';
 import type { TodosState } from './state.svelte';
 
 /** The editor's last save or delete: running, or how it ended; one that succeeds closes the editor. */
 export type EditStatus = { kind: 'idle' | 'saving' | 'saveFailed' | 'deleting' | 'deleteFailed' } | Refused;
-
-/** Focuses the editor's field as it shows, with the caret after the title. */
-export const focusField: Attachment<HTMLInputElement> = (input) => {
-  input.focus();
-  input.setSelectionRange(input.value.length, input.value.length);
-};
 
 /** The Todos page's editor, open in one todo's row at a time, which renames or deletes the todo. */
 export class Editor {
@@ -22,18 +17,15 @@ export class Editor {
   draft = $state('');
   status = $state.raw<EditStatus>({ kind: 'idle' });
   readonly #list: TodosState;
-  /** Gives the focus to the Add field, once a delete has left no row to give it to. */
-  readonly #focusAdd: () => void;
-  /** The rows' Edit buttons, by their todo's ID; plain, since nothing on the page shows it. */
-  readonly #editButtons = new Map<number, HTMLButtonElement>();
+  readonly #focus: Focus;
   /** The page's dialog, which asks before a delete. */
   #dialog: HTMLDialogElement | undefined;
   /** The open editor's Delete button, which opens the dialog. */
   #deleteButton: HTMLButtonElement | undefined;
 
-  constructor(list: TodosState, focusAdd: () => void) {
+  constructor(list: TodosState, focus: Focus) {
     this.#list = list;
-    this.#focusAdd = focusAdd;
+    this.#focus = focus;
   }
 
   /** The todo whose editor is open, as the list has it. */
@@ -70,7 +62,7 @@ export class Editor {
     flushSync(() => {
       this.id = undefined;
     });
-    this.#refocus(this.#editButtons.get(id));
+    this.#focus.recoverEdit(id);
   }
 
   /**
@@ -137,7 +129,7 @@ export class Editor {
       this.id = undefined;
       this.status = { kind: 'idle' };
     });
-    this.#refocus(neighbour);
+    this.#focus.recoverEdit(neighbour);
   }
 
   /** Closes the editor on Escape, unless the key ends an IME composition. */
@@ -153,7 +145,7 @@ export class Editor {
    */
   readonly dialog: Attachment<HTMLDialogElement> = (dialog) => {
     this.#dialog = dialog;
-    return on(dialog, 'close', () => this.#refocus(this.#deleteButton));
+    return on(dialog, 'close', () => this.#focus.recover(this.#deleteButton));
   };
 
   /** An attachment for the open editor's Delete button. */
@@ -161,37 +153,10 @@ export class Editor {
     this.#deleteButton = button;
   };
 
-  /** An attachment for the todo's Edit button, which can then take the focus once an editor closes. */
-  editButton(id: number): Attachment<HTMLButtonElement> {
-    return (button) => {
-      this.#editButtons.set(id, button);
-      return () => {
-        this.#editButtons.delete(id);
-      };
-    };
-  }
-
-  /** The Edit button of the todo after this one on the page, else of the one before it, across the groups. */
-  #neighbour(id: number): HTMLButtonElement | undefined {
+  /** The ID of the todo after this one on the page, else of the one before it, across the groups. */
+  #neighbour(id: number): number | undefined {
     const todos = this.#list.groups.flatMap((group) => group.todos);
     const at = todos.findIndex((todo) => todo.id === id);
-    const neighbour = todos[at + 1] ?? todos[at - 1];
-    return neighbour && this.#editButtons.get(neighbour.id);
-  }
-
-  /**
-   * Gives the focus to the button, or to the Add field without one, if the focus went with the closed editor or stayed
-   * on the closed dialog, as WebKit leaves it after a click: the user may have moved on while a save or a delete ran.
-   */
-  #refocus(button: HTMLButtonElement | undefined): void {
-    const focused = document.activeElement;
-    if (focused !== document.body && !this.#dialog?.contains(focused)) {
-      return;
-    }
-    if (button) {
-      button.focus();
-    } else {
-      this.#focusAdd();
-    }
+    return (todos[at + 1] ?? todos[at - 1])?.id;
   }
 }

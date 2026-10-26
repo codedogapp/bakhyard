@@ -6,13 +6,15 @@ import Section from '../shell/Section.svelte';
 import AddForm from './AddForm.svelte';
 import DeleteDialog from './DeleteDialog.svelte';
 import { Editor } from './editor.svelte';
+import { Focus } from './focus';
 import { groupNote, priorityLabel, todosSummary } from './labels';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
 
 const list = new TodosState();
 let addField = $state<HTMLInputElement>();
-const editor = new Editor(list, () => addField?.focus());
+const focus = new Focus(() => addField?.focus());
+const editor = new Editor(list, focus);
 
 onMount(() => {
   void list.load();
@@ -28,7 +30,7 @@ onMount(() => {
     <Section title={priorityLabel(group.priority)} accent="priority" note={groupNote(group.todos.length)}>
       <ul class="card">
         {#each group.todos as todo (todo.id)}
-          <TodoRow {list} {todo} {editor} />
+          <TodoRow {list} {todo} {editor} {focus} />
         {/each}
       </ul>
     </Section>
