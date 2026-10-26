@@ -29,8 +29,13 @@ func TestTodosServesTheTodos(t *testing.T) {
 		{http.MethodHead, "/todos", "", http.StatusOK, `{"todos":[]}`},
 		{
 			http.MethodPost, "/todos", `{"title":"Buy milk"}`,
-			http.StatusCreated, `{"id":1,"title":"Buy milk"}`,
+			http.StatusCreated, `{"id":1,"title":"Buy milk","done":false}`,
 		},
+		{
+			http.MethodPatch, "/todos/1", `{"done":true}`,
+			http.StatusOK, `{"id":1,"title":"Buy milk","done":true}`,
+		},
+		{http.MethodDelete, "/todos/1", "", http.StatusNoContent, ""},
 		{http.MethodPut, "/todos", "", http.StatusMethodNotAllowed, ""},
 		{http.MethodGet, "/healthz", "", http.StatusOK, `{"status":"ok"}`},
 	} {
@@ -49,7 +54,7 @@ func TestTodosServesTheTodos(t *testing.T) {
 func TestTodosStartsAgainOnItsMigratedDatabase(t *testing.T) {
 	database, items := todosEnv(t)
 
-	// The second start finds the migration done; running it again would fail.
+	// The second start finds the migrations done; running them again would fail.
 	for range 2 {
 		_, err := routes(database, keychainWith(items))
 		if err != nil {
