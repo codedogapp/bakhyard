@@ -14,7 +14,7 @@ let { properties }: { properties: readonly Property[] } = $props();
           {#if Array.isArray(property.value)}
             <ul>
               {#each property.value as value}
-                <li>{value}</li>
+                <li class="chip">{value}</li>
               {/each}
             </ul>
           {:else if typeof property.value === 'string'}
@@ -76,13 +76,5 @@ ul {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-li {
-  padding: 3px 6px;
-  border: 1px solid var(--ink);
-  font: 400 10px / 1.2 var(--font-mono);
-  letter-spacing: 0.045em;
-  text-transform: uppercase;
 }
 </style>

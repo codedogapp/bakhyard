@@ -1,0 +1,72 @@
+/* The list rows the pages share (§7, decision 123): a mono label, the text, and an end for chips and times. */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list > li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.list-row {
+  display: grid;
+  grid-template-areas: "label text end";
+  grid-template-columns: 120px 1fr auto;
+  align-items: center;
+  gap: 6px 20px;
+  min-height: 64px;
+  padding: 10px 20px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.list-row:hover {
+  background: var(--fill);
+}
+
+.list-label,
+.list-end {
+  color: var(--ink-muted);
+  font: 400 11px / 1.6 var(--font-mono);
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.list-label {
+  grid-area: label;
+}
+
+.list-text {
+  display: flex;
+  flex-direction: column;
+  grid-area: text;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.list-title {
+  font-weight: 500;
+}
+
+.list-detail {
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.list-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  grid-area: end;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .list-row {
+    grid-template-areas:
+      "label end"
+      "text text";
+    grid-template-columns: 1fr auto;
+  }
+}

@@ -5,6 +5,8 @@ import '@fontsource-variable/jetbrains-mono';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/form.css';
+import './styles/list.css';
+import './styles/chip.css';
 
 import App from './App.svelte';
 import { applyChoice, loadChoice } from './shell/theme';
