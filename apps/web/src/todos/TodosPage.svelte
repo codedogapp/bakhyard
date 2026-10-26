@@ -2,6 +2,7 @@
 import { onMount } from 'svelte';
 
 import PageHead from '../shell/PageHead.svelte';
+import AddForm from './AddForm.svelte';
 import { todosSummary } from './labels';
 import { TodosState } from './state.svelte';
 
@@ -14,12 +15,15 @@ onMount(() => {
 
 <PageHead summary={list.todos && todosSummary(list.todos.length)}>Todos</PageHead>
 <div class="todos">
-  {#if list.todos && list.todos.length > 0}
-    <ul class="card">
-      {#each list.todos as todo (todo.id)}
-        <li>{todo.title}</li>
-      {/each}
-    </ul>
+  {#if list.todos}
+    <AddForm {list} />
+    {#if list.todos.length > 0}
+      <ul class="card">
+        {#each list.todos as todo (todo.id)}
+          <li>{todo.title}</li>
+        {/each}
+      </ul>
+    {/if}
   {:else if list.failed}
     <p class="failed">Couldn't load the todos.</p>
   {/if}
