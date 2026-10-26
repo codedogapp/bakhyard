@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/http"
@@ -11,7 +12,7 @@ import (
 )
 
 func TestRunNeedsAnAddress(t *testing.T) {
-	routes := func(func(string) string) (http.Handler, error) {
+	routes := func(context.Context, func(string) string) (http.Handler, error) {
 		t.Error("built the routes without an address")
 
 		return http.NotFoundHandler(), nil
@@ -26,10 +27,13 @@ func TestRunNeedsAnAddress(t *testing.T) {
 func TestRunReportsRoutesThatFail(t *testing.T) {
 	failed := errors.New("no peer")
 
-	var name string
+	var (
+		name    string
+		running context.Context
+	)
 
-	routes := func(getenv func(string) string) (http.Handler, error) {
-		name = getenv("BAKHYARD_NAME")
+	routes := func(ctx context.Context, getenv func(string) string) (http.Handler, error) {
+		name, running = getenv("BAKHYARD_NAME"), ctx
 
 		return nil, failed
 	}
@@ -45,12 +49,23 @@ func TestRunReportsRoutesThatFail(t *testing.T) {
 	if name != "Ada" {
 		t.Errorf("the routes read BAKHYARD_NAME as %q, want Ada", name)
 	}
+
+	if running.Err() == nil {
+		t.Error("the routes' context goes on after Run returned")
+	}
 }
 
 func TestRunStopsOnSIGINTOrSIGTERM(t *testing.T) {
 	for _, sig := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM} {
 		t.Run(sig.String(), func(t *testing.T) {
-			routes := func(func(string) string) (http.Handler, error) {
+			var running context.Context
+
+			routes := func(ctx context.Context, _ func(string) string) (http.Handler, error) {
+				if ctx.Err() != nil {
+					t.Error("the routes' context ended before the signal")
+				}
+
+				running = ctx
 				// Run catches the signal by now, so it stops Run rather than the test.
 				err := syscall.Kill(syscall.Getpid(), sig)
 
@@ -62,6 +77,11 @@ func TestRunStopsOnSIGINTOrSIGTERM(t *testing.T) {
 			err := service.Run(getenvOf(listen), routes)
 			if err != nil {
 				t.Errorf("got %v, want nil", err)
+			}
+
+			if !errors.Is(running.Err(), context.Canceled) {
+				t.Errorf("the routes' context ended with %v, want %v", running.Err(),
+					context.Canceled)
 			}
 		})
 	}

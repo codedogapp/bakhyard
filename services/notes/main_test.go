@@ -21,7 +21,7 @@ func TestNotesServesTheVault(t *testing.T) {
 		}
 	}
 
-	router, err := routes(vaultAt(folder))
+	router, err := routes(t.Context(), vaultAt(folder))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestNotesNeedsItsVault(t *testing.T) {
 		missing: "open the vault: open " + missing + ": no such file or directory",
 		file:    "open the vault: open " + file + ": not a directory",
 	} {
-		_, err := routes(vaultAt(vault))
+		_, err := routes(t.Context(), vaultAt(vault))
 		if err == nil || err.Error() != want {
 			t.Errorf("with the vault %q: got %v, want the error %s", vault, err, want)
 		}

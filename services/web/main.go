@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -30,7 +31,7 @@ func main() {
 	}
 }
 
-func routes(_ func(string) string) (http.Handler, error) {
+func routes(_ context.Context, _ func(string) string) (http.Handler, error) {
 	app, err := fs.Sub(dist, appDir)
 	if err != nil {
 		return nil, fmt.Errorf("open the embedded app in %s: %w", appDir, err)

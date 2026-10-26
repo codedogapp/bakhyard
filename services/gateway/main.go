@@ -62,10 +62,12 @@ func served(password passwordReader) service.Routes {
 	if e2e {
 		slog.Warn("authentication is off: this gateway is built for the end-to-end tests")
 
-		return openRoutes
+		return func(_ context.Context, getenv func(string) string) (http.Handler, error) {
+			return openRoutes(getenv)
+		}
 	}
 
-	return func(getenv func(string) string) (http.Handler, error) {
+	return func(_ context.Context, getenv func(string) string) (http.Handler, error) {
 		return routes(getenv, password)
 	}
 }

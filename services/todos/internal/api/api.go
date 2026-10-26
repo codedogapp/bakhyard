@@ -18,14 +18,14 @@ type list struct {
 }
 
 // Register serves the todos in store on router: GET /todos lists them, POST /todos adds one,
-// PATCH /todos/{id} changes one and DELETE /todos/{id} deletes one. GET /todos/tickets lists the
-// user's open Jira tickets, which it searches with tickets, nil when Jira isn't set up. Other
-// methods get 405, and logger gets the errors that the database and Jira run into.
-func Register(router chi.Router, store *todo.Store, tickets *jira.Client, logger *slog.Logger) {
+// PATCH /todos/{id} changes one and DELETE /todos/{id} deletes one. GET /todos/tickets answers
+// what tickets has found in Jira, nil when Jira isn't set up. Other methods get 405, and logger
+// gets the errors that the database runs into.
+func Register(router chi.Router, store *todo.Store, tickets *jira.Poller, logger *slog.Logger) {
 	router.Get("/todos", listTodos(store, logger))
 	router.Post("/todos", addTodo(store, logger))
 	// Always there, so that chi doesn't take the path for /todos/{id}, which has no GET.
-	router.Get("/todos/tickets", listTickets(tickets, logger))
+	router.Get("/todos/tickets", listTickets(tickets))
 	router.Patch("/todos/{id}", changeTodo(store, logger))
 	router.Delete("/todos/{id}", deleteTodo(store, logger))
 }

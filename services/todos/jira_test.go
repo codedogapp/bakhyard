@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -83,28 +84,25 @@ func TestJiraClientNeedsTheToken(t *testing.T) {
 }
 
 func TestTodosListsTheJiraTickets(t *testing.T) {
-	schema := databasetest.NewSchema(t)
-	settings := jiraSettings(jiraServer(t))
-	settings[databaseVar] = schema.URL
-
-	router, err := routes(envOf(settings), keychainWith(map[string]string{
-		"postgres-todos": schema.Password, "jira-token": "secret",
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/todos/tickets", nil)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
+	rec := getTickets(t.Context(), t, jiraServer(t))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"key":"PAY-1"`) {
 		t.Errorf("got %d %q, want PAY-1", rec.Code, rec.Body)
 	}
 }
 
+func TestTodosStopsSearchingJiraWhenItStops(t *testing.T) {
+	stopped, stop := context.WithCancel(t.Context())
+	stop()
+
+	// Nothing listens on port 1, so a search that went ahead would fail.
+	rec := getTickets(stopped, t, "http://127.0.0.1:1")
+	if rec.Code != http.StatusOK || rec.Body.String() != "{}" {
+		t.Errorf("got %d %s, want 200 {}: no search, and no failure", rec.Code, rec.Body)
+	}
+}
+
 func TestTodosStopsOnABadJiraSetting(t *testing.T) {
-	_, err := routes(envOf(jiraWith(jiraEmailVar, "")), keychainWith(nil))
+	_, err := routes(t.Context(), envOf(jiraWith(jiraEmailVar, "")), keychainWith(nil))
 	if err == nil || err.Error() != "BAKHYARD_JIRA_EMAIL is not set" {
 		t.Errorf("got %v, want the error BAKHYARD_JIRA_EMAIL is not set", err)
 	}
@@ -129,6 +127,29 @@ func jiraServer(t *testing.T) string {
 	t.Cleanup(server.Close)
 
 	return server.URL
+}
+
+// getTickets returns the answer to GET /todos/tickets of todos with Jira's REST API at address,
+// whose routes run until ctx ends.
+func getTickets(ctx context.Context, t *testing.T, address string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	schema := databasetest.NewSchema(t)
+	settings := jiraSettings(address)
+	settings[databaseVar] = schema.URL
+
+	router, err := routes(ctx, envOf(settings), keychainWith(map[string]string{
+		"postgres-todos": schema.Password, "jira-token": "secret",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/todos/tickets", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	return rec
 }
 
 // jiraSettings returns the Jira settings, with the REST API at address.
