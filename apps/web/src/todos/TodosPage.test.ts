@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 /** Stubs fetch: the todos' calls go to `todos`, and the tickets' call gets `tickets`, by default the answer without Jira. */
-function stubFetch(todos: typeof fetch, tickets = new Response(null, { status: 404 })) {
+function stubFetch(todos: typeof fetch, tickets: Response | Promise<Response> = new Response(null, { status: 404 })) {
   vi.stubGlobal(
     'fetch',
     vi.fn<typeof fetch>((...args) => (args[0] === '/api/todos/tickets' ? Promise.resolve(tickets) : todos(...args)))
@@ -149,4 +149,16 @@ test('shows no tickets without Jira', async () => {
   await waitFor(() => expect(loadTickets).toHaveResolvedWith({ kind: 'off' }));
   expect(await screen.findByText('No todos on the list.')).toBeInTheDocument();
   expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
+});
+
+test("shows a linked todo's key at once, and its ticket's status once my open tickets load", async () => {
+  const todos: Todo[] = [{ id: 1, title: 'Buy milk', done: false, priority: 'normal', ticket: 'WEB-12' }];
+  const load = Promise.withResolvers<Response>();
+  stubFetch(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })), load.promise);
+  render(TodosPage);
+
+  expect(await screen.findByRole('checkbox', { name: 'Buy milk WEB-12' })).toBeInTheDocument();
+  load.resolve(Response.json(snapshot));
+
+  expect(await screen.findByRole('checkbox', { name: 'Buy milk WEB-12 In Review' })).toBeInTheDocument();
 });

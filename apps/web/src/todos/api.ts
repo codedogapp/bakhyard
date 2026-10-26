@@ -7,6 +7,8 @@ export interface Todo {
   title: string;
   done: boolean;
   priority: Priority;
+  /** The key of the Jira ticket the todo names, such as ABC-123; absent when it names none (decision 125). */
+  ticket?: string;
 }
 
 /** The body of GET /api/todos. */

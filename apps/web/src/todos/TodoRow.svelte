@@ -6,9 +6,25 @@ import type { Editor } from './editor.svelte';
 import type { Focus } from './focus';
 import { rowLabel } from './labels';
 import type { TodosState } from './state.svelte';
+import TicketBadge from './TicketBadge.svelte';
+import type { Ticket } from './tickets';
 
-let { list, todo, editor, focus, drag }: { list: TodosState; todo: Todo; editor: Editor; focus: Focus; drag: Drag } =
-  $props();
+// `open` holds my open tickets by key, which give a linked todo's badge its status.
+let {
+  list,
+  todo,
+  editor,
+  focus,
+  drag,
+  open,
+}: {
+  list: TodosState;
+  todo: Todo;
+  editor: Editor;
+  focus: Focus;
+  drag: Drag;
+  open: ReadonlyMap<string, Ticket>;
+} = $props();
 
 const editing = $derived(editor.id === todo.id);
 
@@ -29,7 +45,12 @@ function click(event: MouseEvent & { currentTarget: HTMLInputElement }): void {
     <label>
       <!-- aria-disabled, not disabled, so focus stays on the box while its tick runs. -->
       <input type="checkbox" checked={todo.done} aria-disabled={list.ticking(todo.id)} onclick={click}>
-      <span>{todo.title}</span>
+      <span class="text">
+        <span class="title">{todo.title}</span>
+        {#if todo.ticket}
+          <TicketBadge key={todo.ticket} ticket={open.get(todo.ticket)} />
+        {/if}
+      </span>
     </label>
   {/if}
   <p class="status" role="status">{rowLabel(list.ticks.get(todo.id), list.dropFailed === todo.id)}</p>
@@ -119,7 +140,15 @@ input:checked {
   background-color: var(--ink);
 }
 
-.done span {
+/* The title over the ticket's badge, if the todo names one. */
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* The title alone: the ticket's state is its own. */
+.done .title {
   color: var(--ink-muted);
   text-decoration: line-through;
 }

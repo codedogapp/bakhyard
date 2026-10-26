@@ -1,16 +1,9 @@
 import type { Page } from '@playwright/test';
 
-import type { Snapshot } from '../src/todos/tickets';
 import { home, tickets, todos } from './demo';
 import { expect, test } from './fixtures';
 import { group, heads } from './groups';
-
-/** Answers the Todos page's tickets call with the snapshot, or with the status. */
-async function answer(page: Page, snapshot: Snapshot | number) {
-  await page.route('/api/todos/tickets', (route) =>
-    typeof snapshot === 'number' ? route.fulfill({ status: snapshot }) : route.fulfill({ json: snapshot })
-  );
-}
+import { answerTickets, chipLooks } from './jira';
 
 /** The Todos page's Jira section. */
 function jira(page: Page) {
@@ -23,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('the Todos page lists my open Jira tickets after the todo groups', async ({ page }) => {
-  await answer(page, tickets);
+  await answerTickets(page, tickets);
   await page.goto('/todos');
 
   await expect(heads(page)).toHaveText(['High priority', 'Normal priority', 'Low priority', 'Jira tickets']);
@@ -38,22 +31,11 @@ test('the Todos page lists my open Jira tickets after the todo groups', async ({
     await expect(rows.nth(index)).toHaveAttribute('href', ticket.url);
   }
   // The In Progress category's chips are filled with the ink; the others keep only its outline, and its ink for the text.
-  const chips = await jira(page)
-    .locator('.chip')
-    .evaluateAll((all) =>
-      all.map((chip) => {
-        const { backgroundColor, borderTopColor, color } = getComputedStyle(chip);
-        if (backgroundColor === borderTopColor) {
-          return 'filled';
-        }
-        return backgroundColor === 'rgba(0, 0, 0, 0)' && color === borderTopColor ? 'outlined' : backgroundColor;
-      })
-    );
-  expect(chips).toEqual(['filled', 'filled', 'outlined']);
+  expect(await chipLooks(jira(page).locator('.chip'))).toEqual(['filled', 'filled', 'outlined']);
 });
 
 test("a ticket's row takes me to the ticket in Jira", async ({ page }) => {
-  await answer(page, tickets);
+  await answerTickets(page, tickets);
   await page.route('https://jira.example.com/**', (route) =>
     route.fulfill({ contentType: 'text/html', body: '<title>WEB-12</title>' })
   );
@@ -83,7 +65,7 @@ test('the Todos page loads the tickets again each time it shows', async ({ page 
 });
 
 test('the Todos page says why the last search failed, and when its tickets are from', async ({ page }) => {
-  await answer(page, { ...tickets, failure: 'search Jira: 502 Bad Gateway' });
+  await answerTickets(page, { ...tickets, failure: 'search Jira: 502 Bad Gateway' });
   await page.goto('/todos');
 
   const line = jira(page).getByText(/^The last search failed/);
@@ -95,7 +77,7 @@ test('the Todos page says why the last search failed, and when its tickets are f
 });
 
 test('before a search succeeds, the Todos page says why it failed, with no list', async ({ page }) => {
-  await answer(page, { failure: 'search Jira: 401 Unauthorized' });
+  await answerTickets(page, { failure: 'search Jira: 401 Unauthorized' });
   await page.goto('/todos');
 
   await expect(jira(page).getByText(/^The last search failed/)).toHaveText(
@@ -106,7 +88,7 @@ test('before a search succeeds, the Todos page says why it failed, with no list'
 });
 
 test('the Todos page says when no ticket is open', async ({ page }) => {
-  await answer(page, { tickets: [], searched: '2026-10-21T00:38:00Z' });
+  await answerTickets(page, { tickets: [], searched: '2026-10-21T00:38:00Z' });
   await page.goto('/todos');
 
   await expect(jira(page).getByText('No open tickets.')).toBeVisible();
@@ -114,7 +96,7 @@ test('the Todos page says when no ticket is open', async ({ page }) => {
 });
 
 test('the Todos page says when the tickets could not load', async ({ page }) => {
-  await answer(page, 500);
+  await answerTickets(page, 500);
   await page.goto('/todos');
 
   await expect(jira(page).getByText("Couldn't load the tickets.")).toBeVisible();
@@ -123,7 +105,7 @@ test('the Todos page says when the tickets could not load', async ({ page }) => 
 
 test('the tickets follow the line that says the todos could not load', async ({ page }) => {
   await page.route('/api/todos', (route) => route.fulfill({ status: 500 }));
-  await answer(page, tickets);
+  await answerTickets(page, tickets);
   await page.goto('/todos');
 
   const head = page.getByRole('heading', { level: 2, name: 'Jira tickets' });
@@ -142,7 +124,7 @@ test('a long key, summary, status or failure wraps on a narrow screen', async ({
     url: 'https://jira.example.com/browse/ABCDEFGHIJ-1234567',
   } as const;
   const failure = `search Jira: Get "https://jira.example.com/rest/api/3/search/jql?${'z'.repeat(200)}": EOF`;
-  await answer(page, { tickets: [ticket], searched: '2026-10-21T00:38:00Z', failure });
+  await answerTickets(page, { tickets: [ticket], searched: '2026-10-21T00:38:00Z', failure });
   await page.goto('/todos');
 
   await expect(jira(page).getByRole('link')).toHaveText(`${ticket.key} ${ticket.summary} ${ticket.status}`);
