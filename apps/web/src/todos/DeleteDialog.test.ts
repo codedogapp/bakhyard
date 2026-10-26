@@ -5,6 +5,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import type { Todo } from './api';
 import DeleteDialog from './DeleteDialog.svelte';
 import { Editor } from './editor.svelte';
+import { Focus } from './focus';
 import { TodosState } from './state.svelte';
 
 afterEach(() => {
@@ -17,7 +18,7 @@ const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'norm
 function asking(): Editor {
   const list = new TodosState();
   list.todos = [bank];
-  const editor = new Editor(list, () => undefined);
+  const editor = new Editor(list, new Focus(() => undefined));
   render(DeleteDialog, { editor });
   editor.open(bank);
   editor.draft = 'Call the bank today';

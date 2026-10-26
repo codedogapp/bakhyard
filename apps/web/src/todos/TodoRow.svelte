@@ -2,10 +2,11 @@
 import type { Todo } from './api';
 import EditForm from './EditForm.svelte';
 import type { Editor } from './editor.svelte';
+import type { Focus } from './focus';
 import { tickLabel } from './labels';
 import type { TodosState } from './state.svelte';
 
-let { list, todo, editor }: { list: TodosState; todo: Todo; editor: Editor } = $props();
+let { list, todo, editor, focus }: { list: TodosState; todo: Todo; editor: Editor; focus: Focus } = $props();
 
 const editing = $derived(editor.id === todo.id);
 
@@ -37,7 +38,7 @@ function click(event: MouseEvent & { currentTarget: HTMLInputElement }): void {
       aria-label="Edit {todo.title}"
       aria-disabled={editor.busy}
       onclick={() => editor.open(todo)}
-      {@attach editor.editButton(todo.id)}
+      {@attach focus.editButton(todo.id)}
     >
       Edit
     </button>

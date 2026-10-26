@@ -1,5 +1,6 @@
 <script lang="ts">
-import { type Editor, focusField } from './editor.svelte';
+import type { Editor } from './editor.svelte';
+import { focusField } from './focus';
 import { editLabel } from './labels';
 
 let { editor }: { editor: Editor } = $props();

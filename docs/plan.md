@@ -108,6 +108,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `todos-priority` | Each todo has a priority, High, Normal or Low, which the `todos` service lists and `PATCH /api/todos/{id}` changes; the todos stored before it are Normal, as a new one is. The page's groups and its way to set a priority move to two new steps, `todos-groups` and `todos-prioritise`. The tenth of `todos-jira`'s seventeen steps (decision 115) | Done (#84) |
 | `shell-section` | Home's section head, `Section`, and its arrow move to the app's shared `shell` folder, ahead of `todos-groups`, which gives each group a section head; the Notes tree takes the arrow from there too. Nothing changes on screen or in behaviour | Done (#85) |
 | `todos-groups` | The Todos page shows the todos in a section per priority, High, Normal, then Low, each with a section head and its count, and leaves out a priority without todos; a new todo lands on top of the Normal group. The eleventh of `todos-jira`'s seventeen steps (decision 116) | Done (#86) |
+| `todos-focus` | The Todos page's focus handling, which gives the focus back to a row's Edit button or the Add field, moves out of the row editor into a class of its own, `Focus`, ahead of `todos-prioritise`, which adds a control to the editor; nothing changes on screen or in behaviour | Done (#87) |
 
 After these: the product phases (§8.2), each split into steps.
 
