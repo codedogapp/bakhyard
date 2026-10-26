@@ -26,6 +26,25 @@ export function groupNote(count: number): string {
   return count === 1 ? '1 todo' : `${count} todos`;
 }
 
+/** The Jira tickets' count: "1 ticket" or "3 tickets"; none without tickets, which the list itself says. */
+export function ticketsNote(count: number): string | undefined {
+  if (count === 0) {
+    return undefined;
+  }
+  return count === 1 ? '1 ticket' : `${count} tickets`;
+}
+
+/**
+ * When a search of Jira began, in the device's time zone: "26 October at 09:41". The date and the time have a
+ * format each, as the Home's and the clock's, since the browsers join `dateStyle` and `timeStyle` differently.
+ */
+export function searchedLabel(searched: string): string {
+  const date = new Date(searched);
+  const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long' }).format(date);
+  const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(date);
+  return `${day} at ${time}`;
+}
+
 /** What the last add did: "Adding…", "Added", the service's reason or "Add failed"; blank before the first add. */
 export function addLabel(status: AddStatus): string {
   switch (status.kind) {

@@ -4,6 +4,7 @@ import type { Todo } from '../src/todos/api';
 import { home, todos } from './demo';
 import { expect, test } from './fixtures';
 import { group, heads } from './groups';
+import { aTodo, jiraOff } from './jira';
 
 const [notes, car, passport] = todos;
 const cleaning: Todo = { id: 4, title: 'Pick up the dry cleaning', done: false, priority: 'normal' };
@@ -15,11 +16,12 @@ async function serveTodos(page: Page, list: Todo[]) {
       ? route.fulfill({ status: 201, json: cleaning })
       : route.fulfill({ json: { todos: list } })
   );
-  await page.route('/api/todos/*', (route) => route.fulfill({ status: 204 }));
+  await page.route(aTodo, (route) => route.fulfill({ status: 204 }));
 }
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await jiraOff(page);
 });
 
 test('the Todos page shows a section per priority, High first, each with its count and its todos', async ({ page }) => {

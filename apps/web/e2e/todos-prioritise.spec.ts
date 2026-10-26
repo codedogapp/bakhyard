@@ -4,6 +4,7 @@ import type { Todo } from '../src/todos/api';
 import { home, todos } from './demo';
 import { expect, test } from './fixtures';
 import { group, heads } from './groups';
+import { aTodo, jiraOff } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 type Edit = (todo: Todo, edit: Partial<Todo>) => Answer | Promise<Answer>;
@@ -20,7 +21,7 @@ const edited: Edit = (todo, edit) => {
 async function serveEdits(page: Page, list: Todo[], answer: Edit = edited) {
   const sent: string[] = [];
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos: list } }));
-  await page.route('/api/todos/*', async (route) => {
+  await page.route(aTodo, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     sent.push(`${request.method()} ${path} ${request.postData()}`);
@@ -37,6 +38,7 @@ function radio(page: Page, name: string) {
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await jiraOff(page);
 });
 
 test("a new priority moves the todo to its group, and the focus to the todo's Edit button there", async ({ page }) => {

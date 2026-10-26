@@ -2,6 +2,7 @@ import type { Page, Route } from '@playwright/test';
 
 import { home, todos } from './demo';
 import { expect, test } from './fixtures';
+import { aTodo, jiraOff } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 
@@ -9,7 +10,7 @@ type Answer = Parameters<Route['fulfill']>[0];
 async function serveTicks(page: Page, tick: (id: number, done: boolean) => Answer | Promise<Answer>) {
   const sent: string[] = [];
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos } }));
-  await page.route('/api/todos/*', async (route) => {
+  await page.route(aTodo, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     sent.push(`${request.method()} ${path} ${request.postData()}`);
@@ -27,6 +28,7 @@ const [notes, car, passport] = todos;
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await jiraOff(page);
 });
 
 test('a click on the box ticks the todo, and another unticks it', async ({ page }) => {
@@ -95,7 +97,7 @@ test('a failed tick puts the box back and says so, until the next tick', async (
 
 test('a failed untick puts the box back and says so', async ({ page }) => {
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos } }));
-  await page.route('/api/todos/*', (route) => route.abort());
+  await page.route(aTodo, (route) => route.abort());
   await page.goto('/todos');
   const row = page.getByRole('main').getByRole('listitem').filter({ hasText: passport.title });
 

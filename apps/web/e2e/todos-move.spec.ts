@@ -4,6 +4,7 @@ import type { Todo } from '../src/todos/api';
 import { home } from './demo';
 import { expect, test } from './fixtures';
 import { group, heads } from './groups';
+import { aTodo, jiraOff } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 
@@ -21,7 +22,7 @@ const [car, notes, cleaning, plumber, passport] = list;
 async function serveMoves(page: Page, answer?: () => Answer | Promise<Answer>) {
   const sent: string[] = [];
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos: list } }));
-  await page.route('/api/todos/*', async (route) => {
+  await page.route(aTodo, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     sent.push(`${request.method()} ${path} ${request.postData()}`);
@@ -53,6 +54,7 @@ const button = (page: Page, name: string) => page.getByRole('button', { name, ex
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await jiraOff(page);
 });
 
 test('Move down and Move up move the todo a step in its group, past the todos of others', async ({ page }) => {

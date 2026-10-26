@@ -4,6 +4,7 @@ import type { Todo } from '../src/todos/api';
 import { home } from './demo';
 import { expect, test } from './fixtures';
 import { group } from './groups';
+import { aTodo, jiraOff } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 
@@ -21,7 +22,7 @@ const [car, notes, cleaning, plumber] = list;
 async function serveDrops(page: Page, answer?: () => Answer | Promise<Answer>) {
   const sent: string[] = [];
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos: list } }));
-  await page.route('/api/todos/*', async (route) => {
+  await page.route(aTodo, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     sent.push(`${request.method()} ${path} ${request.postData()}`);
@@ -72,6 +73,7 @@ async function drag(page: Page, todo: Todo, target: Todo, share: number) {
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await jiraOff(page);
 });
 
 test('dragging a todo by its grip moves it in its group, past the todos of others', async ({ page }) => {
