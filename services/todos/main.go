@@ -46,6 +46,11 @@ func main() {
 }
 
 func routes(getenv func(string) string, password passwordReader) (http.Handler, error) {
+	tickets, err := jiraClient(getenv, password)
+	if err != nil {
+		return nil, err
+	}
+
 	store, err := open(getenv, password)
 	if err != nil {
 		return nil, err
@@ -55,7 +60,7 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, store, slog.Default())
+	api.Register(router, store, tickets, slog.Default())
 
 	return router, nil
 }

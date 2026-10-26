@@ -37,6 +37,7 @@ func TestTodosServesTheTodos(t *testing.T) {
 		},
 		{http.MethodDelete, "/todos/1", "", http.StatusNoContent, ""},
 		{http.MethodPut, "/todos", "", http.StatusMethodNotAllowed, ""},
+		{http.MethodGet, "/todos/tickets", "", http.StatusNotFound, "Jira is not set up\n"},
 		{http.MethodGet, "/healthz", "", http.StatusOK, `{"status":"ok"}`},
 	} {
 		req := httptest.NewRequestWithContext(t.Context(), test.method, test.target,

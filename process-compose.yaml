@@ -55,7 +55,7 @@ processes:
 
   todos:
     <<: *service
-    description: Keeps the todos in its database
+    description: Keeps the todos in its database and lists the open Jira tickets
     command: bin/todos
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8084

@@ -76,7 +76,7 @@ func todos(t *testing.T) (http.Handler, *pgxpool.Pool, *bytes.Buffer) {
 	var logs bytes.Buffer
 
 	router := chi.NewRouter()
-	api.Register(router, todo.NewStore(pool), slog.New(slog.NewTextHandler(&logs, nil)))
+	api.Register(router, todo.NewStore(pool), nil, slog.New(slog.NewTextHandler(&logs, nil)))
 
 	return router, pool, &logs
 }

@@ -1,6 +1,6 @@
 # Setup
 
-What a machine needs before `mise run up` can run Bakhyard: the local settings, `tailscale serve`, a Google OAuth client and its secret in the Keychain, and Postgres. [The plan](plan.md) says why (§3 Auth, §3 Data, §4.7).
+What a machine needs before `mise run up` can run Bakhyard: the local settings, `tailscale serve`, a Google OAuth client and its secret in the Keychain, and Postgres; Jira is optional. [The plan](plan.md) says why (§3 Auth, §3 Data, §4.7).
 
 ## Local settings
 
@@ -18,9 +18,12 @@ cp mise.local.example.toml mise.local.toml
 | `BAKHYARD_GOOGLE_CLIENT_ID` | gateway | The Google OAuth client's ID |
 | `BAKHYARD_GOOGLE_EMAIL` | gateway | The one email let in; its first sign-in pins its Google account ([below](#the-pinned-google-account)) |
 | `BAKHYARD_VAULT` | notes | The Obsidian vault's folder, as an absolute path |
+| `BAKHYARD_JIRA_SITE` | todos | The Jira site, `https://<site>.atlassian.net`, whose open tickets todos lists ([below](#jira)) |
+| `BAKHYARD_JIRA_API` | todos | Jira's REST API for a token with scopes, `https://api.atlassian.com/ex/jira/<cloud ID>` |
+| `BAKHYARD_JIRA_EMAIL` | todos | The email of the Atlassian account that owns the token |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
-The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes and todos to start.
+The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes and todos to start. Todos runs without Jira when none of the three Jira settings is set.
 
 ## Tailscale
 
@@ -102,6 +105,27 @@ CREATE DATABASE bakhyard_test OWNER bakhyard_test;
 Then put the password in `BAKHYARD_TEST_DATABASE`'s URL in `mise.local.toml`, in place of `<password>`.
 
 Without it, `mise run test` fails and points here. CI runs its own Postgres for the tests.
+
+## Jira
+
+Todos lists your open Jira tickets: those assigned to you whose status isn't in Jira's Done category (decision 121). It reads them with an API token with scopes, as Atlassian recommends (decision 103). To set it up:
+
+1. Find the site's cloud ID. This prints `{"cloudId":"…"}`:
+
+   ```sh
+   curl https://<site>.atlassian.net/_edge/tenant_info
+   ```
+
+2. On [your Atlassian account's API tokens](https://id.atlassian.com/manage-profile/security/api-tokens), select Create API token with scopes. Pick an expiry date, at most a year away, the Jira app, and the scopes `read:jira-work`, `read:jira-user` and `write:jira-work`; time tracking needs the last two later.
+3. Put the token in the Keychain. With `-w` last, `security` asks for it:
+
+   ```sh
+   security add-generic-password -s bakhyard -a jira-token -w
+   ```
+
+4. In `mise.local.toml`, set `BAKHYARD_JIRA_SITE` to `https://<site>.atlassian.net`, `BAKHYARD_JIRA_API` to `https://api.atlassian.com/ex/jira/<cloud ID>` and `BAKHYARD_JIRA_EMAIL` to your account's email, then restart todos.
+
+Both URLs must be https, so the token never travels in the clear; only a loopback IP address, such as `http://127.0.0.1:8090`, may take http, for a stand-in Jira in tests. With only some of the settings, a URL that isn't https or no token in the Keychain, todos exits 1 and says which: `BAKHYARD_JIRA_EMAIL is not set`, `BAKHYARD_JIRA_API: "…" is not an https URL` or `read the Jira token: no Keychain item with service bakhyard and account jira-token`. Without any of the settings, `GET /api/todos/tickets` answers 404 `Jira is not set up`. When Jira refuses the token, for example once it has expired, `GET /api/todos/tickets` answers 502 and todos logs `list the tickets` with Jira's answer, such as `search Jira: 401 Unauthorized`. To replace the token, add `-U` to the command in step 3, then restart todos.
 
 ## Run
 
