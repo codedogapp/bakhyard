@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
+import type { Todo } from './api';
 import TodosPage from './TodosPage.svelte';
 
 afterEach(() => {
@@ -19,8 +20,8 @@ test('lists the todos, newest first, once the list loads', async () => {
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 
   const todos = [
-    { id: 3, title: 'Call <b>home</b>', done: false },
-    { id: 1, title: 'Buy milk', done: true },
+    { id: 3, title: 'Call <b>home</b>', done: false, priority: 'normal' },
+    { id: 1, title: 'Buy milk', done: true, priority: 'normal' },
   ];
   load.resolve(Response.json({ todos }));
 
@@ -32,16 +33,42 @@ test('lists the todos, newest first, once the list loads', async () => {
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/todos');
 });
 
+test('shows a section per priority, High first, each with its count and its todos, newest first', async () => {
+  const todos: Todo[] = [
+    { id: 3, title: 'Call the bank', done: false, priority: 'low' },
+    { id: 2, title: 'Pay the rent', done: false, priority: 'high' },
+    { id: 1, title: 'Buy milk', done: true, priority: 'high' },
+  ];
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })));
+  render(TodosPage);
+
+  const heads = await screen.findAllByRole('heading', { level: 2, name: /priority$/ });
+  const sections = heads.map((head) => within(head.closest('section') as HTMLElement));
+  expect(
+    sections.map((section) => [
+      section.getByRole('heading', { level: 2 }).textContent,
+      section.getByText(/^\d+ todos?$/).textContent,
+      section.getAllByRole('listitem').map((row) => row.querySelector('label')?.textContent?.trim()),
+    ])
+  ).toEqual([
+    ['High priority', '2 todos', ['Pay the rent', 'Buy milk']],
+    ['Low priority', '1 todo', ['Call the bank']],
+  ]);
+});
+
 test('shows no list without todos, until the first is added', async () => {
   const fetchMock = vi
     .fn<typeof fetch>()
     .mockResolvedValueOnce(Response.json({ todos: [] }))
-    .mockResolvedValueOnce(Response.json({ id: 1, title: 'Buy milk', done: false }, { status: 201 }));
+    .mockResolvedValueOnce(
+      Response.json({ id: 1, title: 'Buy milk', done: false, priority: 'normal' }, { status: 201 })
+    );
   vi.stubGlobal('fetch', fetchMock);
   render(TodosPage);
 
   expect(await screen.findByText('No todos on the list.')).toBeInTheDocument();
   expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { level: 2, name: /priority$/ })).not.toBeInTheDocument();
 
   await fireEvent.input(screen.getByRole('textbox', { name: 'New todo' }), { target: { value: 'Buy milk' } });
   await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
@@ -60,8 +87,8 @@ test('says when the list could not load', async () => {
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 });
 
-const milk = { id: 1, title: 'Buy milk', done: true };
-const bank = { id: 2, title: 'Call the bank', done: false };
+const milk: Todo = { id: 1, title: 'Buy milk', done: true, priority: 'normal' };
+const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
 
 test('ticks a todo from its box or its title, and unticks it', async () => {
   const fetchMock = vi

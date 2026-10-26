@@ -171,9 +171,9 @@ export class Editor {
     };
   }
 
-  /** The Edit button of the todo after this one on the list, else of the one before it. */
+  /** The Edit button of the todo after this one on the page, else of the one before it, across the groups. */
   #neighbour(id: number): HTMLButtonElement | undefined {
-    const todos = this.#list.todos ?? [];
+    const todos = this.#list.groups.flatMap((group) => group.todos);
     const at = todos.findIndex((todo) => todo.id === id);
     const neighbour = todos[at + 1] ?? todos[at - 1];
     return neighbour && this.#editButtons.get(neighbour.id);

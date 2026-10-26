@@ -1,6 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
 
 import { addTodo, fetchTodos, type Refused, type Todo, tickTodo } from './api';
+import { groupTodos } from './groups';
 
 /** The last add: running, or how it ended. */
 export type AddStatus = { kind: 'idle' | 'adding' | 'added' | 'failed' } | Refused;
@@ -15,6 +16,8 @@ export interface Tick {
 export class TodosState {
   /** The todos, newest first; undefined until the list loads. */
   todos = $state.raw<readonly Todo[]>();
+  /** The todos in a group per priority, in the page's order; none until the list loads. */
+  readonly groups = $derived(groupTodos(this.todos ?? []));
   /** Whether the list failed to load. */
   failed = $state(false);
   /** The new todo's title, as typed in the form. */

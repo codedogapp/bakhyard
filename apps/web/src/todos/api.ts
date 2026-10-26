@@ -1,8 +1,12 @@
+/** A todo's priority; a new todo is Normal. */
+export type Priority = 'high' | 'normal' | 'low';
+
 /** A todo, as the todos service gives it. */
 export interface Todo {
   id: number;
   title: string;
   done: boolean;
+  priority: Priority;
 }
 
 /** The body of GET /api/todos. */

@@ -2,10 +2,11 @@
 import { onMount } from 'svelte';
 
 import PageHead from '../shell/PageHead.svelte';
+import Section from '../shell/Section.svelte';
 import AddForm from './AddForm.svelte';
 import DeleteDialog from './DeleteDialog.svelte';
 import { Editor } from './editor.svelte';
-import { todosSummary } from './labels';
+import { groupNote, priorityLabel, todosSummary } from './labels';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
 
@@ -19,25 +20,32 @@ onMount(() => {
 </script>
 
 <PageHead summary={list.todos && todosSummary(list.todos.length)}>Todos</PageHead>
-<div class="todos">
-  {#if list.todos}
+{#if list.todos}
+  <div class={['tools', { last: list.groups.length === 0 }]}>
     <AddForm {list} bind:field={addField} />
-    {#if list.todos.length > 0}
+  </div>
+  {#each list.groups as group (group.priority)}
+    <Section title={priorityLabel(group.priority)} accent="priority" note={groupNote(group.todos.length)}>
       <ul class="card">
-        {#each list.todos as todo (todo.id)}
+        {#each group.todos as todo (todo.id)}
           <TodoRow {list} {todo} {editor} />
         {/each}
       </ul>
-    {/if}
-  {:else if list.failed}
-    <p class="failed">Couldn't load the todos.</p>
-  {/if}
-</div>
+    </Section>
+  {/each}
+{:else if list.failed}
+  <p class="failed">Couldn't load the todos.</p>
+{/if}
 <DeleteDialog {editor} />
 
 <style>
-.todos {
-  padding: 0 var(--page-padding) 64px;
+.tools {
+  padding: 0 var(--page-padding);
+}
+
+/* Without a group under it, the form ends the page, with the space a section leaves under it. */
+.last {
+  padding-bottom: 64px;
 }
 
 .card {
@@ -51,11 +59,13 @@ onMount(() => {
 
 .failed {
   margin: 0;
+  padding: 0 var(--page-padding) 64px;
   color: var(--ink-muted);
 }
 
 @media (max-width: 700px) {
-  .todos {
+  .last,
+  .failed {
     padding-bottom: 48px;
   }
 }

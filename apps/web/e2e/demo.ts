@@ -26,9 +26,9 @@ export const home: Home = {
   week: { loggedHours: 31.5, targetHours: 40 },
 };
 
-/** A made-up user's todos, newest first. */
+/** A made-up user's todos, newest first, one of each priority, so the page shows them in the same order. */
 export const todos: Todo[] = [
-  { id: 3, title: 'Write the release notes for 2.4', done: false },
-  { id: 2, title: 'Book the car in for its winter tyres', done: false },
-  { id: 1, title: 'Renew the passport', done: true },
+  { id: 3, title: 'Write the release notes for 2.4', done: false, priority: 'high' },
+  { id: 2, title: 'Book the car in for its winter tyres', done: false, priority: 'normal' },
+  { id: 1, title: 'Renew the passport', done: true, priority: 'low' },
 ];
