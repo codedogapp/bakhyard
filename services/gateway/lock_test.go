@@ -30,6 +30,7 @@ func TestTheGatewayNeedsASessionForTheAPIOnly(t *testing.T) {
 		{http.MethodPost, "/api/home", http.StatusUnauthorized},
 		{http.MethodGet, "/api/notes", http.StatusUnauthorized},
 		{http.MethodGet, "/api/notes/files/Inbox.md", http.StatusUnauthorized},
+		{http.MethodGet, "/api/todos", http.StatusUnauthorized},
 		{http.MethodGet, "/api/nothing", http.StatusUnauthorized},
 		{http.MethodGet, "/api", http.StatusUnauthorized},
 	} {
@@ -64,20 +65,22 @@ func TestTheGatewayKeepsTheSessionFromTheServices(t *testing.T) {
 
 		return srv
 	}
-	home, web := service("home"), service("web")
+	home, todos, web := service("home"), service("todos"), service("web")
 
 	vars, items := gatewayEnv(t, web.URL)
 	vars["BAKHYARD_PEERS"] = "home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
-		",notes=tcp://127.0.0.1:1,web=tcp://" + strings.TrimPrefix(web.URL, "http://")
+		",notes=tcp://127.0.0.1:1,todos=tcp://" + strings.TrimPrefix(todos.URL, "http://") +
+		",web=tcp://" + strings.TrimPrefix(web.URL, "http://")
 	router, token := gatewayFrom(t, vars, items)
 
-	// Only the API renews the session; neither the service behind the session lock nor the one
+	// Only the API renews the session; neither the services behind the session lock nor the one
 	// behind the Tailscale lock alone sees it.
 	for _, test := range []struct {
 		target, service string
 		renewed         bool
 	}{
 		{"/api/home", "home", true},
+		{"/api/todos", "todos", true},
 		{"/notes", "web", false},
 	} {
 		req := withSession(signedIn(t, http.MethodGet, test.target), token)
