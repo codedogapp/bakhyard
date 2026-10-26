@@ -1,4 +1,4 @@
-import type { AddStatus } from './state.svelte';
+import type { AddStatus, Tick } from './state.svelte';
 
 /** The Todos page's summary: "3 todos on the list.", "1 todo on the list." or "No todos on the list." */
 export function todosSummary(count: number): string {
@@ -26,4 +26,12 @@ export function addLabel(status: AddStatus): string {
     default:
       return '';
   }
+}
+
+/** What a todo's last tick did, if it failed: "Tick failed" or "Untick failed"; blank otherwise. */
+export function tickLabel(tick: Tick | undefined): string {
+  if (tick?.kind !== 'failed') {
+    return '';
+  }
+  return tick.done ? 'Tick failed' : 'Untick failed';
 }

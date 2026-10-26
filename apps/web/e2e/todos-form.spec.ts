@@ -22,7 +22,12 @@ async function serveTodos(page: Page, list: Todo[], add: (title: string) => Answ
 }
 
 function added(title: string): Answer {
-  return { status: 201, json: { id: 4, title: title.trim() } };
+  return { status: 201, json: { id: 4, title: title.trim(), done: false } };
+}
+
+/** The add's status line; each row of the list has a status line of its own. */
+function addStatus(page: Page) {
+  return page.getByRole('main').locator('form').getByRole('status');
 }
 
 const titles = todos.map((todo) => todo.title);
@@ -41,7 +46,7 @@ test('Enter adds the todo on top of the list', async ({ page }) => {
 
   await expect(page.getByText('4 todos on the list.')).toBeVisible();
   await expect(page.getByRole('main').getByRole('listitem')).toHaveText(['Pick up the dry cleaning', ...titles]);
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('Added');
+  await expect(addStatus(page)).toHaveText('Added');
   await expect(field).toHaveValue('');
   await expect(field).toBeFocused();
   expect(posted).toEqual([{ title: '  Pick up the dry cleaning ' }]);
@@ -69,7 +74,7 @@ test('a refused title stays in the field, with the reason', async ({ page }) => 
   await field.fill(title);
   await field.press('Enter');
 
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('invalid title: over 500 characters');
+  await expect(addStatus(page)).toHaveText('invalid title: over 500 characters');
   await expect(field).toHaveValue(title);
   await expect(page.getByRole('main').getByRole('listitem')).toHaveText(titles);
 });
@@ -82,7 +87,7 @@ test('a failed add keeps the text', async ({ page }) => {
   await field.fill('Pick up the dry cleaning');
   await field.press('Enter');
 
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('Add failed');
+  await expect(addStatus(page)).toHaveText('Add failed');
   await expect(field).toHaveValue('Pick up the dry cleaning');
   await expect(page.getByText('3 todos on the list.')).toBeVisible();
 });
@@ -99,7 +104,7 @@ test('the form adds one todo at a time', async ({ page }) => {
 
   await field.fill('Pick up the dry cleaning');
   await field.press('Enter');
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('Adding…');
+  await expect(addStatus(page)).toHaveText('Adding…');
   await expect(field).not.toBeEditable();
   await expect(button).toHaveAttribute('aria-disabled', 'true');
   await field.press('Enter');
@@ -108,7 +113,7 @@ test('the form adds one todo at a time', async ({ page }) => {
   await button.dispatchEvent('click');
   answer.resolve();
 
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('Added');
+  await expect(addStatus(page)).toHaveText('Added');
   await expect(field).toBeEditable();
   await expect(button).toHaveAttribute('aria-disabled', 'false');
   expect(posted).toHaveLength(1);
@@ -122,11 +127,11 @@ test('a blank field adds nothing', async ({ page }) => {
   await field.fill('   ');
   await field.press('Enter');
   await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('');
+  await expect(addStatus(page)).toHaveText('');
   // The add that follows is the first POST, so the blank ones sent nothing.
   await field.fill('Pick up the dry cleaning');
   await field.press('Enter');
 
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('Added');
+  await expect(addStatus(page)).toHaveText('Added');
   expect(posted).toEqual([{ title: 'Pick up the dry cleaning' }]);
 });

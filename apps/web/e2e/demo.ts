@@ -28,7 +28,7 @@ export const home: Home = {
 
 /** A made-up user's todos, newest first. */
 export const todos: Todo[] = [
-  { id: 3, title: 'Write the release notes for 2.4' },
-  { id: 2, title: 'Book the car in for its winter tyres' },
-  { id: 1, title: 'Renew the passport' },
+  { id: 3, title: 'Write the release notes for 2.4', done: false },
+  { id: 2, title: 'Book the car in for its winter tyres', done: false },
+  { id: 1, title: 'Renew the passport', done: true },
 ];

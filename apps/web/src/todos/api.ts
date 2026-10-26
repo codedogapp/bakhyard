@@ -2,6 +2,7 @@
 export interface Todo {
   id: number;
   title: string;
+  done: boolean;
 }
 
 /** The body of GET /api/todos. */
@@ -39,4 +40,17 @@ export async function addTodo(title: string): Promise<Added> {
   }
   const todo: Todo = await response.json();
   return { kind: 'added', todo };
+}
+
+/** Ticks the todo done, or unticks it, and gives the todo as the service stored it; fails on any answer but a 200. */
+export async function tickTodo(id: number, done: boolean): Promise<Todo> {
+  const response = await fetch(`${url}/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ done }),
+  });
+  if (response.status !== 200) {
+    throw new Error(`PATCH ${url}/${id}: ${response.status}`);
+  }
+  return response.json();
 }

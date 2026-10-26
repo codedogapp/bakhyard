@@ -5,6 +5,7 @@ import PageHead from '../shell/PageHead.svelte';
 import AddForm from './AddForm.svelte';
 import { todosSummary } from './labels';
 import { TodosState } from './state.svelte';
+import TodoRow from './TodoRow.svelte';
 
 const list = new TodosState();
 
@@ -20,7 +21,7 @@ onMount(() => {
     {#if list.todos.length > 0}
       <ul class="card">
         {#each list.todos as todo (todo.id)}
-          <li>{todo.title}</li>
+          <TodoRow {list} {todo} />
         {/each}
       </ul>
     {/if}
@@ -41,19 +42,6 @@ onMount(() => {
   background: var(--surface);
   box-shadow: var(--offset) var(--offset) 0 var(--shadow);
   list-style: none;
-}
-
-/* A long word breaks rather than widen the page. */
-li {
-  display: flex;
-  align-items: center;
-  min-height: 48px;
-  padding: 10px 20px;
-  overflow-wrap: anywhere;
-}
-
-li + li {
-  border-top: 1px solid var(--rule);
 }
 
 .failed {

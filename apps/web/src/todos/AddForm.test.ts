@@ -8,8 +8,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const milk = { id: 1, title: 'Buy milk' };
-const bank = { id: 2, title: 'Call the bank' };
+const milk = { id: 1, title: 'Buy milk', done: false };
+const bank = { id: 2, title: 'Call the bank', done: false };
 
 function renderForm(): TodosState {
   const list = new TodosState();
