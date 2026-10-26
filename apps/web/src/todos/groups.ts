@@ -26,8 +26,8 @@ export function groupTodos(todos: readonly Todo[]): Group[] {
 export function stepPlace(groups: readonly Group[], todo: Todo, direction: Direction): Place | undefined {
   const todos = groups.find(({ priority }) => priority === todo.priority)?.todos ?? [];
   const at = todos.findIndex(({ id }) => id === todo.id);
-  const other = at < 0 ? undefined : todos[direction === 'up' ? at - 1 : at + 1];
-  if (other === undefined) {
+  const other = todos[direction === 'up' ? at - 1 : at + 1];
+  if (at < 0 || other === undefined) {
     return undefined;
   }
   return direction === 'up' ? { before: other.id } : { after: other.id };
