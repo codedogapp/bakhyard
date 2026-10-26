@@ -1,7 +1,7 @@
 <script lang="ts">
+import Section from '../shell/Section.svelte';
 import type { Item } from './api';
 import { countNote, dueLabel, itemHref } from './items';
-import Section from './Section.svelte';
 
 let { items, now }: { items: readonly Item[]; now: Date } = $props();
 </script>

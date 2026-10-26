@@ -1,6 +1,6 @@
 <script lang="ts">
+import Arrow from '../shell/Arrow.svelte';
 import { type App, appHref } from '../shell/apps';
-import Arrow from './Arrow.svelte';
 import type { Item } from './api';
 import { itemCount, itemNoun } from './items';
 

@@ -106,6 +106,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `todos-editor` | The Todos page's row editor, `Rename`, becomes `Editor`, ahead of `todos-delete`, which adds Delete to it; nothing changes on screen or in behaviour | Done (#81) |
 | `todos-delete` | The row's editor gains a Delete button, which asks in a dialog first, then deletes the todo for good; the focus moves on to the next row. The ninth of `todos-jira`'s seventeen steps (decision 114) | Done (#83) |
 | `todos-priority` | Each todo has a priority, High, Normal or Low, which the `todos` service lists and `PATCH /api/todos/{id}` changes; the todos stored before it are Normal, as a new one is. The page's groups and its way to set a priority move to two new steps, `todos-groups` and `todos-prioritise`. The tenth of `todos-jira`'s seventeen steps (decision 115) | Done (#84) |
+| `shell-section` | Home's section head, `Section`, and its arrow move to the app's shared `shell` folder, ahead of `todos-groups`, which gives each group a section head; the Notes tree takes the arrow from there too. Nothing changes on screen or in behaviour | Done (#85) |
 
 After these: the product phases (§8.2), each split into steps.
 

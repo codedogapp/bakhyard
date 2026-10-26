@@ -1,7 +1,7 @@
 <script lang="ts">
 import type { SvelteSet } from 'svelte/reactivity';
 
-import Arrow from '../home/Arrow.svelte';
+import Arrow from '../shell/Arrow.svelte';
 import { countLabel } from './labels';
 import Tree from './Tree.svelte';
 import { type Folder, noteHref } from './tree';
