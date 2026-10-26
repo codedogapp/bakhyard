@@ -78,10 +78,9 @@ test('a new title and a priority picked with the arrow keys go in one request', 
 });
 
 test('Tab stops once in the priority, on the one the todo has', async ({ page, browserName }) => {
-  test.skip(
-    browserName === 'webkit',
-    'WebKit skips radios on Tab, as Safari does unless "Press Tab to highlight each item" is on'
-  );
+  // Playwright's WebKit, like Safari unless "Press Tab to highlight each item" is on, moves Tab
+  // only between text fields (plan §6.8).
+  test.skip(browserName === 'webkit', 'WebKit skips radios on Tab');
   await serveEdits(page, todos);
   await page.goto('/todos');
 
