@@ -5,7 +5,7 @@ import { type Refused, renameTodo, type Todo } from './api';
 import type { TodosState } from './state.svelte';
 
 /** The editor's last save: running, or how it ended; a save that succeeds closes the editor. */
-export type RenameStatus = { kind: 'idle' | 'saving' | 'failed' } | Refused;
+export type EditStatus = { kind: 'idle' | 'saving' | 'failed' } | Refused;
 
 /** Focuses the editor's field as it shows, with the caret after the title. */
 export const focusField: Attachment<HTMLInputElement> = (input) => {
@@ -13,13 +13,13 @@ export const focusField: Attachment<HTMLInputElement> = (input) => {
   input.setSelectionRange(input.value.length, input.value.length);
 };
 
-/** The Todos page's rename editor, open in one todo's row at a time. */
-export class Rename {
+/** The Todos page's editor, open in one todo's row at a time. */
+export class Editor {
   /** The todo whose editor is open; undefined while none is. */
   id = $state<number>();
   /** The new title, as typed in the editor. */
   draft = $state('');
-  status = $state.raw<RenameStatus>({ kind: 'idle' });
+  status = $state.raw<EditStatus>({ kind: 'idle' });
   readonly #list: TodosState;
   /** The todo whose Edit button takes the focus as it shows again; plain, since nothing on the page shows it. */
   #refocus: number | undefined;
@@ -29,7 +29,7 @@ export class Rename {
   }
 
   /** Whether a save is running; until it ends, the editor stays open as it is and no other opens. */
-  get saving(): boolean {
+  get busy(): boolean {
     return this.status.kind === 'saving';
   }
 
@@ -38,7 +38,7 @@ export class Rename {
    * the focus inside the tap's click handler: iOS brings up the keyboard only for such a focus.
    */
   open(todo: Todo): void {
-    if (this.saving) {
+    if (this.busy) {
       return;
     }
     flushSync(() => {
@@ -50,7 +50,7 @@ export class Rename {
 
   /** Closes the editor without saving, and gives the focus back to its row's Edit button. */
   close(): void {
-    if (this.saving) {
+    if (this.busy) {
       return;
     }
     this.#refocus = this.id;
@@ -63,7 +63,7 @@ export class Rename {
    */
   async save(): Promise<void> {
     const todo = this.#list.todos?.find(({ id }) => id === this.id);
-    if (this.saving || todo === undefined || this.draft.trim() === '') {
+    if (this.busy || todo === undefined || this.draft.trim() === '') {
       return;
     }
     if (this.draft === todo.title) {

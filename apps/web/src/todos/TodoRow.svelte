@@ -1,13 +1,13 @@
 <script lang="ts">
 import type { Todo } from './api';
+import EditForm from './EditForm.svelte';
+import type { Editor } from './editor.svelte';
 import { tickLabel } from './labels';
-import RenameForm from './RenameForm.svelte';
-import type { Rename } from './rename.svelte';
 import type { TodosState } from './state.svelte';
 
-let { list, todo, rename }: { list: TodosState; todo: Todo; rename: Rename } = $props();
+let { list, todo, editor }: { list: TodosState; todo: Todo; editor: Editor } = $props();
 
-const editing = $derived(rename.id === todo.id);
+const editing = $derived(editor.id === todo.id);
 
 function click(event: MouseEvent & { currentTarget: HTMLInputElement }): void {
   if (list.ticking(todo.id)) {
@@ -20,7 +20,7 @@ function click(event: MouseEvent & { currentTarget: HTMLInputElement }): void {
 
 <li class={{ done: todo.done }}>
   {#if editing}
-    <RenameForm {rename} />
+    <EditForm {editor} />
   {:else}
     <!-- The title labels the box, so a tap anywhere on it ticks the todo. -->
     <label>
@@ -35,9 +35,9 @@ function click(event: MouseEvent & { currentTarget: HTMLInputElement }): void {
       class="edit"
       type="button"
       aria-label="Edit {todo.title}"
-      aria-disabled={rename.saving}
-      onclick={() => rename.open(todo)}
-      {@attach rename.editButton(todo.id)}
+      aria-disabled={editor.busy}
+      onclick={() => editor.open(todo)}
+      {@attach editor.editButton(todo.id)}
     >
       Edit
     </button>

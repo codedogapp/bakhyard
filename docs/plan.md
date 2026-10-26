@@ -103,6 +103,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `todos-tick` | Each row of the Todos page has a checkbox that ticks the todo done or not at once, then saves it; a failed save puts the box back and says so in the row. The seventh of `todos-jira`'s fifteen steps (decision 111) | Done (#78) |
 | `form-styles` | The Notes page's tools and the Todos page's form take their field, button and status line from one shared stylesheet, which `todos-rename`'s editor will use too; nothing changes on screen (decision 112) | Done (#79) |
 | `todos-rename` | Each row of the Todos page ends with an Edit button that opens an editor in the row; Enter or Save renames the todo, and a refused or failed save keeps the editor open and says why. The eighth of `todos-jira`'s fifteen steps (decision 113) | Done (#80) |
+| `todos-editor` | The Todos page's row editor, `Rename`, becomes `Editor`, ahead of `todos-delete`, which adds Delete to it; nothing changes on screen or in behaviour | Done (#81) |
 
 After these: the product phases (§8.2), each split into steps.
 

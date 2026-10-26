@@ -1,4 +1,4 @@
-import type { RenameStatus } from './rename.svelte';
+import type { EditStatus } from './editor.svelte';
 import type { AddStatus, Tick } from './state.svelte';
 
 /** The Todos page's summary: "3 todos on the list.", "1 todo on the list." or "No todos on the list." */
@@ -37,8 +37,8 @@ export function tickLabel(tick: Tick | undefined): string {
   return tick.done ? 'Tick failed' : 'Untick failed';
 }
 
-/** What the rename editor's last save did, unless it succeeded: "Saving…", the service's reason or "Save failed". */
-export function renameLabel(status: RenameStatus): string {
+/** What the editor's last save did, unless it succeeded: "Saving…", the service's reason or "Save failed". */
+export function editLabel(status: EditStatus): string {
   switch (status.kind) {
     case 'saving':
       return 'Saving…';
