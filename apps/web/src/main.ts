@@ -4,6 +4,7 @@ import '@fontsource/instrument-serif/400-italic.css';
 import '@fontsource-variable/jetbrains-mono';
 import './styles/tokens.css';
 import './styles/base.css';
+import './styles/form.css';
 
 import App from './App.svelte';
 import { applyChoice, loadChoice } from './shell/theme';
