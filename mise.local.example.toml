@@ -14,5 +14,11 @@ BAKHYARD_GOOGLE_CLIENT_ID = "1234567890-abcdef.apps.googleusercontent.com"
 BAKHYARD_GOOGLE_EMAIL = "you@example.com"
 # The Obsidian vault's folder, as an absolute path. The notes service lists its files.
 BAKHYARD_VAULT = "/Users/you/Documents/Vault"
+# The Jira site whose open tickets the todos service lists, Jira's REST API for a token with
+# scopes, and the email of the token's account; the token goes into the Keychain. Leave all
+# three out to run without Jira.
+# BAKHYARD_JIRA_SITE = "https://your-site.atlassian.net"
+# BAKHYARD_JIRA_API = "https://api.atlassian.com/ex/jira/<cloud ID>"
+# BAKHYARD_JIRA_EMAIL = "you@example.com"
 # The Go tests' own database. Put its role's password in place of <password>.
 BAKHYARD_TEST_DATABASE = "postgres://bakhyard_test:<password>@127.0.0.1:5433/bakhyard_test"
