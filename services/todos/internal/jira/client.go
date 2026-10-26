@@ -86,15 +86,25 @@ type page struct {
 // issue is the part of a ticket in the search results that the client reads.
 type issue struct {
 	Key    string `json:"key"`
-	Fields struct {
-		Summary string `json:"summary"`
-		Status  struct {
-			Name     string `json:"name"`
-			Category struct {
-				Key string `json:"key"`
-			} `json:"statusCategory"`
-		} `json:"status"`
-	} `json:"fields"`
+	Fields fields `json:"fields"`
+}
+
+// fields are the ticket's fields that the client asks for.
+type fields struct {
+	Summary string `json:"summary"`
+	Status  status `json:"status"`
+}
+
+// status is a ticket's status, as its workflow names it, and the category it falls into.
+type status struct {
+	Name     string         `json:"name"`
+	Category statusCategory `json:"statusCategory"`
+}
+
+// statusCategory is the part of a status category that the client reads: its key, which Jira
+// fixes whatever the workflow.
+type statusCategory struct {
+	Key string `json:"key"`
 }
 
 // page returns the page of the search that token names, or the first page without a token.
