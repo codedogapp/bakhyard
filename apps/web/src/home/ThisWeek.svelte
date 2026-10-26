@@ -1,7 +1,7 @@
 <script lang="ts">
 import { appHref } from '../shell/apps';
+import Section from '../shell/Section.svelte';
 import type { Week } from './api';
-import Section from './Section.svelte';
 import { hoursLabel, weekPercent } from './week';
 
 let { week }: { week: Week } = $props();

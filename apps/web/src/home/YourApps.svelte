@@ -1,8 +1,8 @@
 <script lang="ts">
 import { apps } from '../shell/apps';
+import Section from '../shell/Section.svelte';
 import AppCards from './AppCards.svelte';
 import type { Item } from './api';
-import Section from './Section.svelte';
 
 let { items }: { items?: readonly Item[] } = $props();
 </script>
