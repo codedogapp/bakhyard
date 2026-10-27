@@ -86,12 +86,14 @@ processes:
     command: bin/gateway
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8080
-      - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,notes=tcp://127.0.0.1:8083,todos=tcp://127.0.0.1:8084,web=tcp://127.0.0.1:8082
+      - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,notes=tcp://127.0.0.1:8083,pulls=tcp://127.0.0.1:8085,todos=tcp://127.0.0.1:8084,web=tcp://127.0.0.1:8082
       - BAKHYARD_DATABASE=postgres://bakhyard_gateway@127.0.0.1:5433/bakhyard_gateway
     depends_on:
       home:
         condition: process_healthy
       notes:
+        condition: process_healthy
+      pulls:
         condition: process_healthy
       todos:
         condition: process_healthy

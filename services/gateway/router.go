@@ -41,6 +41,7 @@ func wire(upstream upstreams, guard locks, logger *slog.Logger) http.Handler {
 		api.Use(guard.identified, guard.signedIn, session.Hide)
 		proxy.Register(api, "home", upstream.home, logger)
 		proxy.Register(api, "notes", upstream.notes, logger)
+		proxy.Register(api, "pulls", upstream.pulls, logger)
 		proxy.Register(api, "todos", upstream.todos, logger)
 		proxy.RegisterUnclaimed(api)
 	})
