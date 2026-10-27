@@ -2,7 +2,7 @@
 package api
 
 import (
-	"encoding/json/v2"
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -19,13 +19,16 @@ type list struct {
 
 // Register serves the todos in store on router: GET /todos lists them, POST /todos adds one,
 // PATCH /todos/{id} changes one and DELETE /todos/{id} deletes one. GET /todos/tickets answers
-// what tickets has found in Jira, nil when Jira isn't set up. Other methods get 405, and logger
-// gets the errors that the database runs into.
+// what tickets has found in Jira, nil when Jira isn't set up. GET /todos/dismissals lists the
+// tickets dismissed from the inbox, and PUT /todos/dismissals/{key} dismisses one. Other methods
+// get 405, and logger gets the errors that the database runs into.
 func Register(router chi.Router, store *todo.Store, tickets *jira.Poller, logger *slog.Logger) {
 	router.Get("/todos", listTodos(store, logger))
 	router.Post("/todos", addTodo(store, logger))
 	// Always there, so that chi doesn't take the path for /todos/{id}, which has no GET.
 	router.Get("/todos/tickets", listTickets(tickets))
+	router.Get("/todos/dismissals", listDismissals(store, logger))
+	router.Put("/todos/dismissals/{key}", dismissTicket(store, logger))
 	router.Patch("/todos/{id}", changeTodo(store, logger))
 	router.Delete("/todos/{id}", deleteTodo(store, logger))
 }
@@ -33,19 +36,9 @@ func Register(router chi.Router, store *todo.Store, tickets *jira.Poller, logger
 // listTodos returns the handler of GET /todos. When the todos can't be read, the client gets a
 // 500 and logger gets the cause.
 func listTodos(store *todo.Store, logger *slog.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		todos, err := store.List(r.Context())
-		if err != nil {
-			logger.ErrorContext(r.Context(), "list the todos", "err", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError),
-				http.StatusInternalServerError)
+	return serveRead(func(ctx context.Context) (list, error) {
+		todos, err := store.List(ctx)
 
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		// The titles come from a UTF8 database, so the list always encodes: an error means the
-		// client has gone.
-		_ = json.MarshalWrite(w, list{Todos: todos})
-	}
+		return list{Todos: todos}, err
+	}, "list the todos", logger)
 }
