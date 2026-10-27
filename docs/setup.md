@@ -108,7 +108,7 @@ Without it, `mise run test` fails and points here. CI runs its own Postgres for 
 
 ## Jira
 
-Todos lists your open Jira tickets: those assigned to you whose status isn't in Jira's Done category (decision 121). It reads them with an API token with scopes, as Atlassian recommends (decision 103). To set it up:
+Todos lists your open Jira tickets: those assigned to you whose status isn't in Jira's Done category (decision 121). It also looks up the tickets that your todos left to do name, to find those that are done (decision 133). It reads them with an API token with scopes, as Atlassian recommends (decision 103). To set it up:
 
 1. Find the site's cloud ID. This prints `{"cloudId":"…"}`:
 
@@ -125,7 +125,7 @@ Todos lists your open Jira tickets: those assigned to you whose status isn't in 
 
 4. In `mise.local.toml`, set `BAKHYARD_JIRA_SITE` to `https://<site>.atlassian.net`, `BAKHYARD_JIRA_API` to `https://api.atlassian.com/ex/jira/<cloud ID>` and `BAKHYARD_JIRA_EMAIL` to your account's email, then restart todos.
 
-Both URLs must be https, so the token never travels in the clear; only a loopback IP address, such as `http://127.0.0.1:8090`, may take http, for a stand-in Jira in tests. With only some of the settings, a URL that isn't https or no token in the Keychain, todos exits 1 and says which: `BAKHYARD_JIRA_EMAIL is not set`, `BAKHYARD_JIRA_API: "…" is not an https URL` or `read the Jira token: no Keychain item with service bakhyard and account jira-token`. Without any of the settings, `GET /api/todos/tickets` answers 404 `Jira is not set up`. Todos searches Jira as it starts and every 5 minutes after (decision 122). When Jira refuses the token, for example once it has expired, `GET /api/todos/tickets` keeps answering the tickets that the last search to succeed found, adds Jira's answer as its `failure`, such as `search Jira: 401 Unauthorized`, and todos logs `poll Jira` with it. To replace the token, add `-U` to the command in step 3, then restart todos.
+Both URLs must be https, so the token never travels in the clear; only a loopback IP address, such as `http://127.0.0.1:8090`, may take http, for a stand-in Jira in tests. With only some of the settings, a URL that isn't https or no token in the Keychain, todos exits 1 and says which: `BAKHYARD_JIRA_EMAIL is not set`, `BAKHYARD_JIRA_API: "…" is not an https URL` or `read the Jira token: no Keychain item with service bakhyard and account jira-token`. Without any of the settings, `GET /api/todos/tickets` answers 404 `Jira is not set up`. Todos polls Jira as it starts and every 5 minutes after (decisions 122 and 133): it searches your open tickets, then fetches the other tickets that your todos left to do name. When Jira refuses the token, for example once it has expired, `GET /api/todos/tickets` keeps answering what the last poll to succeed found, adds Jira's answer as its `failure`, such as `search Jira: 401 Unauthorized` or `fetch Jira tickets: 401 Unauthorized`, and todos logs `poll Jira` with it. To replace the token, add `-U` to the command in step 3, then restart todos.
 
 ## Run
 

@@ -8,7 +8,7 @@ import (
 )
 
 // listTickets returns the handler of GET /todos/tickets, which answers what poller has found in
-// Jira, once its first search has ended. Without Jira, poller is nil and the client gets a 404.
+// Jira, once its first poll has ended. Without Jira, poller is nil and the client gets a 404.
 func listTickets(poller *jira.Poller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if poller == nil {
@@ -19,7 +19,7 @@ func listTickets(poller *jira.Poller) http.HandlerFunc {
 
 		latest, err := poller.Latest(r.Context())
 		if err != nil {
-			// The client has gone before the first search ended.
+			// The client has gone before the first poll ended.
 			return
 		}
 

@@ -27,7 +27,7 @@ func categoryOf(key string) Category {
 	}
 }
 
-// Ticket is one of the user's Jira tickets.
+// Ticket is a ticket on the user's Jira site.
 type Ticket struct {
 	Key     string `json:"key"`
 	Summary string `json:"summary"`

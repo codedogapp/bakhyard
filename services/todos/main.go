@@ -46,7 +46,7 @@ func main() {
 	}
 }
 
-// routes returns todos' handler. With Jira set up, it searches Jira in the background until ctx
+// routes returns todos' handler. With Jira set up, it polls Jira in the background until ctx
 // ends.
 func routes(
 	ctx context.Context,
@@ -68,7 +68,7 @@ func routes(
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, store, poll(ctx, client, logger), logger)
+	api.Register(router, store, poll(ctx, client, store, logger), logger)
 
 	return router, nil
 }

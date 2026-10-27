@@ -85,8 +85,16 @@ func TestJiraClientNeedsTheToken(t *testing.T) {
 
 func TestTodosListsTheJiraTickets(t *testing.T) {
 	rec := getTickets(t.Context(), t, jiraServer(t))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"key":"PAY-1"`) {
-		t.Errorf("got %d %q, want PAY-1", rec.Code, rec.Body)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"key":"PAY-1"`) ||
+		strings.Contains(rec.Body.String(), `"done"`) {
+		t.Errorf("got %d %q, want PAY-1 and no done tickets", rec.Code, rec.Body)
+	}
+}
+
+func TestTodosListsTheDoneTicketsThatItsTodosName(t *testing.T) {
+	rec := getTickets(t.Context(), t, jiraServer(t), "WEB-3", "PAY-1")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"done":[{"key":"WEB-3"`) {
+		t.Errorf("got %d %q, want WEB-3 done", rec.Code, rec.Body)
 	}
 }
 
@@ -109,7 +117,8 @@ func TestTodosStopsOnABadJiraSetting(t *testing.T) {
 }
 
 // jiraServer returns the URL of a stand-in for Jira's REST API that has one open ticket, PAY-1,
-// for the email me@example.com with the token secret.
+// and one done, WEB-3, for the email me@example.com with the token secret. A fetch finds WEB-3
+// whatever it asks for.
 func jiraServer(t *testing.T) string {
 	t.Helper()
 
@@ -117,6 +126,13 @@ func jiraServer(t *testing.T) string {
 		email, token, ok := r.BasicAuth()
 		if !ok || email != "me@example.com" || token != "secret" {
 			w.WriteHeader(http.StatusUnauthorized)
+
+			return
+		}
+
+		if strings.HasSuffix(r.URL.Path, "/rest/api/3/issue/bulkfetch") {
+			_, _ = w.Write([]byte(`{"issues":[{"key":"WEB-3","fields":{"summary":"Ship",` +
+				`"status":{"name":"Done","statusCategory":{"key":"done"}}}}]}`))
 
 			return
 		}
@@ -130,17 +146,24 @@ func jiraServer(t *testing.T) string {
 }
 
 // getTickets returns the answer to GET /todos/tickets of todos with Jira's REST API at address,
-// whose routes run until ctx ends.
-func getTickets(ctx context.Context, t *testing.T, address string) *httptest.ResponseRecorder {
+// whose routes run until ctx ends. Before they start, it adds a todo for each of the keys.
+func getTickets(
+	ctx context.Context, t *testing.T, address string, keys ...string,
+) *httptest.ResponseRecorder {
 	t.Helper()
 
 	schema := databasetest.NewSchema(t)
 	settings := jiraSettings(address)
 	settings[databaseVar] = schema.URL
-
-	router, err := routes(ctx, envOf(settings), keychainWith(map[string]string{
+	keychain := keychainWith(map[string]string{
 		"postgres-todos": schema.Password, "jira-token": "secret",
-	}))
+	})
+
+	for _, key := range keys {
+		addTodo(t, envOf(settings), keychain, key)
+	}
+
+	router, err := routes(ctx, envOf(settings), keychain)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,6 +173,28 @@ func getTickets(ctx context.Context, t *testing.T, address string) *httptest.Res
 	router.ServeHTTP(rec, req)
 
 	return rec
+}
+
+// addTodo adds a todo for the ticket key, through routes that stop at once.
+func addTodo(t *testing.T, getenv func(string) string, keychain passwordReader, key string) {
+	t.Helper()
+
+	stopped, stop := context.WithCancel(t.Context())
+	stop()
+
+	router, err := routes(stopped, getenv, keychain)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/todos",
+		strings.NewReader(`{"title":"Ship","ticket":"`+key+`"}`))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("got %d %q, want the todo for %s", rec.Code, rec.Body, key)
+	}
 }
 
 // jiraSettings returns the Jira settings, with the REST API at address.
