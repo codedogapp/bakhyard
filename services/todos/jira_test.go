@@ -29,18 +29,6 @@ func TestJiraClientSearchesTheJiraInTheSettings(t *testing.T) {
 	}
 }
 
-func TestJiraClientTakesTheseURLs(t *testing.T) {
-	for _, address := range []string{
-		jiraAPI, "HTTPS://API.ATLASSIAN.COM/", "http://127.0.0.1:8080", "http://[::1]:8080",
-	} {
-		client, err := jiraClient(envOf(jiraWith(jiraAPIVar, address)),
-			keychainWith(map[string]string{"jira-token": "secret"}))
-		if client == nil || err != nil {
-			t.Errorf("%s: got %v, %v, want a client", address, client, err)
-		}
-	}
-}
-
 func TestJiraClientIsOffWithoutTheSettings(t *testing.T) {
 	client, err := jiraClient(envOf(nil), keychainWith(nil))
 	if client != nil || err != nil {
@@ -56,15 +44,9 @@ func TestJiraClientRejects(t *testing.T) {
 		{jiraWith(jiraSiteVar, ""), "BAKHYARD_JIRA_SITE is not set"},
 		{jiraWith(jiraAPIVar, ""), "BAKHYARD_JIRA_API is not set"},
 		{jiraWith(jiraEmailVar, ""), "BAKHYARD_JIRA_EMAIL is not set"},
+		// internal/env tests which URLs pass; these show that both of Jira's URLs must.
 		notHTTPS(jiraSiteVar, "http://acme.atlassian.net"),
 		notHTTPS(jiraAPIVar, "http://example.com"),
-		notHTTPS(jiraAPIVar, "http://localhost:8080"),
-		notHTTPS(jiraAPIVar, "http://192.168.0.2:8080"),
-		notHTTPS(jiraAPIVar, "ftp://127.0.0.1"),
-		notHTTPS(jiraAPIVar, "https://"),
-		notHTTPS(jiraAPIVar, "https:api.atlassian.com"),
-		notHTTPS(jiraAPIVar, "api.atlassian.com"),
-		notHTTPS(jiraAPIVar, "https://api.atlassian.com/%zz"),
 	} {
 		client, err := jiraClient(envOf(test.settings),
 			keychainWith(map[string]string{"jira-token": "secret"}))

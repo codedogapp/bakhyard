@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
-	"net/url"
 	"slices"
 
 	"github.com/codedogapp/bakhyard/internal/env"
@@ -32,12 +30,12 @@ func jiraClient(getenv func(string) string, password passwordReader) (*jira.Clie
 		return nil, nil
 	}
 
-	site, err := jiraURL(getenv, jiraSiteVar)
+	site, err := env.SecureURL(getenv, jiraSiteVar)
 	if err != nil {
 		return nil, err
 	}
 
-	address, err := jiraURL(getenv, jiraAPIVar)
+	address, err := env.SecureURL(getenv, jiraAPIVar)
 	if err != nil {
 		return nil, err
 	}
@@ -69,32 +67,4 @@ func poll(
 	go poller.Run(ctx)
 
 	return poller
-}
-
-// jiraURL returns the URL in the setting name. It must be an https URL, so that the token
-// doesn't travel in the clear, or an http one to a loopback IP address, for a stand-in Jira.
-func jiraURL(getenv func(string) string, name string) (*url.URL, error) {
-	value, err := env.Required(getenv, name)
-	if err != nil {
-		return nil, err
-	}
-
-	address, err := url.Parse(value)
-	if err != nil || address.Host == "" || !secure(address) {
-		return nil, fmt.Errorf("%s: %q is not an https URL", name, value)
-	}
-
-	return address, nil
-}
-
-// secure reports whether address keeps a token on the way to it from other machines' eyes.
-func secure(address *url.URL) bool {
-	switch address.Scheme {
-	case "https":
-		return true
-	case "http":
-		return net.ParseIP(address.Hostname()).IsLoopback()
-	default:
-		return false
-	}
 }
