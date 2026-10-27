@@ -36,7 +36,7 @@ export default defineConfig({
       command: '../../bin/e2e/gateway',
       env: {
         BAKHYARD_LISTEN: `tcp://${gateway}`,
-        BAKHYARD_PEERS: `home=${nowhere},notes=${nowhere},todos=${nowhere},web=tcp://${web}`,
+        BAKHYARD_PEERS: `home=${nowhere},notes=${nowhere},pulls=${nowhere},todos=${nowhere},web=tcp://${web}`,
       },
       url: `http://${gateway}/healthz`,
       gracefulShutdown: stop,

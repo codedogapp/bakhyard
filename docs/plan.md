@@ -134,6 +134,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `shared-secure-url` | Todos' check that a token's URL is https, or http to a loopback IP address for a stand-in in tests, moves to the root `internal/env` as `env.SecureURL`, for the `pulls` service's Bitbucket API, its second user. The third of `bitbucket-prs`'s ten steps (decision 144) | Done (#113) |
 | `shared-poll-handler` | A poller answers what it has found over HTTP itself: once its first poll has ended, it answers the snapshot as JSON, and a client that leaves before then gets nothing. Todos' `GET /api/todos/tickets` keeps its own 404 for a Jira that isn't set up and answers the same bytes, and the `pulls` service's `GET /pulls/mine` will answer through the same code. The fourth of `bitbucket-prs`'s eleven steps (decision 145) | Done (#114) |
 | `pulls-service` | A new `pulls` service polls my open pull requests on Bitbucket as it starts and every 5 minutes after, and answers them at `GET /pulls/mine`, with when the latest poll to succeed began and why the latest poll failed, if it did. Its settings name Bitbucket's API, an https URL, the account's email and the workspaces' slugs, and its token is in the Keychain; without any of the settings it runs without Bitbucket and answers 404, and with only some it doesn't start. `mise run up` runs it on port 8085; the gateway reaches it in the next step. The fifth of `bitbucket-prs`'s eleven steps (decision 146) | Done (#115) |
+| `pulls-gateway` | The gateway forwards `/api/pulls` to the `pulls` service, behind both of its locks, so the app reaches my open pull requests at `GET /api/pulls/mine`. `pulls` is one of the gateway's peers, each of which `BAKHYARD_PEERS` must name, and `mise run up` starts the gateway once pulls is ready. The sixth of `bitbucket-prs`'s eleven steps (decision 144) | Done (#116) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -342,7 +343,7 @@ flowchart LR
 | Service | Role | Listens on | Peers | Grows into (§8.2) |
 | --- | --- | --- | --- | --- |
 | nats | Event bus; JetStream on for later durable flows | `tcp://127.0.0.1:4222`, monitoring `:8222` | | reminders → notify |
-| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home, notes, todos | auth-signin |
+| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home, notes, pulls, todos | auth-signin |
 | web | Serves the embedded Svelte build | unix socket | | frontend-shell (PWA parts) |
 | home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner | home-feed |
 | notes | Obsidian vault | unix socket | nats | vault-index, vault-render, vault-edit-sync |
@@ -518,7 +519,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 - Each service has a `description`, a `command` (`bin/<name>`, run with `bash -c` from the repo root) and an `environment` with its `BAKHYARD_LISTEN` and, for the gateway, `BAKHYARD_PEERS` (§4.7).
 - A readiness probe checks each service's `GET /healthz` (§4.7), first 1 s after the start, then every 2 s. A check gets 1 s to answer, and 3 failures in a row fail the probe.
-- The gateway `depends_on` home, notes, todos and web with `condition: process_healthy`, so it starts once their probes pass.
+- The gateway `depends_on` home, notes, pulls, todos and web with `condition: process_healthy`, so it starts once their probes pass.
 - What every service shares sits in an `x-service` YAML anchor, merged into each with `<<: *service`:
   - `availability.restart: always`: a service that exits, or fails its probe, restarts after 1 s, however often it needs to. A service stopped by hand stays stopped.
   - `shutdown.timeout_seconds: 10`: a stop sends SIGTERM to the service's process group, then SIGKILL if it's still running 10 s later. Without the timeout, process-compose never sends SIGKILL, and a hung service never stops.
@@ -1129,7 +1130,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `shared-secure-url`: todos' check that a token's URL is https moves to the root `internal/env`, for the `pulls` service's Bitbucket API (decision 144). Done (#113).
   - `shared-poll-handler`: a poller answers what it has found over HTTP, as JSON, so that todos' tickets and the `pulls` service's PRs share the handler (decision 145). Done (#114).
   - `pulls-service`: a new `pulls` service polls my open PRs every 5 minutes and answers them at `GET /pulls/mine`. Its settings take only Bitbucket's workspace slugs, since the client would join an empty slug, `.` or `..` into another path, and an `https` API, as the todos service's Jira settings do (decision 146). Done (#115).
-  - `pulls-gateway`: the gateway forwards `/api/pulls` to the `pulls` service, so the app reaches my open PRs at `GET /api/pulls/mine`.
+  - `pulls-gateway`: the gateway forwards `/api/pulls` to the `pulls` service, so the app reaches my open PRs at `GET /api/pulls/mine`. Done (#116).
   - `pulls-page`: the PRs page lists my open PRs.
   - `bitbucket-reviews`: the service finds the open PRs that wait for my review, through the per-repo `reviewers.uuid` query, every 15 minutes, with the list of repositories read daily (1,000 req/h), and answers them at `GET /api/pulls/reviews`.
   - `reviews-page`: the PRs page lists the PRs that wait for my review.
