@@ -10,6 +10,7 @@ import (
 
 	"github.com/codedogapp/bakhyard/internal/env"
 	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/services/todos/internal/todo"
 )
 
 // The settings of the Jira site whose tickets the service lists (docs/setup.md). Jira is off
@@ -54,14 +55,17 @@ func jiraClient(getenv func(string) string, password passwordReader) (*jira.Clie
 	return jira.New(jira.Settings{Site: site, API: address, Email: email, Token: token}), nil
 }
 
-// poll starts searching Jira with client, until ctx ends, and returns the poller that keeps what
-// the searches find, or nil when Jira is off and client is nil.
-func poll(ctx context.Context, client *jira.Client, logger *slog.Logger) *jira.Poller {
+// poll starts polling Jira with client for the user's open tickets and the tickets that store's
+// todos name, until ctx ends, and returns the poller that keeps what the polls find, or nil
+// when Jira is off and client is nil.
+func poll(
+	ctx context.Context, client *jira.Client, store *todo.Store, logger *slog.Logger,
+) *jira.Poller {
 	if client == nil {
 		return nil
 	}
 
-	poller := jira.NewPoller(client.Search, logger)
+	poller := jira.NewPoller(client, store.Linked, logger)
 	go poller.Run(ctx)
 
 	return poller

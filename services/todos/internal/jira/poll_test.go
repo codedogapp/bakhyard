@@ -1,14 +1,9 @@
 package jira_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json/v2"
 	"errors"
-	"fmt"
-	"log/slog"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -16,7 +11,7 @@ import (
 	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
 )
 
-// interval is the poller's time between two searches. A bubble's clock starts at midnight UTC
+// interval is the poller's time between two polls. A bubble's clock starts at midnight UTC
 // on 1 January 2000.
 const interval = 5 * time.Minute
 
@@ -169,77 +164,4 @@ func TestLatestGivesUpWhenItsContextEnds(t *testing.T) {
 			t.Errorf("got %v, want %v", err, context.DeadlineExceeded)
 		}
 	})
-}
-
-// reply is how a call of a fake search replies.
-type reply func(ctx context.Context) ([]jira.Ticket, error)
-
-// searches is a fake search, whose calls reply in turn as its replies say.
-type searches struct {
-	replies []reply
-	calls   atomic.Int32
-}
-
-func (s *searches) search(ctx context.Context) ([]jira.Ticket, error) {
-	call := int(s.calls.Add(1)) - 1
-	if call >= len(s.replies) {
-		return nil, errors.New("one search too many")
-	}
-
-	return s.replies[call](ctx)
-}
-
-// found replies with tickets, which are an empty list when there are none, as a Client's are.
-func found(tickets ...jira.Ticket) reply {
-	return func(context.Context) ([]jira.Ticket, error) {
-		return append([]jira.Ticket{}, tickets...), nil
-	}
-}
-
-func failing(message string) reply {
-	return func(context.Context) ([]jira.Ticket, error) { return nil, errors.New(message) }
-}
-
-// cut replies once ctx ends, as a Client's search does when the service stops.
-func cut(ctx context.Context) ([]jira.Ticket, error) {
-	<-ctx.Done()
-
-	return nil, fmt.Errorf("search Jira: %w", ctx.Err())
-}
-
-// polling starts a poller, which searches as the replies say until ctx ends, and returns it, its
-// fake search and its logs.
-func polling(ctx context.Context, replies ...reply) (*jira.Poller, *searches, *bytes.Buffer) {
-	fake := &searches{replies: replies}
-
-	var logs bytes.Buffer
-
-	poller := jira.NewPoller(fake.search, slog.New(slog.NewTextHandler(&logs, nil)))
-	go poller.Run(ctx)
-
-	return poller, fake, &logs
-}
-
-// latest returns what poller has found, as JSON.
-func latest(t *testing.T, poller *jira.Poller) string {
-	t.Helper()
-
-	snapshot, err := poller.Latest(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	encoded, err := json.Marshal(snapshot)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return string(encoded)
-}
-
-func payOne() jira.Ticket {
-	return jira.Ticket{
-		Key: "PAY-1", Summary: "Pay", Status: "To Do", Category: jira.ToDo,
-		URL: "https://acme.example/browse/PAY-1",
-	}
 }

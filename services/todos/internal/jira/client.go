@@ -22,7 +22,7 @@ const (
 	// maxPages bounds a search, so that a server that never sends its last page can't keep it
 	// going.
 	maxPages = 10
-	// maxAnswer bounds the size of a page's answer.
+	// maxAnswer bounds the size of each answer from Jira.
 	maxAnswer = 4 << 20
 	// requestTimeout bounds each call to Jira.
 	requestTimeout = 10 * time.Second
@@ -40,13 +40,14 @@ type Settings struct {
 	Token string
 }
 
-// Client searches a Jira site.
+// Client finds tickets on a Jira site.
 type Client struct {
 	settings Settings
 	client   *http.Client
 }
 
-// New returns the client of the site in settings. It reaches Jira only when it searches.
+// New returns the client of the site in settings. It reaches Jira only when it searches or
+// fetches.
 func New(settings Settings) *Client {
 	return &Client{settings: settings, client: &http.Client{Timeout: requestTimeout}}
 }
@@ -83,7 +84,7 @@ type page struct {
 	IsLast        bool    `json:"isLast"`
 }
 
-// issue is the part of a ticket in the search results that the client reads.
+// issue is the part of a ticket in Jira's answer that the client reads.
 type issue struct {
 	Key    string `json:"key"`
 	Fields fields `json:"fields"`
@@ -126,31 +127,42 @@ func (c *Client) page(ctx context.Context, token string) (page, error) {
 		return page{}, fmt.Errorf("search Jira: %w", err)
 	}
 
-	req.SetBasicAuth(c.settings.Email, c.settings.Token)
-	req.Header.Set("Accept", "application/json")
-
-	res, err := c.client.Do(req)
-	if err != nil {
-		return page{}, fmt.Errorf("search Jira: %w", err)
-	}
-
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusOK {
-		return page{}, fmt.Errorf("search Jira: %s", res.Status)
-	}
-
 	var found page
 
-	err = json.UnmarshalRead(io.LimitReader(res.Body, maxAnswer), &found)
+	err = c.do(req, "search Jira", &found)
 	if err != nil {
-		return page{}, fmt.Errorf("read Jira's answer: %w", err)
+		return page{}, err
 	}
 
 	return found, nil
 }
 
-// ticket returns the Ticket of an issue in the search results.
+// do sends req to Jira as the user and reads Jira's answer into answer. Its errors start with
+// action, such as "search Jira", or with "read Jira's answer" when the answer is no use.
+func (c *Client) do(req *http.Request, action string, answer any) error {
+	req.SetBasicAuth(c.settings.Email, c.settings.Token)
+	req.Header.Set("Accept", "application/json")
+
+	res, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("%s: %w", action, err)
+	}
+
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s: %s", action, res.Status)
+	}
+
+	err = json.UnmarshalRead(io.LimitReader(res.Body, maxAnswer), answer)
+	if err != nil {
+		return fmt.Errorf("read Jira's answer: %w", err)
+	}
+
+	return nil
+}
+
+// ticket returns the Ticket of an issue in Jira's answer.
 func (c *Client) ticket(found issue) Ticket {
 	return Ticket{
 		Key:      found.Key,
