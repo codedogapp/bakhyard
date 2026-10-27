@@ -33,7 +33,7 @@ The main session does all the work itself, in the open, so the user can follow i
 ## Definition of done
 
 1. `mise run check` passes locally.
-2. The PR's CI is green, including the SonarQube Cloud quality gate.
+2. The PR's CI is green. SonarQube Cloud doesn't run on PRs; it checks `main` on demand (see Quality gates).
 3. The user has approved the PR.
 
 Never report a step as done before `mise run check` has passed, and say which gates actually ran.
@@ -104,9 +104,9 @@ Measure everything we can with lightweight static tools. Thresholds change only 
 | Package names | no `util`, `common`, `helpers`, `misc` or similar names (`api` is allowed), and no clash with a common standard-library package | revive `package-naming` |
 | GitHub workflows | no findings | jactionlint (with shellcheck for `run:` scripts) |
 | Dependencies | current | Renovate (GitHub App) |
-| New code overall | quality gate passes | SonarQube Cloud |
+| New code overall | quality gate passes, checked on demand | SonarQube Cloud |
 
-The local gates run through `mise run check`, which includes the web gates below. CI runs the same task and, in a parallel job, SonarQube Cloud.
+The local gates run through `mise run check`, which includes the web gates below. CI runs the same task on every PR and every push to `main`; SonarQube Cloud runs on demand.
 
 ### Web
 
@@ -128,9 +128,10 @@ The local gates run through `mise run check`, which includes the web gates below
 
 ### SonarQube Cloud
 
-- It runs only in CI, on every PR and every push to `main`, and fails the build when the quality gate is red (`-Dsonar.qualitygate.wait=true`). Its verdict is final: `mise run check` is necessary but not sufficient.
+- It runs only in CI, on demand: started by hand on `main` (`gh workflow run ci.yml --ref main`), the CI workflow runs its SonarQube Cloud job alone, which fails when the quality gate is red (`-Dsonar.qualitygate.wait=true`). PRs and pushes don't run it.
+- The lead starts it once 20 PRs have been merged since the last run, and after the last step of each feature in plan §8.2. Its verdict is final: `mise run check` is necessary but not sufficient.
 - Never run a scanner locally. Scanning an uncommitted tree publishes it as a `main` analysis and corrupts the new-code baseline.
-- Fix a red gate. Never explain it away, and never widen the exclusions in `sonar-project.properties` to turn it green.
+- Fix a red gate, and every open issue, in a PR of its own before the next step. Never explain it away, and never widen the exclusions in `sonar-project.properties` to turn it green.
 - `mise run sonar-issues [pr]` lists the open issues, on `main` or on a pull request. Security hotspots show only in the SonarQube Cloud UI, because their API is deprecated.
 
 ## Communication
