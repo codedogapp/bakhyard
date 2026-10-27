@@ -17,8 +17,15 @@ afterEach(() => {
 const bank: Todo = { id: 2, title: 'Call the bank', done: false, priority: 'normal' };
 const milk: Todo = { id: 1, title: 'Buy milk', done: false, priority: 'normal' };
 
-/** The bank's row 100 px down the page and the milk's under it, each 50 px tall, in one list, with my open tickets. */
-function rows(open: ReadonlyMap<string, Ticket> = new Map(), todos = [bank, milk]) {
+/**
+ * The bank's row 100 px down the page and the milk's under it, each 50 px tall, in one list, with my open tickets and
+ * the done tickets that the todos name.
+ */
+function rows(
+  open: ReadonlyMap<string, Ticket> = new Map(),
+  todos = [bank, milk],
+  done: ReadonlyMap<string, Ticket> = new Map()
+) {
   const list = new TodosState();
   list.todos = todos;
   const focus = new Focus(() => undefined);
@@ -26,7 +33,7 @@ function rows(open: ReadonlyMap<string, Ticket> = new Map(), todos = [bank, milk
   const drag = new Drag(list, editor);
   const target = document.body.appendChild(document.createElement('ul'));
   for (const todo of list.todos) {
-    render(TodoRow, { target, props: { list, todo, editor, focus, drag, open } });
+    render(TodoRow, { target, props: { list, todo, editor, focus, drag, open, done } });
   }
   flushSync();
   const [first, second] = target.querySelectorAll('li');
@@ -135,4 +142,26 @@ test("shows the key alone when the ticket isn't one of my open tickets", () => {
 
   expect(within(first).getByRole('checkbox', { name: 'Call the bank WEB-9' })).toBeInTheDocument();
   expect(first.querySelector('.chip')).toBeNull();
+});
+
+const shipped: Ticket = { ...picker, status: 'Closed', category: 'done' };
+
+test("shows a done ticket's status and offers to tick its todo, in the box's label", () => {
+  const { first } = rows(new Map(), [linked, milk], new Map([['WEB-9', shipped]]));
+
+  const box = within(first).getByRole('checkbox', { name: 'Call the bank WEB-9 Closed Done in Jira' });
+  expect(box).not.toBeChecked();
+  expect(box.closest('label')?.querySelector('.badge')).toHaveTextContent('WEB-9 Closed Done in Jira');
+  expect(
+    within(first)
+      .getAllByRole('button')
+      .map((button) => button.textContent?.trim())
+  ).toEqual(['Edit']);
+});
+
+test('makes no offer once the todo is ticked', () => {
+  const { first } = rows(new Map(), [{ ...linked, done: true }, milk], new Map([['WEB-9', shipped]]));
+
+  expect(within(first).getByRole('checkbox', { name: 'Call the bank WEB-9 Closed' })).toBeChecked();
+  expect(first.querySelector('.offer')).toBeNull();
 });

@@ -14,7 +14,7 @@ import JiraTickets from './JiraTickets.svelte';
 import { groupNote, priorityLabel, todosSummary } from './labels';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
-import { loadTickets, openTickets, type Tickets } from './tickets';
+import { doneTickets, loadTickets, openTickets, type Tickets } from './tickets';
 
 const list = new TodosState();
 let addField = $state<HTMLInputElement>();
@@ -23,6 +23,7 @@ const editor = new Editor(list, focus);
 const drag = new Drag(list, editor);
 let tickets = $state.raw<Tickets>({ kind: 'loading' });
 const open = $derived(openTickets(tickets));
+const done = $derived(doneTickets(tickets));
 const inbox = new Inbox(list, () => tickets, focus);
 // The todos once the tickets and the dismissed tickets have loaded too, so the inbox above them never pushes them down.
 const todos = $derived(tickets.kind === 'loading' || inbox.loading ? undefined : list.todos);
@@ -46,7 +47,7 @@ onMount(() => {
     <Section title={priorityLabel(group.priority)} accent="priority" note={groupNote(group.todos.length)}>
       <ul class="card">
         {#each group.todos as todo (todo.id)}
-          <TodoRow {list} {todo} {editor} {focus} {drag} {open} />
+          <TodoRow {list} {todo} {editor} {focus} {drag} {open} {done} />
         {/each}
       </ul>
     </Section>

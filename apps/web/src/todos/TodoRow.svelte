@@ -9,7 +9,8 @@ import type { TodosState } from './state.svelte';
 import TicketBadge from './TicketBadge.svelte';
 import type { Ticket } from './tickets';
 
-// `open` holds my open tickets by key, which give a linked todo's badge its status and the editor its choices.
+// `open` holds my open tickets by key, which give the editor its choices, and `done` the done tickets that the todos
+// name; both give a linked todo's badge its status.
 let {
   list,
   todo,
@@ -17,6 +18,7 @@ let {
   focus,
   drag,
   open,
+  done,
 }: {
   list: TodosState;
   todo: Todo;
@@ -24,6 +26,7 @@ let {
   focus: Focus;
   drag: Drag;
   open: ReadonlyMap<string, Ticket>;
+  done: ReadonlyMap<string, Ticket>;
 } = $props();
 
 const editing = $derived(editor.id === todo.id);
@@ -48,7 +51,7 @@ function click(event: MouseEvent & { currentTarget: HTMLInputElement }): void {
       <span class="text">
         <span class="title">{todo.title}</span>
         {#if todo.ticket}
-          <TicketBadge key={todo.ticket} ticket={open.get(todo.ticket)} />
+          <TicketBadge key={todo.ticket} ticket={open.get(todo.ticket) ?? done.get(todo.ticket)} ticked={todo.done} />
         {/if}
       </span>
     </label>
