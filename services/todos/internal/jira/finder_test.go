@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"errors"
-	"fmt"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -77,13 +76,6 @@ func found(tickets ...jira.Ticket) reply {
 
 func failing(message string) reply {
 	return func(context.Context) ([]jira.Ticket, error) { return nil, errors.New(message) }
-}
-
-// cut replies once ctx ends, as a Client's search does when the service stops.
-func cut(ctx context.Context) ([]jira.Ticket, error) {
-	<-ctx.Done()
-
-	return nil, fmt.Errorf("search Jira: %w", ctx.Err())
 }
 
 // polling starts a poller, which searches as the replies say until ctx ends, and returns it, its
