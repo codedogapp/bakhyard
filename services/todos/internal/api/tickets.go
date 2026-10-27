@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json/v2"
 	"net/http"
 
 	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
@@ -17,15 +16,6 @@ func listTickets(poller *jira.Poller) http.HandlerFunc {
 			return
 		}
 
-		latest, err := poller.Latest(r.Context())
-		if err != nil {
-			// The client has gone before the first poll ended.
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		// Jira's JSON was valid UTF-8, and the poller makes each failure valid UTF-8 too, so the
-		// snapshot always encodes: an error means the client has gone.
-		_ = json.MarshalWrite(w, latest)
+		poller.ServeHTTP(w, r)
 	}
 }

@@ -1,5 +1,5 @@
-// Package poll looks something up in the background, at once and then at a fixed interval, and
-// keeps the latest of what it found (decisions 122 and 135).
+// Package poll looks something up in the background, at once and then at a fixed interval, keeps
+// the latest of what it found, and answers it over HTTP (decisions 122, 135 and 145).
 package poll
 
 import (
