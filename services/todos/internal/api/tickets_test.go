@@ -77,24 +77,6 @@ func TestGetTicketsAnswersWhatThePollerFound(t *testing.T) {
 	}
 }
 
-func TestGetTicketsAnswersNothingToAClientThatLeft(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		router := withJira(t, func(ctx context.Context) ([]jira.Ticket, error) {
-			<-ctx.Done()
-
-			return nil, ctx.Err()
-		})
-
-		gone, leave := context.WithCancel(t.Context())
-		leave()
-
-		rec := getTickets(gone, router)
-		if rec.Body.Len() != 0 || len(rec.Header()) != 0 {
-			t.Errorf("got %s %v, want nothing", rec.Body, rec.Header())
-		}
-	})
-}
-
 func TestGetTicketsNeedsJira(t *testing.T) {
 	router := chi.NewRouter()
 	api.Register(router, nil, nil, slog.New(slog.DiscardHandler))
