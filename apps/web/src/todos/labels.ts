@@ -45,9 +45,12 @@ export function searchedLabel(searched: string): string {
   return `${day} at ${time}`;
 }
 
-/** What the last add did: "Adding…", "Added", the service's reason or "Add failed"; blank before the first add. */
-export function addLabel(status: AddStatus): string {
-  switch (status.kind) {
+/**
+ * What the last add did: "Adding…", "Added", the service's reason or "Add failed"; blank before the first add, as for
+ * no status.
+ */
+export function addLabel(status: AddStatus | undefined): string {
+  switch (status?.kind) {
     case 'adding':
       return 'Adding…';
     case 'added':

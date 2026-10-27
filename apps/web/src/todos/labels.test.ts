@@ -51,6 +51,10 @@ test('tells when a search began in the time zone of the device, Tokyo in the tes
   expect(searchedLabel('2026-12-31T15:05:00Z')).toBe('1 January at 00:05');
 });
 
+test('labels no add as blank', () => {
+  expect(addLabel(undefined)).toBe('');
+});
+
 test.each([
   { status: { kind: 'idle' }, want: '' },
   { status: { kind: 'adding' }, want: 'Adding…' },

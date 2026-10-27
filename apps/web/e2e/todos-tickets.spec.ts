@@ -19,7 +19,13 @@ test('the Todos page lists my open Jira tickets after the todo groups', async ({
   await answerTickets(page, tickets);
   await page.goto('/todos');
 
-  await expect(heads(page)).toHaveText(['High priority', 'Normal priority', 'Low priority', 'Jira tickets']);
+  await expect(heads(page)).toHaveText([
+    'Jira inbox',
+    'High priority',
+    'Normal priority',
+    'Low priority',
+    'Jira tickets',
+  ]);
   await expect(jira(page).getByText('3 tickets')).toBeVisible();
   const rows = jira(page).getByRole('link');
   await expect(rows).toHaveText([

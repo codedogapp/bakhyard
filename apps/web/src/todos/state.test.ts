@@ -198,6 +198,16 @@ test('clears a failed tick with the next one', async () => {
   expect(list.todos).toEqual([{ ...bank, done: true }, milk]);
 });
 
+test('puts a new todo on top of the loaded list, and nowhere before the list loads', () => {
+  const list = loaded(undefined, '');
+  list.prepend(bank);
+  expect(list.todos).toBeUndefined();
+
+  list.todos = [milk];
+  list.prepend(bank);
+  expect(list.todos).toEqual([bank, milk]);
+});
+
 test('takes a deleted todo off the list', () => {
   const list = loaded([bank, milk], '');
 

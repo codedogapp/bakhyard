@@ -43,6 +43,19 @@ test('adds a todo with the title as typed', async () => {
   });
 });
 
+test('adds a todo that names a ticket', async () => {
+  const todo: Todo = { id: 4, title: 'Fix the date picker', done: false, priority: 'normal', ticket: 'WEB-9' };
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(todo, { status: 201 }));
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(addTodo('Fix the date picker', 'WEB-9')).resolves.toEqual({ kind: 'added', todo });
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/todos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"title":"Fix the date picker","ticket":"WEB-9"}',
+  });
+});
+
 test('gives the reason the service refused a title for', async () => {
   const refusal = new Response('invalid title: has a control character\n', { status: 400 });
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(refusal));

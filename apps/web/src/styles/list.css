@@ -21,7 +21,8 @@
   text-decoration: none;
 }
 
-.list-row:hover {
+/* Only a row that is a link fills under the pointer: another's controls are its own. */
+a.list-row:hover {
   background: var(--fill);
 }
 

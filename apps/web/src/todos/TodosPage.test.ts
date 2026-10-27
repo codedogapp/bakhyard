@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { Todo } from './api';
+import { fetchTodos, type Todo } from './api';
 import TodosPage from './TodosPage.svelte';
 import { loadTickets, type Snapshot } from './tickets';
 
-// Spies that call through, so a test can wait for the tickets to load.
+// Spies that call through, so a test can wait for the todos or the tickets to load.
+vi.mock('./api', { spy: true });
 vi.mock('./tickets', { spy: true });
 
 afterEach(() => {
@@ -109,14 +110,14 @@ const ticket = {
 } as const;
 const snapshot: Snapshot = { tickets: [ticket], searched: '2026-10-26T00:41:00Z' };
 
-test('loads my Jira tickets with the todos, and shows them after the groups', async () => {
+test('loads my Jira tickets with the todos, with the inbox before the groups and the tickets after them', async () => {
   const todos: Todo[] = [{ id: 1, title: 'Buy milk', done: false, priority: 'normal' }];
   stubFetch(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })), Response.json(snapshot));
   render(TodosPage);
 
   const head = await screen.findByRole('heading', { level: 2, name: 'Jira tickets' });
   const heads = screen.getAllByRole('heading', { level: 2 }).map((each) => each.textContent);
-  expect(heads).toEqual(['Normal priority', 'Jira tickets']);
+  expect(heads).toEqual(['Jira inbox', 'Normal priority', 'Jira tickets']);
   expect(within(head.closest('section') as HTMLElement).getByRole('link')).toHaveAttribute('href', ticket.url);
   expect(fetch).toHaveBeenCalledWith('/api/todos/tickets');
 });
@@ -151,14 +152,22 @@ test('shows no tickets without Jira', async () => {
   expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
 });
 
-test("shows a linked todo's key at once, and its ticket's status once my open tickets load", async () => {
+test('holds the todos back until my open tickets load, so the inbox never pushes them down', async () => {
   const todos: Todo[] = [{ id: 1, title: 'Buy milk', done: false, priority: 'normal', ticket: 'WEB-12' }];
   const load = Promise.withResolvers<Response>();
   stubFetch(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })), load.promise);
   render(TodosPage);
 
-  expect(await screen.findByRole('checkbox', { name: 'Buy milk WEB-12' })).toBeInTheDocument();
+  await waitFor(() => expect(fetchTodos).toHaveResolved());
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  expect(screen.queryByText(/on the list\.$/)).not.toBeInTheDocument();
   load.resolve(Response.json(snapshot));
 
   expect(await screen.findByRole('checkbox', { name: 'Buy milk WEB-12 In Review' })).toBeInTheDocument();
+  expect(screen.getByText('1 todo on the list.')).toBeInTheDocument();
+  expect(screen.getAllByRole('heading', { level: 2 }).map((each) => each.textContent)).toEqual([
+    'Normal priority',
+    'Jira tickets',
+  ]);
 });

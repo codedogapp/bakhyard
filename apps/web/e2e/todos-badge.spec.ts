@@ -41,13 +41,6 @@ async function oneTicket(page: Page, key: string, status: string) {
   });
 }
 
-/** Each todo row's top and height. */
-function rowBoxes(page: Page) {
-  return page
-    .locator('main ul.card > li')
-    .evaluateAll((rows) => rows.map((each) => [each.getBoundingClientRect().y, each.getBoundingClientRect().height]));
-}
-
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos: linked } }));
@@ -97,22 +90,6 @@ for (const [what, snapshot, sign] of [
     await expect(page.locator('main ul.card .chip')).toHaveCount(0);
   });
 }
-
-test('a status that loads after the todos moves nothing', async ({ page }) => {
-  const held = Promise.withResolvers<void>();
-  await page.route('/api/todos/tickets', async (route) => {
-    await held.promise;
-    await route.fulfill({ json: tickets });
-  });
-  await page.goto('/todos');
-  await expect(box(page, 'Ship the date picker fix WEB-9')).toBeVisible();
-  const before = await rowBoxes(page);
-
-  held.resolve();
-
-  await expect(box(page, 'Ship the date picker fix WEB-9 In Progress')).toBeVisible();
-  expect(await rowBoxes(page)).toEqual(before);
-});
 
 test('a click on the badge ticks the todo', async ({ page }) => {
   await answerTickets(page, tickets);
