@@ -20,5 +20,11 @@ BAKHYARD_VAULT = "/Users/you/Documents/Vault"
 # BAKHYARD_JIRA_SITE = "https://your-site.atlassian.net"
 # BAKHYARD_JIRA_API = "https://api.atlassian.com/ex/jira/<cloud ID>"
 # BAKHYARD_JIRA_EMAIL = "you@example.com"
+# Bitbucket's REST API, the email of the Atlassian account whose open pull requests the pulls
+# service lists, and the slugs of the workspaces to list them in, separated by commas; the token
+# goes into the Keychain. Leave all three out to run without Bitbucket.
+# BAKHYARD_BITBUCKET_API = "https://api.bitbucket.org/2.0"
+# BAKHYARD_BITBUCKET_EMAIL = "you@example.com"
+# BAKHYARD_BITBUCKET_WORKSPACES = "acme,globex"
 # The Go tests' own database. Put its role's password in place of <password>.
 BAKHYARD_TEST_DATABASE = "postgres://bakhyard_test:<password>@127.0.0.1:5433/bakhyard_test"
