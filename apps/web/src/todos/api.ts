@@ -47,12 +47,15 @@ async function refusal(response: Response): Promise<Refused> {
   return { kind: 'refused', reason: (await response.text()).trim() };
 }
 
-/** Adds a todo with the title as typed, which the service trims and checks; fails on any answer but a 201 or a 400. */
-export async function addTodo(title: string): Promise<Added> {
+/**
+ * Adds a todo with the title as typed, which the service trims and checks, and naming the ticket if given (decision
+ * 128); fails on any answer but a 201 or a 400.
+ */
+export async function addTodo(title: string, ticket?: string): Promise<Added> {
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, ticket }),
   });
   if (response.status === 400) {
     return refusal(response);

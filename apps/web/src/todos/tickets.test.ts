@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { loadTickets, openTickets, type Snapshot, type Tickets } from './tickets';
+import type { Todo } from './api';
+import { inboxTickets, loadTickets, openTickets, type Snapshot, type Tickets } from './tickets';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -79,4 +80,22 @@ test.each<[string, Tickets, string[]]>([
   for (const key of keys) {
     expect(open.get(key)?.key).toBe(key);
   }
+});
+
+const picker = { ...ticket, key: 'WEB-9', status: 'In Progress' } as const;
+const loaded: Tickets = { kind: 'loaded', snapshot: { tickets: [ticket, picker, certificates] } };
+const todo = (ticket?: string): Todo => ({ id: 1, title: 'Buy milk', done: false, priority: 'normal', ticket });
+
+test.each<[string, Tickets, Todo[] | undefined, string[]]>([
+  ['no todo names any', loaded, [todo(), todo('ABC-1')], ['WEB-12', 'WEB-9', 'OPS-31']],
+  ['todos name some', loaded, [todo('WEB-9'), todo(), todo('WEB-12')], ['OPS-31']],
+  ['a done todo names one', loaded, [{ ...todo('WEB-12'), done: true }], ['WEB-9', 'OPS-31']],
+  ['todos name them all', loaded, [todo('OPS-31'), todo('WEB-9'), todo('WEB-12')], []],
+  ['the todos are still loading', loaded, undefined, []],
+  ['a failure before any search succeeded', { kind: 'loaded', snapshot: { failure: 'search Jira: 401' } }, [], []],
+  ['tickets still loading', { kind: 'loading' }, [], []],
+  ['Jira off', { kind: 'off' }, [], []],
+  ['tickets that failed to load', { kind: 'failed' }, [], []],
+])('finds the inbox in my open tickets when %s', (_, tickets, todos, keys) => {
+  expect(inboxTickets(tickets, todos).map((each) => each.key)).toEqual(keys);
 });

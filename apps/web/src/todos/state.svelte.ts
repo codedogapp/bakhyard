@@ -64,7 +64,7 @@ export class TodosState {
         this.addStatus = added;
         return;
       }
-      this.todos = [added.todo, ...this.todos];
+      this.prepend(added.todo);
       this.draft = '';
       this.addStatus = { kind: 'added' };
     } catch {
@@ -99,6 +99,11 @@ export class TodosState {
   applyEdit(edited: Todo): void {
     const { title, priority, ticket } = edited;
     this.change(edited.id, (todo) => ({ ...todo, title, priority, ticket }));
+  }
+
+  /** Puts the new todo on top of the list, as the service does, so on top of its group. */
+  prepend(todo: Todo): void {
+    this.todos = this.todos && [todo, ...this.todos];
   }
 
   /** Takes the deleted todo off the list. */

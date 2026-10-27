@@ -1,3 +1,5 @@
+import type { Todo } from './api';
+
 /** A ticket's status category, as the todos service names Jira's; "unknown" stands for any other. */
 type Category = 'to-do' | 'in-progress' | 'done' | 'unknown';
 
@@ -29,6 +31,18 @@ export type Tickets = { kind: 'loading' | 'off' | 'failed' } | { kind: 'loaded';
 export function openTickets(tickets: Tickets): ReadonlyMap<string, Ticket> {
   const list = tickets.kind === 'loaded' ? (tickets.snapshot.tickets ?? []) : [];
   return new Map(list.map((ticket) => [ticket.key, ticket]));
+}
+
+/**
+ * The inbox's tickets: my open tickets, from the last search that succeeded, that no todo names, a done one included,
+ * in the Jira section's order (decision 129); none until the todos have loaded.
+ */
+export function inboxTickets(tickets: Tickets, todos: readonly Todo[] | undefined): Ticket[] {
+  if (todos === undefined || tickets.kind !== 'loaded') {
+    return [];
+  }
+  const named = new Set(todos.map((todo) => todo.ticket));
+  return (tickets.snapshot.tickets ?? []).filter((ticket) => !named.has(ticket.key));
 }
 
 /** Loads the tickets; never fails, since a failed load is one of the outcomes. */

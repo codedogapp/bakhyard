@@ -8,6 +8,8 @@ import DeleteDialog from './DeleteDialog.svelte';
 import { Drag } from './drag.svelte';
 import { Editor } from './editor.svelte';
 import { Focus } from './focus';
+import { Inbox } from './inbox.svelte';
+import JiraInbox from './JiraInbox.svelte';
 import JiraTickets from './JiraTickets.svelte';
 import { groupNote, priorityLabel, todosSummary } from './labels';
 import { TodosState } from './state.svelte';
@@ -21,6 +23,9 @@ const editor = new Editor(list, focus);
 const drag = new Drag(list, editor);
 let tickets = $state.raw<Tickets>({ kind: 'loading' });
 const open = $derived(openTickets(tickets));
+const inbox = new Inbox(list, () => tickets, focus);
+// The todos once the tickets have loaded too, so the inbox above them never pushes them down.
+const todos = $derived(tickets.kind === 'loading' ? undefined : list.todos);
 
 onMount(() => {
   void list.load();
@@ -30,11 +35,12 @@ onMount(() => {
 });
 </script>
 
-<PageHead summary={list.todos && todosSummary(list.todos.length)}>Todos</PageHead>
-{#if list.todos}
-  <div class={['tools', { last: list.groups.length === 0 }]}>
+<PageHead summary={todos && todosSummary(todos.length)}>Todos</PageHead>
+{#if todos}
+  <div class={['tools', { last: list.groups.length === 0 && inbox.tickets.length === 0 }]}>
     <AddForm {list} bind:field={addField} />
   </div>
+  <JiraInbox {inbox} />
   {#each list.groups as group (group.priority)}
     <Section title={priorityLabel(group.priority)} accent="priority" note={groupNote(group.todos.length)}>
       <ul class="card">
@@ -58,7 +64,7 @@ onMount(() => {
   padding: 0 var(--page-padding);
 }
 
-/* Without a group under it, the form ends the page, with the space a section leaves under it. */
+/* Without a section under it, the form ends the page, with the space a section leaves under it. */
 .last {
   padding-bottom: 64px;
 }
