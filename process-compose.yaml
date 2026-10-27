@@ -67,6 +67,19 @@ processes:
       initial_delay_seconds: 1
       period_seconds: 2
 
+  pulls:
+    <<: *service
+    description: Lists my open pull requests on Bitbucket
+    command: bin/pulls
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8085
+    readiness_probe:
+      http_get:
+        port: 8085
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
   gateway:
     <<: *service
     description: "The only way in: /api to the services, everything else to web"
