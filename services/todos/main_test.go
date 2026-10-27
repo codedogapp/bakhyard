@@ -38,6 +38,8 @@ func TestTodosServesTheTodos(t *testing.T) {
 		{http.MethodDelete, "/todos/1", "", http.StatusNoContent, ""},
 		{http.MethodPut, "/todos", "", http.StatusMethodNotAllowed, ""},
 		{http.MethodGet, "/todos/tickets", "", http.StatusNotFound, "Jira is not set up\n"},
+		{http.MethodPut, "/todos/dismissals/WEB-9", "", http.StatusCreated, ""},
+		{http.MethodGet, "/todos/dismissals", "", http.StatusOK, `{"dismissals":["WEB-9"]}`},
 		{http.MethodGet, "/healthz", "", http.StatusOK, `{"status":"ok"}`},
 	} {
 		req := httptest.NewRequestWithContext(t.Context(), test.method, test.target,

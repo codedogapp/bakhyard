@@ -26,7 +26,7 @@ func TestTheMigrationsMakeTheTodos(t *testing.T) {
 		{
 			"migrations",
 			"SELECT version_id::text FROM goose_db_version WHERE version_id > 0 ORDER BY id",
-			[]string{"1", "2", "3", "4", "5"},
+			[]string{"1", "2", "3", "4", "5", "6"},
 		},
 		{
 			"columns",
@@ -49,6 +49,23 @@ JOIN information_schema.key_column_usage USING (constraint_schema, constraint_na
 WHERE constraint_schema = current_schema() AND table_constraints.table_name = 'todos'
 AND constraint_type = 'PRIMARY KEY'`,
 			[]string{"id"},
+		},
+		{
+			"dismissals' columns",
+			`SELECT concat_ws(' ', column_name, data_type, is_nullable, column_default)
+FROM information_schema.columns
+WHERE table_schema = current_schema() AND table_name = 'dismissals'
+ORDER BY ordinal_position`,
+			[]string{"jira_key text NO"},
+		},
+		{
+			"dismissals' primary key",
+			`SELECT column_name
+FROM information_schema.table_constraints
+JOIN information_schema.key_column_usage USING (constraint_schema, constraint_name)
+WHERE constraint_schema = current_schema() AND table_constraints.table_name = 'dismissals'
+AND constraint_type = 'PRIMARY KEY'`,
+			[]string{"jira_key"},
 		},
 	} {
 		got := texts(t, pool, test.sql)

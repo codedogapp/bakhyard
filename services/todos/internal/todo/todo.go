@@ -1,4 +1,5 @@
-// Package todo keeps the user's todos (docs/plan.md §8.2 todos-jira, decision 102).
+// Package todo keeps the user's todos, and the Jira tickets that they dismiss from the Todos page's
+// inbox (docs/plan.md §8.2 todos-jira, decisions 102 and 130).
 package todo
 
 import (
@@ -37,7 +38,7 @@ type Addition struct {
 	Ticket string `json:"ticket"`
 }
 
-// Store keeps the todos in todos' database.
+// Store keeps the todos, and the dismissed tickets, in todos' database.
 type Store struct {
 	pool *pgxpool.Pool
 }
