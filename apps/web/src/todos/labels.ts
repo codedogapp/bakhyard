@@ -1,5 +1,6 @@
 import type { Priority } from './api';
 import type { EditStatus } from './editor.svelte';
+import type { InboxStatus } from './inbox.svelte';
 import type { AddStatus, Tick } from './state.svelte';
 
 /** The Todos page's summary: "3 todos on the list.", "1 todo on the list." or "No todos on the list." */
@@ -61,6 +62,18 @@ export function addLabel(status: AddStatus | undefined): string {
       return 'Add failed';
     default:
       return '';
+  }
+}
+
+/** What an inbox row's last add or dismiss did: as `addLabel` says for an add, else "Dismissing…" or "Dismiss failed". */
+export function inboxLabel(status: InboxStatus | undefined): string {
+  switch (status?.kind) {
+    case 'dismissing':
+      return 'Dismissing…';
+    case 'dismissFailed':
+      return 'Dismiss failed';
+    default:
+      return addLabel(status);
   }
 }
 

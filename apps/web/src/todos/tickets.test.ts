@@ -86,16 +86,65 @@ const picker = { ...ticket, key: 'WEB-9', status: 'In Progress' } as const;
 const loaded: Tickets = { kind: 'loaded', snapshot: { tickets: [ticket, picker, certificates] } };
 const todo = (ticket?: string): Todo => ({ id: 1, title: 'Buy milk', done: false, priority: 'normal', ticket });
 
-test.each<[string, Tickets, Todo[] | undefined, string[]]>([
-  ['no todo names any', loaded, [todo(), todo('ABC-1')], ['WEB-12', 'WEB-9', 'OPS-31']],
-  ['todos name some', loaded, [todo('WEB-9'), todo(), todo('WEB-12')], ['OPS-31']],
-  ['a done todo names one', loaded, [{ ...todo('WEB-12'), done: true }], ['WEB-9', 'OPS-31']],
-  ['todos name them all', loaded, [todo('OPS-31'), todo('WEB-9'), todo('WEB-12')], []],
-  ['the todos are still loading', loaded, undefined, []],
-  ['a failure before any search succeeded', { kind: 'loaded', snapshot: { failure: 'search Jira: 401' } }, [], []],
-  ['tickets still loading', { kind: 'loading' }, [], []],
-  ['Jira off', { kind: 'off' }, [], []],
-  ['tickets that failed to load', { kind: 'failed' }, [], []],
-])('finds the inbox in my open tickets when %s', (_, tickets, todos, keys) => {
-  expect(inboxTickets(tickets, todos).map((each) => each.key)).toEqual(keys);
+const none = new Set<string>();
+const failedSearch: Tickets = { kind: 'loaded', snapshot: { failure: 'search Jira: 401' } };
+
+test.each<{ when: string; tickets: Tickets; todos?: Todo[]; dismissed?: ReadonlySet<string>; keys: string[] }>([
+  {
+    when: 'no todo names any',
+    tickets: loaded,
+    todos: [todo(), todo('ABC-1')],
+    dismissed: none,
+    keys: ['WEB-12', 'WEB-9', 'OPS-31'],
+  },
+  {
+    when: 'todos name some',
+    tickets: loaded,
+    todos: [todo('WEB-9'), todo(), todo('WEB-12')],
+    dismissed: none,
+    keys: ['OPS-31'],
+  },
+  {
+    when: 'a done todo names one',
+    tickets: loaded,
+    todos: [{ ...todo('WEB-12'), done: true }],
+    dismissed: none,
+    keys: ['WEB-9', 'OPS-31'],
+  },
+  {
+    when: 'todos name them all',
+    tickets: loaded,
+    todos: [todo('OPS-31'), todo('WEB-9'), todo('WEB-12')],
+    dismissed: none,
+    keys: [],
+  },
+  {
+    when: 'I dismissed some',
+    tickets: loaded,
+    todos: [],
+    dismissed: new Set(['WEB-9', 'ABC-1']),
+    keys: ['WEB-12', 'OPS-31'],
+  },
+  {
+    when: 'todos name some and I dismissed others',
+    tickets: loaded,
+    todos: [todo('WEB-12')],
+    dismissed: new Set(['OPS-31']),
+    keys: ['WEB-9'],
+  },
+  {
+    when: 'I dismissed them all',
+    tickets: loaded,
+    todos: [],
+    dismissed: new Set(['OPS-31', 'WEB-12', 'WEB-9']),
+    keys: [],
+  },
+  { when: 'the todos are still loading', tickets: loaded, dismissed: none, keys: [] },
+  { when: 'the dismissed tickets are still loading, or failed to', tickets: loaded, todos: [], keys: [] },
+  { when: 'a failure before any search succeeded', tickets: failedSearch, todos: [], dismissed: none, keys: [] },
+  { when: 'tickets still loading', tickets: { kind: 'loading' }, todos: [], dismissed: none, keys: [] },
+  { when: 'Jira off', tickets: { kind: 'off' }, todos: [], dismissed: none, keys: [] },
+  { when: 'tickets that failed to load', tickets: { kind: 'failed' }, todos: [], dismissed: none, keys: [] },
+])('finds the inbox in my open tickets when $when', ({ tickets, todos, dismissed, keys }) => {
+  expect(inboxTickets(tickets, todos, dismissed).map((each) => each.key)).toEqual(keys);
 });

@@ -5,7 +5,7 @@ import { bounds } from './bounds';
 import { home, tickets } from './demo';
 import { expect, test } from './fixtures';
 import { group } from './groups';
-import { answerTickets, aTodo, chipLooks } from './jira';
+import { answerDismissals, answerTickets, aTodo, chipLooks } from './jira';
 
 /** Made-up todos: two name open tickets of the demo's snapshot, one a ticket that isn't open, one none. */
 const linked: Todo[] = [
@@ -44,6 +44,7 @@ async function oneTicket(page: Page, key: string, status: string) {
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos: linked } }));
+  await answerDismissals(page);
 });
 
 test("a linked todo's row shows the key under its title, with the status of an open ticket", async ({ page }) => {

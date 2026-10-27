@@ -31,15 +31,16 @@ const todoOf = (ticket: Ticket, id = 7): Todo => ({
   ticket: ticket.key,
 });
 
-/** An inbox over a list of the todos and my open tickets, with a row's Add button per ticket. */
+/** An inbox over a list of the todos, my open tickets and none dismissed, with a row's Add button per ticket. */
 function inboxOf(todos: Todo[] | undefined, open: Ticket[]) {
   const list = new TodosState();
   list.todos = todos;
   const focusAdd = vi.fn<() => void>();
   const inbox = new Inbox(list, () => ({ kind: 'loaded', snapshot: { tickets: open } }), new Focus(focusAdd));
+  inbox.dismissed = new Set();
   const buttons = new Map(open.map(({ key }) => [key, document.body.appendChild(document.createElement('button'))]));
   for (const [key, button] of buttons) {
-    inbox.button(key)(button);
+    inbox.button('add', key)(button);
   }
   return { list, inbox, buttons, focusAdd };
 }
@@ -86,7 +87,7 @@ test('adds the ticket as a todo titled with its summary, on top of the list, whi
   });
   expect(list.todos).toEqual([todoOf(review), milk]);
   expect(keys(inbox)).toEqual(['WEB-9']);
-  expect(inbox.adds.size).toBe(0);
+  expect(inbox.statuses.size).toBe(0);
 });
 
 test("gives the lost focus to the next row's Add, else the previous row's, else the Add field", async () => {
@@ -125,15 +126,15 @@ test('adds a ticket once at a time, and says so while it runs', async () => {
   const { inbox } = inboxOf([], [review, picker]);
 
   const adding = inbox.add(review);
-  expect(inbox.adding('WEB-12')).toBe(true);
-  expect(inbox.adds.get('WEB-12')).toEqual({ kind: 'adding' });
-  expect(inbox.adding('WEB-9')).toBe(false);
+  expect(inbox.busy('WEB-12')).toBe(true);
+  expect(inbox.statuses.get('WEB-12')).toEqual({ kind: 'adding' });
+  expect(inbox.busy('WEB-9')).toBe(false);
   await inbox.add(review);
   expect(fetchMock).toHaveBeenCalledOnce();
 
   answer.resolve(added(todoOf(review)));
   await adding;
-  expect(inbox.adding('WEB-12')).toBe(false);
+  expect(inbox.busy('WEB-12')).toBe(false);
 });
 
 test("keeps a refused ticket in the inbox, with the service's reason, and the focus where it was", async () => {
@@ -142,7 +143,7 @@ test("keeps a refused ticket in the inbox, with the service's reason, and the fo
 
   await inbox.add(review);
 
-  expect(inbox.adds.get('WEB-12')).toEqual({ kind: 'refused', reason: 'invalid title: has a control character' });
+  expect(inbox.statuses.get('WEB-12')).toEqual({ kind: 'refused', reason: 'invalid title: has a control character' });
   expect(keys(inbox)).toEqual(['WEB-12']);
   expect(list.todos).toEqual([milk]);
   expect(focusAdd).not.toHaveBeenCalled();
@@ -153,13 +154,13 @@ test('keeps a ticket whose add failed in the inbox, and adds it on the next try'
   const { list, inbox } = inboxOf([milk], [review]);
 
   await inbox.add(review);
-  expect(inbox.adds.get('WEB-12')).toEqual({ kind: 'failed' });
+  expect(inbox.statuses.get('WEB-12')).toEqual({ kind: 'failed' });
   await inbox.add(review);
-  expect(inbox.adds.get('WEB-12')).toEqual({ kind: 'failed' });
+  expect(inbox.statuses.get('WEB-12')).toEqual({ kind: 'failed' });
   expect(keys(inbox)).toEqual(['WEB-12']);
 
   await inbox.add(review);
-  expect(inbox.adds.size).toBe(0);
+  expect(inbox.statuses.size).toBe(0);
   expect(list.todos).toEqual([todoOf(review), milk]);
 });
 

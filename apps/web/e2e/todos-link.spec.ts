@@ -3,7 +3,7 @@ import type { Page, Route } from '@playwright/test';
 import type { Todo } from '../src/todos/api';
 import { home, tickets } from './demo';
 import { expect, test } from './fixtures';
-import { answerTickets, aTodo, jiraOff } from './jira';
+import { answerDismissals, answerTickets, aTodo, jiraOff } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 
@@ -45,6 +45,7 @@ const box = (page: Page, name: string) => page.getByRole('checkbox', { name, exa
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await answerDismissals(page);
 });
 
 test('a todo with no ticket picks one of my open tickets, which its row then shows', async ({ page }) => {

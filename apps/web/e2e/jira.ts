@@ -5,9 +5,19 @@ import type { Snapshot } from '../src/todos/tickets';
 /** A todo's URL. The glob `/api/todos/*` matches the tickets' URL too, so a route for the todos must use this. */
 export const aTodo = /\/api\/todos\/\d+$/;
 
-/** Answers the Todos page's tickets call as the todos service does without Jira. */
+/** Answers the Todos page's tickets call as the todos service does without Jira, with no ticket dismissed. */
 export async function jiraOff(page: Page) {
+  await answerDismissals(page);
   await page.route('/api/todos/tickets', (route) => route.fulfill({ status: 404, body: 'Jira is not set up\n' }));
+}
+
+/** Answers the Todos page's call for the dismissed tickets with their keys, by default none, or with the status. */
+export async function answerDismissals(page: Page, dismissed: string[] | number = []) {
+  await page.route('/api/todos/dismissals', (route) =>
+    typeof dismissed === 'number'
+      ? route.fulfill({ status: dismissed })
+      : route.fulfill({ json: { dismissals: dismissed } })
+  );
 }
 
 /** Answers the Todos page's tickets call with the snapshot, or with the status. */
