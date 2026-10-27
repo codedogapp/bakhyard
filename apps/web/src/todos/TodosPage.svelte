@@ -24,11 +24,12 @@ const drag = new Drag(list, editor);
 let tickets = $state.raw<Tickets>({ kind: 'loading' });
 const open = $derived(openTickets(tickets));
 const inbox = new Inbox(list, () => tickets, focus);
-// The todos once the tickets have loaded too, so the inbox above them never pushes them down.
-const todos = $derived(tickets.kind === 'loading' ? undefined : list.todos);
+// The todos once the tickets and the dismissed tickets have loaded too, so the inbox above them never pushes them down.
+const todos = $derived(tickets.kind === 'loading' || inbox.loading ? undefined : list.todos);
 
 onMount(() => {
   void list.load();
+  void inbox.load();
   void loadTickets().then((loaded) => {
     tickets = loaded;
   });
@@ -53,8 +54,8 @@ onMount(() => {
 {:else if list.failed}
   <p class="failed">Couldn't load the todos.</p>
 {/if}
-<!-- The tickets wait for the todos to load or fail, so the todos never push them down. -->
-{#if list.todos || list.failed}
+<!-- The tickets wait for the todos to show or fail, so the todos never push them down. -->
+{#if todos || list.failed}
   <JiraTickets {tickets} />
 {/if}
 <DeleteDialog {editor} />

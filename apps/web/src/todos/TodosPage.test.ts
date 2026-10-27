@@ -14,11 +14,25 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-/** Stubs fetch: the todos' calls go to `todos`, and the tickets' call gets `tickets`, by default the answer without Jira. */
-function stubFetch(todos: typeof fetch, tickets: Response | Promise<Response> = new Response(null, { status: 404 })) {
+/**
+ * Stubs fetch: the todos' calls go to `todos`, the tickets' call gets `tickets`, by default the answer without Jira, and
+ * the dismissed tickets' call gets `dismissals`, by default none.
+ */
+function stubFetch(
+  todos: typeof fetch,
+  tickets: Response | Promise<Response> = new Response(null, { status: 404 }),
+  dismissals: Response | Promise<Response> = Response.json({ dismissals: [] })
+) {
+  const answers = new Map([
+    ['/api/todos/tickets', tickets],
+    ['/api/todos/dismissals', dismissals],
+  ]);
   vi.stubGlobal(
     'fetch',
-    vi.fn<typeof fetch>((...args) => (args[0] === '/api/todos/tickets' ? Promise.resolve(tickets) : todos(...args)))
+    vi.fn<typeof fetch>((...args) => {
+      const answer = answers.get(String(args[0]));
+      return answer ? Promise.resolve(answer) : todos(...args);
+    })
   );
 }
 
@@ -166,6 +180,43 @@ test('holds the todos back until my open tickets load, so the inbox never pushes
 
   expect(await screen.findByRole('checkbox', { name: 'Buy milk WEB-12 In Review' })).toBeInTheDocument();
   expect(screen.getByText('1 todo on the list.')).toBeInTheDocument();
+  expect(screen.getAllByRole('heading', { level: 2 }).map((each) => each.textContent)).toEqual([
+    'Normal priority',
+    'Jira tickets',
+  ]);
+});
+
+test('holds the todos back until the dismissed tickets load, and leaves those out of the inbox', async () => {
+  const todos: Todo[] = [{ id: 1, title: 'Buy milk', done: false, priority: 'normal' }];
+  const load = Promise.withResolvers<Response>();
+  stubFetch(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })), Response.json(snapshot), load.promise);
+  render(TodosPage);
+
+  await waitFor(() => expect(loadTickets).toHaveResolved());
+  await waitFor(() => expect(fetchTodos).toHaveResolved());
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
+  load.resolve(Response.json({ dismissals: ['WEB-12'] }));
+
+  expect(await screen.findByRole('checkbox', { name: 'Buy milk' })).toBeInTheDocument();
+  expect(screen.getAllByRole('heading', { level: 2 }).map((each) => each.textContent)).toEqual([
+    'Normal priority',
+    'Jira tickets',
+  ]);
+  expect(fetch).toHaveBeenCalledWith('/api/todos/dismissals');
+});
+
+test('shows the todos and the tickets, but no inbox, when the dismissed tickets could not load', async () => {
+  const todos: Todo[] = [{ id: 1, title: 'Buy milk', done: false, priority: 'normal' }];
+  stubFetch(
+    vi.fn<typeof fetch>().mockResolvedValue(Response.json({ todos })),
+    Response.json(snapshot),
+    new Response(null, { status: 500 })
+  );
+  render(TodosPage);
+
+  expect(await screen.findByRole('checkbox', { name: 'Buy milk' })).toBeInTheDocument();
   expect(screen.getAllByRole('heading', { level: 2 }).map((each) => each.textContent)).toEqual([
     'Normal priority',
     'Jira tickets',

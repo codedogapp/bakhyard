@@ -8,13 +8,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** Stubs fetch: the todos' calls go to `todos`, and the tickets' call gets the answer without Jira. */
+/** Stubs fetch: the todos' calls go to `todos`, the tickets' call gets the answer without Jira, and none is dismissed. */
 function stubFetch(todos: typeof fetch) {
   vi.stubGlobal(
     'fetch',
-    vi.fn<typeof fetch>((...args) =>
-      args[0] === '/api/todos/tickets' ? Promise.resolve(new Response(null, { status: 404 })) : todos(...args)
-    )
+    vi.fn<typeof fetch>((...args) => {
+      switch (args[0]) {
+        case '/api/todos/tickets':
+          return Promise.resolve(new Response(null, { status: 404 }));
+        case '/api/todos/dismissals':
+          return Promise.resolve(Response.json({ dismissals: [] }));
+        default:
+          return todos(...args);
+      }
+    })
   );
 }
 

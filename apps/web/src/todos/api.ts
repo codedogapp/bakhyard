@@ -125,3 +125,33 @@ export async function deleteTodo(id: number): Promise<void> {
     throw new Error(`DELETE ${url}/${id}: ${response.status}`);
   }
 }
+
+/** The body of GET /api/todos/dismissals. */
+interface DismissalList {
+  dismissals: string[];
+}
+
+/**
+ * Lists the keys of the tickets dismissed from the inbox (decision 130); fails when the gateway can't be reached or
+ * answers with an error.
+ */
+export async function fetchDismissals(): Promise<string[]> {
+  const response = await fetch(`${url}/dismissals`);
+  if (!response.ok) {
+    throw new Error(`GET ${url}/dismissals: ${response.status}`);
+  }
+  const body: DismissalList = await response.json();
+  return body.dismissals;
+}
+
+/**
+ * Dismisses the ticket from the inbox for good (decision 130). A 204 counts as dismissed too: the ticket was dismissed
+ * already, say from another device. Fails on any answer but a 201 or a 204.
+ */
+export async function dismissTicket(key: string): Promise<void> {
+  const target = `${url}/dismissals/${encodeURIComponent(key)}`;
+  const response = await fetch(target, { method: 'PUT' });
+  if (response.status !== 201 && response.status !== 204) {
+    throw new Error(`PUT ${target}: ${response.status}`);
+  }
+}

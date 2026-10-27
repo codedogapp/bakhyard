@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { home, tickets, todos } from './demo';
 import { expect, test } from './fixtures';
 import { group, heads } from './groups';
-import { answerTickets, chipLooks } from './jira';
+import { answerDismissals, answerTickets, chipLooks } from './jira';
 
 /** The Todos page's Jira section. */
 function jira(page: Page) {
@@ -13,6 +13,7 @@ function jira(page: Page) {
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos } }));
+  await answerDismissals(page);
 });
 
 test('the Todos page lists my open Jira tickets after the todo groups', async ({ page }) => {

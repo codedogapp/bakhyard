@@ -4,6 +4,7 @@ import { bounds } from './bounds';
 import { home, tickets, todos } from './demo';
 import { expect, test } from './fixtures';
 import { group } from './groups';
+import { answerDismissals } from './jira';
 
 /** The computed values of the properties, in their order, on what the locator finds. */
 function styles(locator: Locator, properties: string[]) {
@@ -40,6 +41,7 @@ const status = ['color', 'font-family', 'font-size', 'font-weight', 'line-height
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
   await page.route('/api/todos/tickets', (route) => route.fulfill({ json: tickets }));
+  await answerDismissals(page);
   await page.route('/api/todos', (route) =>
     route.request().method() === 'GET'
       ? route.fulfill({ json: { todos } })
@@ -48,17 +50,20 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/todos');
 });
 
-test("a row's Add and status line look as the form's do, the line 4 px under the summary", async ({ page }) => {
+test("a row's Add, Dismiss and status line look as the form's do, the line 4 px under the summary", async ({
+  page,
+}) => {
   const web12 = row(page, 'WEB-12');
   const form = page.locator('main form').first();
-  expect(await styles(web12.getByRole('button'), button)).toEqual(
-    await styles(form.getByRole('button', { name: 'Add' }), button)
-  );
+  const theirs = await styles(form.getByRole('button', { name: 'Add' }), button);
+  for (const name of ['Add WEB-12', 'Dismiss WEB-12']) {
+    expect(await styles(web12.getByRole('button', { name }), button)).toEqual(theirs);
+  }
   // An empty line takes no room: the summary alone sets the text's height.
   const [text, title] = await Promise.all([web12.locator('.list-text'), web12.locator('.list-title')].map(bounds));
   expect(text.height).toBe(title.height);
 
-  await web12.getByRole('button').click();
+  await web12.getByRole('button', { name: 'Add WEB-12' }).click();
   await page.mouse.move(0, 0);
   const line = web12.getByRole('status');
   await expect(line).toHaveText('invalid title: over 500 characters');
@@ -110,25 +115,57 @@ test('an inbox row keeps its background under the pointer, as only a row that is
   await expect(link).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 });
 
+test("on a wide screen, a row's Add and Dismiss follow its status, 20 px after it and 10 px apart", async ({
+  page,
+}, testInfo) => {
+  // A phone puts the buttons on a line of their own, as the tests below check.
+  test.skip(testInfo.project.name === 'phone');
+  const web12 = row(page, 'WEB-12');
+  const [chip, add, dismiss, card] = await Promise.all(
+    [
+      web12.locator('.chip'),
+      web12.getByRole('button', { name: 'Add WEB-12' }),
+      web12.getByRole('button', { name: 'Dismiss WEB-12' }),
+      group(page, 'Jira inbox').getByRole('list'),
+    ].map(bounds)
+  );
+  for (const each of [add, dismiss]) {
+    expect(each.y + each.height / 2).toBeCloseTo(chip.y + chip.height / 2, 0);
+  }
+  expect(add.x - (chip.x + chip.width)).toBeCloseTo(20, 0);
+  expect(dismiss.x - (add.x + add.width)).toBeCloseTo(10, 0);
+  expect(card.x + card.width - (dismiss.x + dismiss.width)).toBeCloseTo(21, 0);
+});
+
 for (const width of [390, 320]) {
-  test(`at ${width} px, a row's key, status and Add share its first line, over its summary`, async ({ page }) => {
+  test(`at ${width} px, a row's key and status share its first line, then its summary, then its buttons`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width, height: 800 });
 
     const web12 = row(page, 'WEB-12');
-    const [key, chip, add, summary, card] = await Promise.all(
+    const [key, chip, summary, add, dismiss, card, listed] = await Promise.all(
       [
         web12.getByText('WEB-12'),
         web12.locator('.chip'),
-        web12.getByRole('button'),
         web12.getByText('Show the order history'),
+        web12.getByRole('button', { name: 'Add WEB-12' }),
+        web12.getByRole('button', { name: 'Dismiss WEB-12' }),
         group(page, 'Jira inbox').getByRole('list'),
+        group(page, 'Jira tickets')
+          .getByRole('link', { name: /^WEB-12 / })
+          .locator('.chip'),
       ].map(bounds)
     );
-    for (const each of [key, chip]) {
-      expect(each.y + each.height / 2).toBeCloseTo(add.y + add.height / 2, 0);
-    }
-    expect(summary.y).toBeGreaterThanOrEqual(add.y + add.height);
-    expect(add.x + add.width).toBeLessThanOrEqual(card.x + card.width);
+    expect(chip.y + chip.height / 2).toBeCloseTo(key.y + key.height / 2, 0);
+    // The buttons, on a line of their own, leave the chip as wide as the Jira section's, on one line.
+    expect([chip.width, chip.height]).toEqual([listed.width, listed.height]);
+    expect(summary.y).toBeGreaterThanOrEqual(Math.max(key.y + key.height, chip.y + chip.height));
+    expect(add.y).toBeGreaterThanOrEqual(summary.y + summary.height);
+    expect(add.x).toBeCloseTo(key.x, 0);
+    expect(dismiss.y).toBeCloseTo(add.y, 0);
+    expect(dismiss.x - (add.x + add.width)).toBeCloseTo(10, 0);
+    expect(chip.x + chip.width).toBeLessThanOrEqual(card.x + card.width);
     const scroll = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth
     );

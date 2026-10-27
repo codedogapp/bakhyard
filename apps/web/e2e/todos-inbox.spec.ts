@@ -3,8 +3,8 @@ import type { Page, Route } from '@playwright/test';
 import type { Todo } from '../src/todos/api';
 import { home, tickets, todos } from './demo';
 import { expect, test } from './fixtures';
-import { group, heads } from './groups';
-import { answerTickets, aTodo, chipLooks } from './jira';
+import { group, heads, noteFirstHeads } from './groups';
+import { answerDismissals, answerTickets, aTodo, chipLooks } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 
@@ -49,6 +49,7 @@ async function serveAdds(page: Page, list: Todo[], ...answers: (Answer | Promise
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
   await answerTickets(page, tickets);
+  await answerDismissals(page);
 });
 
 test('the Todos page lists my open tickets that no todo names in an inbox before the groups', async ({ page }) => {
@@ -65,8 +66,8 @@ test('the Todos page lists my open tickets that no todo names in an inbox before
   ]);
   await expect(inbox(page).getByText('2 tickets')).toBeVisible();
   await expect(inbox(page).getByRole('listitem')).toHaveText([
-    'WEB-12 Show the order history on the account page In Review Add',
-    'OPS-31 Rotate the staging certificates To Do Add',
+    'WEB-12 Show the order history on the account page In Review Add Dismiss',
+    'OPS-31 Rotate the staging certificates To Do Add Dismiss',
   ]);
   expect(await chipLooks(inbox(page).locator('.chip'))).toEqual(['filled', 'outlined']);
   await expect(add(page, 'WEB-12')).toHaveText('Add');
@@ -168,16 +169,7 @@ test('the todos wait for my open tickets, so the inbox above them never pushes t
     await route.fulfill({ json: tickets });
   });
   await serveAdds(page, todos);
-  // Notes the page's heads the moment the first todo shows.
-  await page.addInitScript(() => {
-    new MutationObserver((_, observer) => {
-      if (document.querySelector('main input[type="checkbox"]')) {
-        const shown = [...document.querySelectorAll('main section h2')].map((head) => head.textContent);
-        document.documentElement.dataset.heads = JSON.stringify(shown);
-        observer.disconnect();
-      }
-    }).observe(document, { childList: true, subtree: true });
-  });
+  await noteFirstHeads(page);
   const listed = page.waitForResponse('/api/todos');
   await page.goto('/todos');
   await listed;

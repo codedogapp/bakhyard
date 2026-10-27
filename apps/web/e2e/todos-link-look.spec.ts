@@ -4,7 +4,7 @@ import type { Todo } from '../src/todos/api';
 import { bounds } from './bounds';
 import { home, tickets } from './demo';
 import { expect, test } from './fixtures';
-import { answerTickets } from './jira';
+import { answerDismissals, answerTickets } from './jira';
 
 const milk: Todo = { id: 1, title: 'Buy milk', done: false, priority: 'normal' };
 
@@ -39,6 +39,7 @@ test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
   await page.route('/api/todos', (route) => route.fulfill({ json: { todos: [milk] } }));
   await answerTickets(page, tickets);
+  await answerDismissals(page);
   await page.goto('/todos');
   await page.getByRole('button', { name: `Edit ${milk.title}` }).click();
   // Away from the field the click opened under the pointer, which would show its hover border.

@@ -4,6 +4,7 @@ import {
   addLabel,
   editLabel,
   groupNote,
+  inboxLabel,
   priorityLabel,
   rowLabel,
   searchedLabel,
@@ -66,6 +67,20 @@ test.each([
   { status: { kind: 'failed' }, want: 'Add failed' },
 ] as const)('labels the add $status.kind as "$want"', ({ status, want }) => {
   expect(addLabel(status)).toBe(want);
+});
+
+test.each([
+  { status: undefined, want: '' },
+  { status: { kind: 'adding' }, want: 'Adding…' },
+  {
+    status: { kind: 'refused', reason: 'invalid title: has a control character' },
+    want: 'invalid title: has a control character',
+  },
+  { status: { kind: 'failed' }, want: 'Add failed' },
+  { status: { kind: 'dismissing' }, want: 'Dismissing…' },
+  { status: { kind: 'dismissFailed' }, want: 'Dismiss failed' },
+] as const)('labels an inbox row whose last add or dismiss is $status.kind as "$want"', ({ status, want }) => {
+  expect(inboxLabel(status)).toBe(want);
 });
 
 test.each([
