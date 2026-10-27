@@ -12,15 +12,17 @@ const picker: Ticket = {
   url: 'https://jira.example.com/browse/WEB-9',
 };
 
-function show(ticket: Ticket | undefined) {
-  const { container } = render(TicketBadge, { props: { key: 'WEB-9', ticket } });
+function show(ticket: Ticket | undefined, ticked = false) {
+  const { container } = render(TicketBadge, { props: { key: 'WEB-9', ticket, ticked } });
   return container;
 }
+
+const text = (badge: HTMLElement) => badge.textContent?.replaceAll(/\s+/g, ' ').trim();
 
 test("shows the key, then the ticket's status in a chip", () => {
   const badge = show(picker);
 
-  expect(badge.textContent?.replaceAll(/\s+/g, ' ').trim()).toBe('WEB-9 In Progress');
+  expect(text(badge)).toBe('WEB-9 In Progress');
   expect(badge.querySelector('.chip')).toHaveTextContent(/^In Progress$/);
 });
 
@@ -41,3 +43,26 @@ test.each<[Ticket['category'], boolean]>([
 
   expect(chip?.classList.contains('chip-filled')).toBe(filled);
 });
+
+const shipped: Ticket = { ...picker, status: 'Closed', category: 'done' };
+
+test("offers to tick a todo whose ticket is done, after the ticket's status", () => {
+  const badge = show(shipped);
+
+  expect(text(badge)).toBe('WEB-9 Closed Done in Jira');
+  expect(badge.querySelector('.chip + .offer')).toHaveTextContent(/^Done in Jira$/);
+});
+
+test('makes no offer once the todo is ticked', () => {
+  const badge = show(shipped, true);
+
+  expect(text(badge)).toBe('WEB-9 Closed');
+  expect(badge.querySelector('.offer')).toBeNull();
+});
+
+test.each<Ticket['category']>(['to-do', 'in-progress', 'unknown'])(
+  'makes no offer for a ticket in the %s category',
+  (category) => {
+    expect(show({ ...picker, category }).querySelector('.offer')).toBeNull();
+  }
+);

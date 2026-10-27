@@ -3,7 +3,7 @@ import type { Todo } from './api';
 /** A ticket's status category, as the todos service names Jira's; "unknown" stands for any other. */
 type Category = 'to-do' | 'in-progress' | 'done' | 'unknown';
 
-/** One of my open Jira tickets, as the todos service lists it. */
+/** A Jira ticket, as the todos service lists it: one of my open tickets, or a done one that a todo names. */
 export interface Ticket {
   key: string;
   summary: string;
@@ -14,27 +14,37 @@ export interface Ticket {
   url: string;
 }
 
-/** The body of GET /api/todos/tickets: what the todos service last found in Jira (decision 122). */
+/** The body of GET /api/todos/tickets: what the todos service last found in Jira (decisions 122, 133). */
 export interface Snapshot {
-  /** The tickets of the last search that succeeded, in Jira's order; none before the first. */
+  /** My open tickets, from the last poll that succeeded, in Jira's order; none before the first. */
   tickets?: Ticket[];
-  /** When that search began, in UTC. */
+  /** The tickets that the todos left to do name and that are done, from that poll; none when there are none. */
+  done?: Ticket[];
+  /** When that poll began, in UTC. */
   searched?: string;
-  /** Why the last search failed, if it did. */
+  /** Why the last poll failed, if it did. */
   failure?: string;
 }
 
 /** The Todos page's tickets: loading, off when Jira isn't set up, failed to load, or loaded. */
 export type Tickets = { kind: 'loading' | 'off' | 'failed' } | { kind: 'loaded'; snapshot: Snapshot };
 
-/** My open tickets by key, from the last search that succeeded; none while loading, after a failed load, or without Jira. */
-export function openTickets(tickets: Tickets): ReadonlyMap<string, Ticket> {
-  const list = tickets.kind === 'loaded' ? (tickets.snapshot.tickets ?? []) : [];
+function byKey(list: readonly Ticket[] = []): ReadonlyMap<string, Ticket> {
   return new Map(list.map((ticket) => [ticket.key, ticket]));
 }
 
+/** My open tickets by key, from the last poll that succeeded; none while loading, after a failed load, or without Jira. */
+export function openTickets(tickets: Tickets): ReadonlyMap<string, Ticket> {
+  return byKey(tickets.kind === 'loaded' ? tickets.snapshot.tickets : undefined);
+}
+
+/** The done tickets that the todos left to do name, by key, from the last poll that succeeded (decision 134). */
+export function doneTickets(tickets: Tickets): ReadonlyMap<string, Ticket> {
+  return byKey(tickets.kind === 'loaded' ? tickets.snapshot.done : undefined);
+}
+
 /**
- * The inbox's tickets: my open tickets, from the last search that succeeded, that no todo names, a done one included,
+ * The inbox's tickets: my open tickets, from the last poll that succeeded, that no todo names, a done one included,
  * and that I haven't dismissed, in the Jira section's order (decisions 129, 131); none until the todos and the
  * dismissed tickets have loaded.
  */
