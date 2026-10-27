@@ -1,3 +1,4 @@
+import { loadSnapshot, type Polled, type Polls } from '../shell/snapshot';
 import type { Todo } from './api';
 
 /** A ticket's status category, as the todos service names Jira's; "unknown" stands for any other. */
@@ -15,19 +16,15 @@ export interface Ticket {
 }
 
 /** The body of GET /api/todos/tickets: what the todos service last found in Jira (decisions 122, 133). */
-export interface Snapshot {
+export interface Snapshot extends Polls {
   /** My open tickets, from the last poll that succeeded, in Jira's order; none before the first. */
   tickets?: Ticket[];
   /** The tickets that the todos left to do name and that are done, from that poll; none when there are none. */
   done?: Ticket[];
-  /** When that poll began, in UTC. */
-  searched?: string;
-  /** Why the last poll failed, if it did. */
-  failure?: string;
 }
 
 /** The Todos page's tickets: loading, off when Jira isn't set up, failed to load, or loaded. */
-export type Tickets = { kind: 'loading' | 'off' | 'failed' } | { kind: 'loaded'; snapshot: Snapshot };
+export type Tickets = Polled<Snapshot>;
 
 function byKey(list: readonly Ticket[] = []): ReadonlyMap<string, Ticket> {
   return new Map(list.map((ticket) => [ticket.key, ticket]));
@@ -61,22 +58,6 @@ export function inboxTickets(
 }
 
 /** Loads the tickets; never fails, since a failed load is one of the outcomes. */
-export async function loadTickets(): Promise<Tickets> {
-  try {
-    const response = await fetch('/api/todos/tickets');
-    if (response.status === 404) {
-      return { kind: 'off' };
-    }
-    if (response.status !== 200) {
-      return { kind: 'failed' };
-    }
-    const snapshot: Snapshot = await response.json();
-    // Only a request that waited while the service stopped gets neither.
-    if (snapshot.tickets === undefined && snapshot.failure === undefined) {
-      return { kind: 'failed' };
-    }
-    return { kind: 'loaded', snapshot };
-  } catch {
-    return { kind: 'failed' };
-  }
+export function loadTickets(): Promise<Tickets> {
+  return loadSnapshot('/api/todos/tickets');
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
 import Section from '../shell/Section.svelte';
-import { searchedLabel, ticketsNote } from './labels';
+import { searchedLabel } from '../shell/snapshot';
+import { ticketsNote } from './labels';
 import TicketStatus from './TicketStatus.svelte';
 import type { Tickets } from './tickets';
 
