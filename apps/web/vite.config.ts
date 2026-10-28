@@ -24,7 +24,7 @@ export default defineConfig({
   },
   test: {
     // The end-to-end specs in e2e/ are Playwright's.
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'overrides/**/*.test.ts'],
     environment: 'jsdom',
     // A fixed zone that isn't UTC and has no daylight saving, so a test that mixes up local and UTC time fails everywhere.
     env: { TZ: 'Asia/Tokyo' },
@@ -32,8 +32,8 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/**/*.{ts,svelte}'],
-      exclude: ['src/**/*.test.ts', 'src/test-setup.ts', 'src/main.ts'],
+      include: ['src/**/*.{ts,svelte}', 'overrides/**/*.ts'],
+      exclude: ['**/*.test.ts', 'src/test-setup.ts', 'src/main.ts'],
       thresholds: {
         lines: 80,
         statements: 80,

@@ -3,7 +3,8 @@
   "compilerOptions": {
     "lib": ["ES2023"],
     "types": ["node"],
-    "module": "nodenext"
+    "module": "nodenext",
+    "allowImportingTsExtensions": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "overrides"]
 }

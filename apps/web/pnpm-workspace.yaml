@@ -1,8 +1,13 @@
 # rehype-katex and remark-math's micromark-extension-math ask for KaTeX 0.16, and KaTeX before 0.18.2 has
 # GHSA-238p-pmpm-9mq7, so every KaTeX in the graph is the app's own (decision 99). Drop the override once both accept
 # a fixed KaTeX.
+#
+# deepmerge, with which vite-plugin-svelte merges its options, has GHSA-gcqx-w48m-w2h4 and no fix, so the plugin gets a
+# merge of our own (decision 148). Drop the override once the plugin no longer needs deepmerge. It's a link, since Node
+# strips the types of a .ts file only outside node_modules, where a file: copy would land.
 catalog:
   katex: 0.19.1
 
 overrides:
   katex: 'catalog:'
+  '@sveltejs/vite-plugin-svelte>deepmerge': 'link:./overrides/deepmerge'
