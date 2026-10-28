@@ -16,6 +16,11 @@ export interface Item {
   late: boolean;
 }
 
+/** How asking one of home's sources went, with only the field the app reads so far. */
+interface SourceStatus {
+  state: 'ok' | 'unavailable';
+}
+
 /** The hours logged this week, against the weekly target. */
 export interface Week {
   loggedHours: number;
@@ -26,6 +31,8 @@ export interface Week {
 export interface Home {
   name: string;
   items: Item[];
+  /** One per source home asks; absent from the answer of a home older than the field. */
+  sources?: SourceStatus[];
   /** Absent when home has no week, such as before the time service logs hours. */
   week?: Week;
 }

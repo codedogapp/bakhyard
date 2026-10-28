@@ -59,7 +59,7 @@ func TestNewOrdersByUrgency(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			home := screen.New("", test.items, now)
+			home := screen.New("", test.items, nil, now)
 
 			if got := ids(home.Items); !slices.Equal(got, test.want) {
 				t.Errorf("order = %v, want %v", got, test.want)
@@ -85,7 +85,7 @@ func TestNewName(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			home := screen.New(test.input, nil, time.Time{})
+			home := screen.New(test.input, nil, nil, time.Time{})
 
 			if home.Name != test.want {
 				t.Errorf("name = %q, want %q", home.Name, test.want)
@@ -104,10 +104,23 @@ func TestNewMarksLateItems(t *testing.T) {
 	}
 	want := map[string]bool{"a/past": true, "a/now": false, "a/future": false, "a/none": false}
 
-	for _, item := range screen.New("", items, now).Items {
+	for _, item := range screen.New("", items, nil, now).Items {
 		if item.Late != want[item.ID] {
 			t.Errorf("%s: late = %t, want %t", item.ID, item.Late, want[item.ID])
 		}
+	}
+}
+
+func TestNewKeepsTheSources(t *testing.T) {
+	sources := []screen.SourceStatus{
+		{App: "todos", State: screen.StateUnavailable},
+		{App: "pulls", State: screen.StateOK},
+	}
+
+	home := screen.New("", nil, sources, time.Time{})
+
+	if !slices.Equal(home.Sources, sources) {
+		t.Errorf("sources = %+v, want %+v", home.Sources, sources)
 	}
 }
 
@@ -118,7 +131,7 @@ func TestNewKeepsTheInput(t *testing.T) {
 		{ID: "a/1", Due: now.Add(-2 * time.Hour)},
 	}
 
-	screen.New("", items, now)
+	screen.New("", items, nil, now)
 
 	if got := ids(items); !slices.Equal(got, []string{"a/2", "a/1"}) {
 		t.Errorf("input order = %v, want it unchanged", got)

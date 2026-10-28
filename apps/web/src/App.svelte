@@ -3,6 +3,7 @@ import { tick } from 'svelte';
 
 import HomePage from './home/HomePage.svelte';
 import { type Feed, pollHome } from './home/poll';
+import { unavailableSources } from './home/sources';
 import NotePage from './notes/NotePage.svelte';
 import NotesPage from './notes/NotesPage.svelte';
 import { NotesState } from './notes/state.svelte';
@@ -54,7 +55,7 @@ $effect(() =>
   <title>{signedOut ? signedOutTitle : pageTitle(page)}</title>
 </svelte:head>
 
-<TopBar {now} connection={feed.connection} asOf={feed.asOf} />
+<TopBar {now} connection={feed.connection} asOf={feed.asOf} unavailable={unavailableSources(feed.home)} />
 {#if signedOut}
   <main>
     <SignIn />

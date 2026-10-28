@@ -100,7 +100,7 @@ test('shows the frame and the apps, then the hero, the feed, the counts, the wee
   expect(screen.getAllByText('item')).toHaveLength(2);
   expect(screen.getByRole('heading', { level: 2, name: 'This week' })).toBeInTheDocument();
   expect(screen.getByText('31h 30m / 40h')).toBeInTheDocument();
-  expect(screen.getByRole('status')).toHaveTextContent('Online');
+  expect(screen.getByRole('status').textContent).toBe('Online');
   expect(document.title).toBe('Bakhyard');
 });
 

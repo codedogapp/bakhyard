@@ -4,19 +4,21 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
 
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
+	"github.com/codedogapp/bakhyard/services/home/internal/screen"
 )
 
 // These tests run in a bubble, whose fake clock moves only once every goroutine in it waits, so
-// they can tell how long Items waits. Real connections don't wait that way, hence the fake
+// they can tell how long Gather waits. Real connections don't wait that way, hence the fake
 // clients.
 
-func TestItemsWaitsForTheSlowestPeerOnlyUntilTheTimeout(t *testing.T) {
+func TestGatherWaitsForTheSlowestPeerOnlyUntilTheTimeout(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var logs bytes.Buffer
 
@@ -30,14 +32,23 @@ func TestItemsWaitsForTheSlowestPeerOnlyUntilTheTimeout(t *testing.T) {
 		}
 
 		start := time.Now()
-		got := feed.Items(t.Context())
+		got, sources := feed.Gather(t.Context())
 
 		if waited, want := time.Since(start), 1500*time.Millisecond; waited != want {
-			t.Errorf("Items waited %v, want %v: the peers are asked at once", waited, want)
+			t.Errorf("Gather waited %v, want %v: the peers are asked at once", waited, want)
 		}
 
 		if len(got) != 1 || got[0].ID != "notes/a" {
 			t.Errorf("got %+v, want notes/a alone", got)
+		}
+
+		want := []screen.SourceStatus{
+			{App: "todos", State: screen.StateUnavailable},
+			{App: "pulls", State: screen.StateUnavailable},
+			{App: "notes", State: screen.StateOK},
+		}
+		if !slices.Equal(sources, want) {
+			t.Errorf("sources = %+v, want %+v", sources, want)
 		}
 
 		for _, name := range []string{"todos", "pulls"} {
@@ -48,7 +59,7 @@ func TestItemsWaitsForTheSlowestPeerOnlyUntilTheTimeout(t *testing.T) {
 	})
 }
 
-func TestItemsLogsNothingOnceTheClientHasGone(t *testing.T) {
+func TestGatherLogsNothingOnceTheClientHasGone(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var logs bytes.Buffer
 
@@ -60,7 +71,7 @@ func TestItemsLogsNothingOnceTheClientHasGone(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
-		if got := feed.Items(ctx); len(got) != 0 {
+		if got, _ := feed.Gather(ctx); len(got) != 0 {
 			t.Errorf("got %+v, want none", got)
 		}
 
