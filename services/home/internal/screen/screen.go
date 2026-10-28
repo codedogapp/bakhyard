@@ -1,5 +1,5 @@
-// Package screen builds what the Home screen shows: who it greets, the items that need the user,
-// most urgent first, and the hours logged this week.
+// Package screen builds what the Home screen shows: who it greets and the items that need the
+// user, most urgent first.
 package screen
 
 import (
@@ -13,26 +13,16 @@ import (
 // defaultName stands in for a blank name, as in "Good evening, there."
 const defaultName = "there"
 
-// App is the Bakhyard app an item belongs to.
+// App is the Bakhyard app an item belongs to, which is the service that listed it.
 type App string
 
-// The apps that have items so far.
-const (
-	AppGitHub  App = "github"
-	AppPlanner App = "planner"
-	AppPulls   App = "pulls"
-	AppTime    App = "time"
-	AppTodos   App = "todos"
-)
-
-// Source is the outside service an item comes from.
+// Source is the service an item comes from: an outside one, or Bakhyard itself.
 type Source string
 
 // The sources of the items so far.
 const (
+	SourceBakhyard  Source = "Bakhyard"
 	SourceBitbucket Source = "Bitbucket"
-	SourceCopilot   Source = "Copilot"
-	SourceGitHub    Source = "GitHub"
 	SourceJira      Source = "Jira"
 )
 
@@ -48,22 +38,16 @@ type Item struct {
 	Late   bool      `json:"late"`
 }
 
-// Week is the hours logged this week against the target.
-type Week struct {
-	LoggedHours float64 `json:"loggedHours"`
-	TargetHours float64 `json:"targetHours"`
-}
-
-// Home is everything the Home screen shows.
+// Home is everything the Home screen shows. It has no week until the time service logs hours
+// (docs/plan.md decision 161).
 type Home struct {
 	Name  string `json:"name"`
 	Items []Item `json:"items"`
-	Week  Week   `json:"week"`
 }
 
 // New builds the Home at now for the user called name (see cleanName). It marks the items past
 // their due time as late and puts the most urgent first. The caller's items are left as they are.
-func New(name string, items []Item, week Week, now time.Time) Home {
+func New(name string, items []Item, now time.Time) Home {
 	sorted := slices.Clone(items)
 	for i := range sorted {
 		sorted[i].Late = !sorted[i].Due.IsZero() && sorted[i].Due.Before(now)
@@ -71,7 +55,7 @@ func New(name string, items []Item, week Week, now time.Time) Home {
 
 	slices.SortFunc(sorted, byUrgency)
 
-	return Home{Name: cleanName(name), Items: sorted, Week: week}
+	return Home{Name: cleanName(name), Items: sorted}
 }
 
 // cleanName drops the whitespace around name and replaces invalid UTF-8, which JSON can't encode,

@@ -2,6 +2,7 @@ package env_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -72,16 +73,72 @@ func TestListenAddressRejects(t *testing.T) {
 	}
 }
 
+func TestPeersListsThePeersInOrder(t *testing.T) {
+	peers, err := env.Peers(
+		getenvOf("BAKHYARD_PEERS=todos=tcp://127.0.0.1:8084,pulls=tcp://[::1]:8085"),
+	)
+
+	want := []env.Peer{
+		{Name: "todos", Address: "127.0.0.1:8084"},
+		{Name: "pulls", Address: "[::1]:8085"},
+	}
+	if err != nil || !slices.Equal(peers, want) {
+		t.Errorf("got %v, %v, want %v", peers, err, want)
+	}
+}
+
+func TestPeersRejects(t *testing.T) {
+	tests := append(badPeers(), badPeer{"no peers", "", "BAKHYARD_PEERS is not set"})
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			peers, err := env.Peers(getenvOf("BAKHYARD_PEERS=" + test.peers))
+			if err == nil || err.Error() != test.want {
+				t.Errorf("got %v, %v, want the error %q", peers, err, test.want)
+			}
+		})
+	}
+}
+
 func TestPeerAddressRejects(t *testing.T) {
-	tests := []struct {
-		name, peers, want string
-	}{
-		{"no peers", "", `BAKHYARD_PEERS has no peer "home"`},
-		{"other peers only", "web=tcp://127.0.0.1:8082", `BAKHYARD_PEERS has no peer "home"`},
+	tests := append(
+		badPeers(),
+		badPeer{"no peers", "", `BAKHYARD_PEERS has no peer "home"`},
+		badPeer{
+			"other peers only",
+			"web=tcp://127.0.0.1:8082",
+			`BAKHYARD_PEERS has no peer "home"`,
+		},
+	)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			addr, err := env.PeerAddress(getenvOf("BAKHYARD_PEERS="+test.peers), "home")
+			if err == nil || err.Error() != test.want {
+				t.Errorf("got %q, %v, want the error %q", addr, err, test.want)
+			}
+		})
+	}
+}
+
+// badPeer is a value of BAKHYARD_PEERS that a reader rejects, and the error it gives.
+type badPeer struct {
+	name, peers, want string
+}
+
+// badPeers returns the values of BAKHYARD_PEERS that every reader rejects, whichever peer it asks
+// for: the tests ask for home.
+func badPeers() []badPeer {
+	return []badPeer{
 		{
 			"an entry without a name",
 			"web=tcp://127.0.0.1:8082,tcp://127.0.0.1:8081",
 			`BAKHYARD_PEERS: "tcp://127.0.0.1:8081" is not name=tcp://host:port`,
+		},
+		{
+			"an empty name",
+			"=tcp://127.0.0.1:8081",
+			`BAKHYARD_PEERS: "=tcp://127.0.0.1:8081" is not name=tcp://host:port`,
 		},
 		{
 			"an empty entry",
@@ -93,15 +150,16 @@ func TestPeerAddressRejects(t *testing.T) {
 			"home=127.0.0.1:8081",
 			`BAKHYARD_PEERS: peer home: "127.0.0.1:8081" is not tcp://host:port`,
 		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			addr, err := env.PeerAddress(getenvOf("BAKHYARD_PEERS="+test.peers), "home")
-			if err == nil || err.Error() != test.want {
-				t.Errorf("got %q, %v, want the error %q", addr, err, test.want)
-			}
-		})
+		{
+			"another peer's bad address",
+			"home=tcp://127.0.0.1:8081,web=8082",
+			`BAKHYARD_PEERS: peer web: "8082" is not tcp://host:port`,
+		},
+		{
+			"a peer listed twice",
+			"home=tcp://127.0.0.1:8081,home=tcp://127.0.0.1:8083",
+			"BAKHYARD_PEERS: peer home is listed twice",
+		},
 	}
 }
 

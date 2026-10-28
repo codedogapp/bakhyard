@@ -5,6 +5,7 @@ package env
 import (
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -40,34 +41,67 @@ func ListenAddress(getenv func(string) string) (string, error) {
 	return addr, nil
 }
 
-// PeerAddress returns the host and port that the peer name listens on, from BAKHYARD_PEERS.
-func PeerAddress(getenv func(string) string, name string) (string, error) {
-	peers := getenv(peersVar)
-	if peers == "" {
-		return "", noPeer(name)
-	}
-
-	for entry := range strings.SplitSeq(peers, ",") {
-		peer, listen, found := strings.Cut(entry, "=")
-		if !found {
-			return "", fmt.Errorf("%s: %q is not name=%shost:port", peersVar, entry, tcpScheme)
-		}
-
-		if peer == name {
-			addr, err := Address(listen)
-			if err != nil {
-				return "", fmt.Errorf("%s: peer %s: %w", peersVar, name, err)
-			}
-
-			return addr, nil
-		}
-	}
-
-	return "", noPeer(name)
+// Peer is a service that this service calls.
+type Peer struct {
+	Name string
+	// Address is the host and port the peer listens on.
+	Address string
 }
 
-func noPeer(name string) error {
-	return fmt.Errorf("%s has no peer %q", peersVar, name)
+// Peers returns every peer in BAKHYARD_PEERS, in the order it lists them.
+func Peers(getenv func(string) string) ([]Peer, error) {
+	value, err := Required(getenv, peersVar)
+	if err != nil {
+		return nil, err
+	}
+
+	return parsePeers(value)
+}
+
+// PeerAddress returns the host and port that the peer name listens on, from BAKHYARD_PEERS.
+func PeerAddress(getenv func(string) string, name string) (string, error) {
+	peers, err := parsePeers(getenv(peersVar))
+	if err != nil {
+		return "", err
+	}
+
+	for _, peer := range peers {
+		if peer.Name == name {
+			return peer.Address, nil
+		}
+	}
+
+	return "", fmt.Errorf("%s has no peer %q", peersVar, name)
+}
+
+// parsePeers reads every entry of BAKHYARD_PEERS's value, name=tcp://host:port,…, so that a
+// mistake in any entry stops the service, whichever peers it asks for.
+func parsePeers(value string) ([]Peer, error) {
+	if value == "" {
+		return nil, nil
+	}
+
+	var peers []Peer
+
+	for entry := range strings.SplitSeq(value, ",") {
+		name, listen, found := strings.Cut(entry, "=")
+		if !found || name == "" {
+			return nil, fmt.Errorf("%s: %q is not name=%shost:port", peersVar, entry, tcpScheme)
+		}
+
+		addr, err := Address(listen)
+		if err != nil {
+			return nil, fmt.Errorf("%s: peer %s: %w", peersVar, name, err)
+		}
+
+		if slices.ContainsFunc(peers, func(peer Peer) bool { return peer.Name == name }) {
+			return nil, fmt.Errorf("%s: peer %s is listed twice", peersVar, name)
+		}
+
+		peers = append(peers, Peer{Name: name, Address: addr})
+	}
+
+	return peers, nil
 }
 
 // Address returns the host and port of a listen address, tcp://host:port. The port is a number

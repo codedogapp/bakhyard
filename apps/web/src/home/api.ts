@@ -1,8 +1,8 @@
 /** The apps that have items so far, as home names them. */
 type App = 'github' | 'planner' | 'pulls' | 'time' | 'todos';
 
-/** The outside services the items come from so far. */
-type Source = 'Bitbucket' | 'Copilot' | 'GitHub' | 'Jira';
+/** Where the items come from so far: an outside service, or Bakhyard itself. */
+type Source = 'Bakhyard' | 'Bitbucket' | 'Copilot' | 'GitHub' | 'Jira';
 
 /** An item that needs the user, with only the fields the app reads so far. */
 export interface Item {
