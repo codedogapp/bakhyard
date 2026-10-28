@@ -84,6 +84,12 @@ func TestPostsAnswerByTheirOutcome(t *testing.T) {
 			"",
 		},
 		{
+			"subscribe as a browser sends it",
+			"/notify/subscriptions",
+			`{"endpoint":"e","expirationTime":null,"keys":{"p256dh":"p","auth":"a"}}`,
+			nil, nil, http.StatusNoContent, "",
+		},
+		{
 			"subscribe invalid", "/notify/subscriptions", `{"endpoint":"e"}`,
 			subscription.ErrInvalid, nil, http.StatusBadRequest, "",
 		},
