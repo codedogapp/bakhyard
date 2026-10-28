@@ -57,8 +57,9 @@ description = "Check process-compose.yaml (process-compose up --dry-run)"
 run = "process-compose up --dry-run"
 
 [tasks."lint:actions"]
-description = "Lint the GitHub Actions workflows (jactionlint, shellcheck)"
-run = "jactionlint --shellcheck=shellcheck"
+description = "Lint the workflows of GitHub and of the homelab's Gitea (jactionlint, shellcheck)"
+# Without files, jactionlint checks .github/ only.
+run = ["jactionlint --shellcheck=shellcheck", "jactionlint --shellcheck=shellcheck .gitea/workflows/*.yml"]
 
 [tasks.test]
 description = "Run the Go tests with the race detector and write coverage.out"
