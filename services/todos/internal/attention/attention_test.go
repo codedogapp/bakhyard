@@ -24,7 +24,7 @@ var webNine = jira.Ticket{
 }
 
 // someTodos are todos of every kind: High or not, with a ticket that is done, open or neither,
-// and done or not.
+// and done or not, one of them done with a ticket that no other todo names.
 var someTodos = []todo.Todo{
 	{ID: 1, Title: "Call the bank", Priority: todo.High},
 	{ID: 2, Title: "Fix the login", Priority: todo.Normal, Ticket: "WEB-9"},
@@ -33,6 +33,7 @@ var someTodos = []todo.Todo{
 	{ID: 5, Title: "Review the plan", Priority: todo.Low, Ticket: "WEB-8"},
 	{ID: 6, Title: "Pay the rent", Priority: todo.High, Done: true},
 	{ID: 7, Title: "Close the sprint", Priority: todo.Low, Ticket: "WEB-9", Done: true},
+	{ID: 8, Title: "Rotate the keys", Priority: todo.Normal, Ticket: "OPS-2", Done: true},
 	{ID: 12, Title: "Deploy the fix", Priority: todo.High, Ticket: "WEB-9"},
 }
 
@@ -49,7 +50,7 @@ func TestListItemsListsTheTodosThatNeedMe(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		tickets := started(t, fakeJira{done: []jira.Ticket{webNine}})
 
-		got := list(t, todosOf(someTodos...), tickets)
+		got := list(t, todosOf(someTodos...), unread(t), tickets)
 
 		want := []string{callTheBank, fixTheLogin, shipTheExport, deployTheFix}
 		if !slices.Equal(got, want) {
@@ -62,14 +63,14 @@ func TestListItemsListsNoneWithoutTodos(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		tickets := started(t, fakeJira{done: []jira.Ticket{webNine}})
 
-		if got := list(t, todosOf(), tickets); len(got) != 0 {
+		if got := list(t, todosOf(), unread(t), tickets); len(got) != 0 {
 			t.Errorf("got %q, want no items", got)
 		}
 	})
 }
 
 func TestListItemsListsTheHighTodosWithoutJira(t *testing.T) {
-	got := list(t, todosOf(someTodos...), nil)
+	got := list(t, todosOf(someTodos...), unread(t), nil)
 
 	want := []string{callTheBank, shipTheExport, deployHigh}
 	if !slices.Equal(got, want) {
@@ -81,11 +82,41 @@ func TestListItemsFailsWhenTheTodosDoNotLoad(t *testing.T) {
 	down := errors.New("the database is down")
 	todos := func(context.Context) ([]todo.Todo, error) { return nil, down }
 
-	res, err := attention.NewLister(todos, nil).ListItems(t.Context(),
+	res, err := attention.NewLister(todos, unread(t), nil).ListItems(t.Context(),
 		&attentionv1.ListItemsRequest{})
 	if !errors.Is(err, down) || res != nil {
 		t.Errorf("got %v and %v, want no answer and the database's error", res, err)
 	}
+}
+
+// call is the key of a value that marks a call's context.
+type call struct{}
+
+func TestListItemsReadsWithinTheCall(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tickets := started(t, fakeJira{search: searching(payOne)})
+		within := func(ctx context.Context, what string) {
+			if ctx.Value(call{}) == nil {
+				t.Errorf("read the %s outside the call's context", what)
+			}
+		}
+		todos := func(ctx context.Context) ([]todo.Todo, error) {
+			within(ctx, "todos")
+
+			return nil, nil
+		}
+		dismissed := func(ctx context.Context) ([]string, error) {
+			within(ctx, "dismissed tickets")
+
+			return nil, nil
+		}
+
+		res, err := attention.NewLister(todos, dismissed, tickets).ListItems(
+			context.WithValue(t.Context(), call{}, true), &attentionv1.ListItemsRequest{})
+		if got := lines(res); err != nil || !slices.Equal(got, []string{payTheInvoice}) {
+			t.Errorf("got %q and %v, want PAY-1's item", got, err)
+		}
+	})
 }
 
 // fakeJira is a fake Jira, whose searches answer with search, or find nothing when it's nil, and
@@ -124,13 +155,17 @@ func todosOf(todos ...todo.Todo) func(context.Context) ([]todo.Todo, error) {
 	return func(context.Context) ([]todo.Todo, error) { return todos, nil }
 }
 
-// list returns the lines of the items that a lister of todos lists with what tickets has found.
+// list returns the lines of the items that a lister of todos and of the dismissed tickets lists
+// with what tickets has found.
 func list(
-	t *testing.T, todos func(context.Context) ([]todo.Todo, error), tickets *jira.Poller,
+	t *testing.T,
+	todos func(context.Context) ([]todo.Todo, error),
+	dismissed func(context.Context) ([]string, error),
+	tickets *jira.Poller,
 ) []string {
 	t.Helper()
 
-	res, err := attention.NewLister(todos, tickets).ListItems(t.Context(),
+	res, err := attention.NewLister(todos, dismissed, tickets).ListItems(t.Context(),
 		&attentionv1.ListItemsRequest{})
 	if err != nil {
 		t.Fatal(err)
