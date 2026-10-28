@@ -26,7 +26,8 @@ export interface Week {
 export interface Home {
   name: string;
   items: Item[];
-  week: Week;
+  /** Absent when home has no week, such as before the time service logs hours. */
+  week?: Week;
 }
 
 /** The error fetchHome fails with when the gateway answers 401: the user has no session. */

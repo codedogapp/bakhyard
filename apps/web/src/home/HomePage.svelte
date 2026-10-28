@@ -5,7 +5,7 @@ import NeedsYou from './NeedsYou.svelte';
 import ThisWeek from './ThisWeek.svelte';
 import YourApps from './YourApps.svelte';
 
-// Until the Home first loads, only the greeting and the apps show.
+// Until the Home first loads, only the greeting and the apps show; the week, only when the Home has one.
 let { now, home }: { now: Date; home?: Home } = $props();
 </script>
 
@@ -14,6 +14,6 @@ let { now, home }: { now: Date; home?: Home } = $props();
   <NeedsYou {now} items={home.items} />
 {/if}
 <YourApps items={home?.items} />
-{#if home}
+{#if home?.week}
   <ThisWeek week={home.week} />
 {/if}
