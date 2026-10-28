@@ -3,9 +3,10 @@ import type { Page } from '@playwright/test';
 import type { Todo } from '../src/todos/api';
 import type { Snapshot } from '../src/todos/tickets';
 import { bounds } from './bounds';
+import { chipLooks } from './chips';
 import { home, tickets } from './demo';
 import { expect, test } from './fixtures';
-import { answerDismissals, answerTickets, aTodo, chipLooks } from './jira';
+import { answerDismissals, answerTickets, aTodo } from './jira';
 
 /** Made-up todos: one names a ticket that's done in Jira, one an open ticket of the demo's snapshot. */
 const notes: Todo = { id: 2, title: 'Send the release notes', done: false, priority: 'normal', ticket: 'WEB-3' };

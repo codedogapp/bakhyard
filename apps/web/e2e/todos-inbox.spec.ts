@@ -1,10 +1,11 @@
 import type { Page, Route } from '@playwright/test';
 
 import type { Todo } from '../src/todos/api';
+import { chipLooks } from './chips';
 import { home, tickets, todos } from './demo';
 import { expect, test } from './fixtures';
 import { group, heads, noteFirstHeads } from './groups';
-import { answerDismissals, answerTickets, aTodo, chipLooks } from './jira';
+import { answerDismissals, answerTickets, aTodo } from './jira';
 
 type Answer = Parameters<Route['fulfill']>[0];
 

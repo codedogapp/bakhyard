@@ -62,6 +62,9 @@ function answer(url: string): Response {
   if (url === '/api/todos') {
     return Response.json({ todos: [{ id: 1, title: 'Buy milk' }] });
   }
+  if (url === '/api/pulls/mine') {
+    return Response.json({ pulls: [], searched: '2026-10-20T00:41:00Z' });
+  }
   return Response.json(home);
 }
 
@@ -169,12 +172,15 @@ test('opens a note, and keeps the Notes page as the user left it while the app r
   expect(vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/notes')).toHaveLength(1);
 });
 
-test('shows the todos at /todos', async () => {
-  history.replaceState(null, '', '/todos');
+test.each([
+  ['/todos', '1 todo on the list.', 'Todos · Bakhyard'],
+  ['/pulls', 'No open pull requests.', 'Pull requests · Bakhyard'],
+])('shows the page of the app at %s, with what it loads', async (path, loaded, title) => {
+  history.replaceState(null, '', path);
   render(App);
 
-  expect(await screen.findByText('1 todo on the list.')).toBeInTheDocument();
-  expect(document.title).toBe('Todos · Bakhyard');
+  expect(await screen.findByText(loaded)).toBeInTheDocument();
+  expect(document.title).toBe(title);
 });
 
 test('leaves navigations to the browser once it goes away', () => {

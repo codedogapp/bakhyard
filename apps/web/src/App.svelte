@@ -10,6 +10,7 @@ import AppPage from './pages/AppPage.svelte';
 import MorePage from './pages/MorePage.svelte';
 import NotFound from './pages/NotFound.svelte';
 import SignIn from './pages/SignIn.svelte';
+import PullsPage from './pulls/PullsPage.svelte';
 import { startClock } from './shell/clock';
 import Header from './shell/Header.svelte';
 import { followNavigation } from './shell/navigation';
@@ -68,6 +69,8 @@ $effect(() =>
       <NotePage note={page.note} {notes} />
     {:else if page.kind === 'todos'}
       <TodosPage />
+    {:else if page.kind === 'pulls'}
+      <PullsPage />
     {:else if page.kind === 'app'}
       <AppPage app={page.app} />
     {:else if page.kind === 'more'}
