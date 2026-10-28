@@ -95,6 +95,37 @@ func TestServeStopsWaitingAfterTheTimeout(t *testing.T) {
 	<-answer
 }
 
+func TestServeAnswersHTTP1AndUnencryptedHTTP2(t *testing.T) {
+	listener := listen(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	served := make(chan error, 1)
+
+	go func() {
+		served <- serve(ctx, listener, http.NotFoundHandler(), time.Minute)
+	}()
+
+	t.Cleanup(func() {
+		cancel()
+
+		if err := <-served; err != nil {
+			t.Errorf("serve: %v", err)
+		}
+	})
+
+	http1 := new(http.Protocols)
+	http1.SetHTTP1(true)
+
+	h2c := new(http.Protocols)
+	h2c.SetUnencryptedHTTP2(true)
+
+	for want, protocols := range map[string]*http.Protocols{"HTTP/1.1": http1, "HTTP/2.0": h2c} {
+		got, err := answerProtocol(t, protocols, "http://"+listener.Addr().String()+"/")
+		if err != nil || got != want {
+			t.Errorf("got %q, %v, want %q", got, err, want)
+		}
+	}
+}
+
 func TestServeReportsAFailedAccept(t *testing.T) {
 	listener := listen(t)
 
@@ -169,4 +200,26 @@ func fetch(ctx context.Context, url string) (string, error) {
 	body, err := io.ReadAll(response.Body)
 
 	return string(body), err
+}
+
+// answerProtocol returns the protocol of the answer to a GET request for url, sent with protocols.
+func answerProtocol(t *testing.T, protocols *http.Protocols, url string) (string, error) {
+	t.Helper()
+
+	transport := &http.Transport{Protocols: protocols}
+	t.Cleanup(transport.CloseIdleConnections)
+
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	response, err := transport.RoundTrip(request)
+	if err != nil {
+		return "", err
+	}
+
+	_ = response.Body.Close()
+
+	return response.Proto, nil
 }

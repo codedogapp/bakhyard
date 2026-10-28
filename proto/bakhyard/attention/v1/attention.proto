@@ -1,0 +1,39 @@
+edition = "2024";
+
+package bakhyard.attention.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// AttentionService lists what a feature service has that needs the user, for the Home's "Needs
+// you today". It's internal: home calls it, and the gateway never routes it.
+service AttentionService {
+  // ListItems lists the items that need the user now.
+  rpc ListItems(ListItemsRequest) returns (ListItemsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+message ListItemsRequest {}
+
+message ListItemsResponse {
+  repeated Item items = 1;
+}
+
+// Item is one thing that needs the user.
+message Item {
+  // id is unique within the service that lists the item.
+  string id = 1;
+  string title = 2;
+  // detail is a second line under the title, empty for none.
+  string detail = 3;
+  // source is the outside service the item comes from.
+  Source source = 4;
+  // due is when the item is due, unset for none.
+  google.protobuf.Timestamp due = 5;
+}
+
+enum Source {
+  SOURCE_UNSPECIFIED = 0;
+  SOURCE_BITBUCKET = 1;
+  SOURCE_JIRA = 2;
+}

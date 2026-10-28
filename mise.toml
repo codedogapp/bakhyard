@@ -12,6 +12,7 @@ pnpm = "latest"
 "github:vladopajic/go-test-coverage" = "latest"
 jactionlint = "latest"
 shellcheck = "latest"
+buf = "latest"
 process-compose = "latest"
 
 [env]
@@ -38,19 +39,38 @@ output = "interleave"
 run = "process-compose up"
 
 [tasks.fmt]
-description = "Format the Go code (gofumpt, golines)"
-run = "golangci-lint fmt"
+description = "Format the Go code (gofumpt, golines) and the protobuf contracts (buf)"
+run = ["golangci-lint fmt", "buf format --write"]
 
 [tasks."fmt:check"]
-description = "Fail if any Go file is not formatted"
-run = "golangci-lint fmt --diff"
+description = "Fail if any Go file or protobuf contract is not formatted"
+run = ["golangci-lint fmt --diff", "buf format --diff --exit-code"]
 
 [tasks.lint]
-description = "Lint the Go code (golangci-lint)"
+description = "Lint the Go code (golangci-lint) and the protobuf contracts (buf)"
 run = [
     "golangci-lint config verify",
     "golangci-lint run",
+    "buf lint",
 ]
+
+[tasks.gen]
+description = "Generate the Go code of the protobuf contracts into internal/gen (buf)"
+run = "buf generate"
+
+[tasks."gen:check"]
+description = "Fail if internal/gen differs from what the protobuf contracts generate"
+shell = "bash -c"
+run = '''
+set -euo pipefail
+fresh=$(mktemp -d)
+trap 'rm -rf "${fresh}"' EXIT
+buf generate --output "${fresh}"
+if ! diff -r "${fresh}/internal/gen" internal/gen; then
+  echo "error: internal/gen is out of date; run mise run gen" >&2
+  exit 1
+fi
+'''
 
 [tasks."lint:compose"]
 description = "Check process-compose.yaml (process-compose up --dry-run)"
@@ -81,6 +101,7 @@ depends = [
     "lint",
     "lint:actions",
     "lint:compose",
+    "gen:check",
     "cover",
     "vuln",
     "//apps/web:check",

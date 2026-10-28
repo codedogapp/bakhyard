@@ -6,14 +6,18 @@ import (
 	"net/http"
 	"os"
 
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1/attentionv1connect"
 	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/pulls/internal/api"
+	"github.com/codedogapp/bakhyard/services/pulls/internal/attention"
 )
 
 func main() {
@@ -29,8 +33,8 @@ func main() {
 	}
 }
 
-// routes returns the handler of pulls. With Bitbucket set up, it polls Bitbucket in the
-// background until ctx ends.
+// routes returns the handler of pulls, which serves its API and its side of the attention
+// contract. With Bitbucket set up, it polls Bitbucket in the background until ctx ends.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
@@ -45,7 +49,13 @@ func routes(
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, poll(ctx, client, slog.Default()))
+
+	mine := poll(ctx, client, slog.Default())
+	api.Register(router, mine)
+
+	attentionServer := connect.NewServer()
+	attentionv1connect.RegisterAttentionServiceHandler(attentionServer, attention.NewLister(mine))
+	connecthttp.Mount(router, attentionServer)
 
 	return router, nil
 }

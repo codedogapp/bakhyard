@@ -1,0 +1,16 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/codedogapp/bakhyard/internal/gen
+# The generators are Go tools in go.mod, so they run at the versions of the libraries that the
+# generated code uses (docs/plan.md §6.5).
+plugins:
+  - local: [go, tool, protoc-gen-go]
+    out: internal/gen
+    opt: paths=source_relative
+  - local: [go, tool, protoc-gen-connect-go]
+    out: internal/gen
+    opt: paths=source_relative
+clean: true

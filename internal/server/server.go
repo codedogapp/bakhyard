@@ -36,7 +36,17 @@ func serve(
 	handler http.Handler,
 	timeout time.Duration,
 ) error {
-	server := &http.Server{Handler: handler, ReadHeaderTimeout: readHeaderTimeout}
+	// HTTP/1 serves the browsers and the gateway; HTTP/2 without TLS (h2c) serves the gRPC calls
+	// between services.
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+
+	server := &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: readHeaderTimeout,
+		Protocols:         protocols,
+	}
 	shutdown := make(chan error, 1)
 
 	stop := context.AfterFunc(ctx, func() {

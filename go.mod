@@ -3,11 +3,13 @@ module github.com/codedogapp/bakhyard
 go 1.27.2
 
 require (
+	connectrpc.com/connect/v2 v2.0.2
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.29.0
 	golang.org/x/oauth2 v0.37.0
+	google.golang.org/protobuf v1.36.12
 )
 
 require (
@@ -23,3 +25,8 @@ require (
 )
 
 ignore ./apps/web
+
+tool (
+	connectrpc.com/connect/v2/cmd/protoc-gen-connect-go
+	google.golang.org/protobuf/cmd/protoc-gen-go
+)
