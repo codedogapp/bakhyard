@@ -1,6 +1,6 @@
 # Builds each service's image with the cluster's BuildKit and pushes it to Gitea's registry, on every
 # mirror sync that brings a push to main, and on demand, in the homelab's Gitea, which mirrors this
-# repository (docs/plan.md, decisions 138, 152 and 153). GitHub ignores .gitea/.
+# repository (docs/plan.md, decisions 138, 152, 153 and 156). GitHub ignores .gitea/.
 name: images
 on:
   workflow_dispatch:
@@ -21,18 +21,21 @@ jobs:
     timeout-minutes: 30
     env:
       BUILDKIT_HOST: tcp://buildkitd.buildkit.svc:1234
+      # The registry's host, an organisation variable in Gitea, keeps the tailnet's name out of
+      # this public repo. GITHUB_SERVER_URL is the runner's in-cluster address, not the host.
+      REGISTRY: ${{ vars.REGISTRY }}
       # renovate: datasource=github-releases depName=moby/buildkit
       BUILDKIT_VERSION: v0.34.1
     steps:
+      - name: Check the registry
+        run: |
+          if [ -z "$REGISTRY" ]; then
+            echo "The organisation variable REGISTRY, the registry's host, isn't set in Gitea." >&2
+            exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Name the images
-        run: |
-          # Gitea's own address, so that the tailnet's name stays out of this public repo.
-          echo "REGISTRY=${GITHUB_SERVER_URL#https://}" >> "$GITHUB_ENV"
-          # Flux rolls out the tag with the newest commit time (decision 152).
-          echo "TAG=main-$(git show -s --format=%ct "$GITHUB_SHA")-${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
       - name: Install buildctl
         run: |
           curl -fsSL "https://github.com/moby/buildkit/releases/download/$BUILDKIT_VERSION/buildkit-$BUILDKIT_VERSION.linux-amd64.tar.gz" \
@@ -47,10 +50,10 @@ jobs:
           printf '{"auths":{"%s":{"auth":"%s"}}}' "$REGISTRY" "$auth" > ~/.docker/config.json
       - name: Build and push
         run: |
+          # One tag, main: Flux follows its digest (decision 156).
           for service in gateway home notes pulls todos web; do
-            image="$REGISTRY/codedogapp/bakhyard/$service"
             buildctl build --frontend dockerfile.v0 \
               --local context=. --local "dockerfile=services/$service" \
               --opt platform=linux/amd64 \
-              --output "type=image,\"name=$image:main,$image:$TAG\",push=true"
+              --output "type=image,name=$REGISTRY/codedogapp/bakhyard/$service:main,push=true"
           done
