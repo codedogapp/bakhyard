@@ -28,8 +28,6 @@ type Door struct {
 	Logger    *slog.Logger
 	// Heartbeat is how often the event stream sends a comment, so that proxies keep it open.
 	Heartbeat time.Duration
-	// Stopping ends when the service is told to stop, and ends the event streams with it.
-	Stopping context.Context
 }
 
 // state is the body of GET /nudge/state.
@@ -40,11 +38,14 @@ type state struct {
 
 // Register serves the door on router: GET /nudge/state lists what the page shows, POST
 // /nudge/questions/{id}/answer answers a question and GET /nudge/events streams a signal
-// whenever the state changes.
-func (d Door) Register(router chi.Router) {
+// whenever the state changes. stopping ends when the service is told to stop, and ends the event
+// streams with it.
+func (d Door) Register(stopping context.Context, router chi.Router) {
 	router.Get("/nudge/state", d.state)
 	router.Post("/nudge/questions/{id}/answer", d.answer)
-	router.Get("/nudge/events", d.events)
+	router.Get("/nudge/events", func(w http.ResponseWriter, r *http.Request) {
+		d.events(stopping, w, r)
+	})
 }
 
 // state answers the pending questions, newest first, and the running sessions.

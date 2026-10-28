@@ -63,8 +63,7 @@ func newPage(t *testing.T) *page {
 		Changes:   hub,
 		Logger:    slog.New(slog.NewTextHandler(site.logs, nil)),
 		Heartbeat: time.Millisecond,
-		Stopping:  stopping,
-	}.Register(router)
+	}.Register(stopping, router)
 
 	site.server = httptest.NewServer(router)
 	t.Cleanup(site.server.Close)

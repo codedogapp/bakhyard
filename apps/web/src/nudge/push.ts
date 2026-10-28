@@ -78,7 +78,7 @@ function sameKey(subscription: PushSubscription, key: string): boolean {
   if (!used) {
     return false;
   }
-  const binary = String.fromCharCode(...new Uint8Array(used));
+  const binary = String.fromCodePoint(...new Uint8Array(used));
   const encoded = btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
   return encoded === key;
 }

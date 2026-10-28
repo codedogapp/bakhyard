@@ -84,12 +84,12 @@ func routes(
 	router.Use(middleware.GetHead)
 	health.Register(router)
 	agent.Door{
-		Questions: questions, Sessions: sessions, Pusher: pusher, Logger: logger, Stopping: ctx,
-	}.Register(router)
+		Questions: questions, Sessions: sessions, Pusher: pusher, Logger: logger,
+	}.Register(ctx, router)
 	phone.Door{
 		Questions: questions, Sessions: sessions, Changes: hub, Logger: logger,
-		Heartbeat: heartbeat, Stopping: ctx,
-	}.Register(router)
+		Heartbeat: heartbeat,
+	}.Register(ctx, router)
 
 	return router, nil
 }

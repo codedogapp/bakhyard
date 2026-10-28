@@ -83,8 +83,7 @@ func newDoor(t *testing.T) *door {
 		Sessions:  gate.sessions,
 		Pusher:    gate.pusher,
 		Logger:    slog.New(slog.NewTextHandler(gate.logs, nil)),
-		Stopping:  stopping,
-	}.Register(router)
+	}.Register(stopping, router)
 
 	gate.server = httptest.NewServer(router)
 	t.Cleanup(gate.server.Close)

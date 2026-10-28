@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"slices"
 	"sync"
 	"time"
@@ -44,11 +45,8 @@ func New(peers []env.Peer, logger *slog.Logger) *Feed {
 	feed := &Feed{logger: logger}
 
 	for _, setting := range peers {
-		transport := connecthttp.NewTransport(
-			httpClient,
-			"http://"+setting.Address,
-			connecthttp.WithGRPC(),
-		)
+		server := url.URL{Scheme: "http", Host: setting.Address}
+		transport := connecthttp.NewTransport(httpClient, server.String(), connecthttp.WithGRPC())
 		client := attentionv1connect.NewAttentionServiceClient(connect.NewClient(transport))
 		feed.peers = append(feed.peers, peer{name: setting.Name, client: client})
 	}

@@ -1,7 +1,6 @@
 package door_test
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -90,7 +89,8 @@ func TestRegisterFailsOnAReplyThatIsNotASession(t *testing.T) {
 func TestTheReporterStartsAgainWhenTheServiceForgotTheSession(t *testing.T) {
 	status := http.StatusNoContent
 	srv := sessionGateway(t, &status)
-	reporter := door.NewReporter(t.Context(), srv.client(t), "atlas")
+	reporter := door.NewReporter(srv.client(t), "atlas")
+	t.Cleanup(reporter.Close)
 
 	if err := reporter.Register(); err != nil {
 		t.Fatal(err)
@@ -120,15 +120,37 @@ func TestTheReporterStartsAgainWhenTheServiceForgotTheSession(t *testing.T) {
 	}
 }
 
-func TestTheReporterReportsAfterItsContextEndedWithAnError(t *testing.T) {
+func TestAClosedReporterStartsNoSession(t *testing.T) {
 	status := http.StatusNoContent
 	srv := sessionGateway(t, &status)
-	ctx, cancel := context.WithCancel(t.Context())
-	reporter := door.NewReporter(ctx, srv.client(t), "atlas")
+	reporter := door.NewReporter(srv.client(t), "atlas")
 
-	cancel()
+	reporter.Close()
+	reporter.Close()
 
-	if err := reporter.Report(t.Context(), "x"); err == nil {
-		t.Error("reported with an ended session")
+	if err := reporter.Report(t.Context(), "x"); !errors.Is(err, door.ErrClosed) {
+		t.Errorf("reported after Close: got %v", err)
 	}
+
+	if got := srv.requests(); len(got) != 0 {
+		t.Errorf("requests %q, want none", got)
+	}
+}
+
+func TestClosingTheReporterEndsItsSession(t *testing.T) {
+	ended := make(chan struct{})
+	srv := newGateway(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"abc"}`))
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+		close(ended)
+	})
+	reporter := door.NewReporter(srv.client(t), "atlas")
+
+	if err := reporter.Register(); err != nil {
+		t.Fatal(err)
+	}
+
+	reporter.Close()
+	<-ended
 }

@@ -30,19 +30,21 @@ type Door struct {
 	Sessions  *session.Registry
 	Pusher    Pusher
 	Logger    *slog.Logger
-	// Stopping ends when the service is told to stop. The requests that wait end too, with 503, so
-	// that the agents ask again once the service is back.
-	Stopping context.Context
 }
 
 // Register serves the door on router: POST /agent/questions asks a question and holds the request
 // until it has an answer, and DELETE /agent/questions/{id} withdraws one. POST /agent/sessions
 // starts a session, which lasts as long as its request, and PUT /agent/sessions/{id}/note sets
-// its note.
-func (d Door) Register(router chi.Router) {
-	router.Post("/agent/questions", d.ask)
+// its note. stopping ends when the service is told to stop: the requests that wait end too, with
+// 503 for a question, so that the agents ask again once the service is back.
+func (d Door) Register(stopping context.Context, router chi.Router) {
+	router.Post("/agent/questions", func(w http.ResponseWriter, r *http.Request) {
+		d.ask(stopping, w, r)
+	})
 	router.Delete("/agent/questions/{id}", d.withdraw)
-	router.Post("/agent/sessions", d.startSession)
+	router.Post("/agent/sessions", func(w http.ResponseWriter, r *http.Request) {
+		d.startSession(stopping, w, r)
+	})
 	router.Put("/agent/sessions/{id}/note", d.report)
 }
 
