@@ -2,11 +2,11 @@
 
 A personal dashboard for one user, hosted at home: Obsidian notes, work todos and pull requests, GitHub, games, and a Copilot planner, in one place. It's reached over Tailscale and needs a Google sign-in. It works on a Mac and on an iPhone, where it installs as a Home Screen app.
 
-It's early. Today Bakhyard has its app shell, the sign-in, read-only notes, todos linked to Jira, open pull requests from Bitbucket, and a Home that gathers what needs the user from the todos and the pull requests. The modules come one small step at a time, and [the plan](docs/plan.md) has the steps, their order and the decisions behind them. It runs on a Mac for now, and later moves to an always-on Linux laptop with k3s.
+It's early. Today Bakhyard has its app shell, the sign-in, read-only notes, todos linked to Jira, open pull requests from Bitbucket, and a Home that gathers what needs the user from the todos and the pull requests. The modules come one small step at a time, and [the plan](docs/plan.md) has the steps, their order and the decisions behind them. It runs at home on an always-on Linux laptop with k3s, deployed from a private homelab repo, and on a Mac for development.
 
 ## How it's built
 
-Each feature is a Go service of its own, in `services/`, behind a gateway that checks who's asking and passes each request on. The app is a Svelte single-page app, in `apps/web`, which the `web` service embeds and serves. The gateway keeps its sessions, and todos its todos, in PostgreSQL, and process-compose runs the services. [§4 of the plan](docs/plan.md#4-system-architecture-the-microservices-experiment) has the details.
+Each feature is a Go service of its own, in `services/`, behind a gateway that checks who's asking and passes each request on. The app is a Svelte single-page app, in `apps/web`, which the `web` service embeds and serves. The gateway keeps its sessions, and todos its todos, in PostgreSQL. The services run on k3s on the laptop, and in process-compose on a Mac. [§4 of the plan](docs/plan.md#4-system-architecture-the-microservices-experiment) has the details.
 
 ## Requirements
 
