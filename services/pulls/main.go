@@ -11,21 +11,15 @@ import (
 
 	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/keychain"
+	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/pulls/internal/api"
 )
 
-// secretService names the login Keychain items that hold the service's secrets (decision 79).
-const secretService = "bakhyard"
-
-// passwordReader reads a password from the login Keychain: keychain.Reader.Password, or a fake
-// in tests.
-type passwordReader func(ctx context.Context, serviceName, account string) (string, error)
-
 func main() {
-	password := keychain.NewReader(keychain.Security).Password
+	readSecret := secrets.New(os.Getenv, keychain.NewReader(keychain.Security).Password)
 	served := func(ctx context.Context, getenv func(string) string) (http.Handler, error) {
-		return routes(ctx, getenv, password)
+		return routes(ctx, getenv, readSecret)
 	}
 
 	err := service.Run(os.Getenv, served)
@@ -40,9 +34,9 @@ func main() {
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
-	password passwordReader,
+	readSecret secrets.Reader,
 ) (http.Handler, error) {
-	client, err := bitbucketClient(getenv, password)
+	client, err := bitbucketClient(getenv, readSecret)
 	if err != nil {
 		return nil, err
 	}

@@ -28,6 +28,8 @@ cp mise.local.example.toml mise.local.toml
 
 The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, pulls and todos to start. Todos runs without Jira when none of the three Jira settings is set, and pulls without Bitbucket when none of the three Bitbucket settings is set.
 
+On the Mac, the gateway, todos and pulls read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `jira-token`, `bitbucket-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
+
 ## Tailscale
 
 Tailscale runs from the Homebrew formula (decision 62). Publish the gateway on the tailnet:

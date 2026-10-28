@@ -134,7 +134,7 @@ func TestTheGatewayNeedsItsSettings(t *testing.T) {
 		vars, items := gatewayEnv(t, "http://127.0.0.1:2")
 		delete(vars, name)
 
-		_, err := routes(func(key string) string { return vars[key] }, keychainWith(items))
+		_, err := routes(func(key string) string { return vars[key] }, secretsWith(items))
 		if err == nil || err.Error() != name+" is not set" {
 			t.Errorf("without %s: got %v, want the error %s is not set", name, err, name)
 		}
@@ -169,12 +169,12 @@ func gateway(t *testing.T, webURL string) (http.Handler, string) {
 	return gatewayFrom(t, vars, items)
 }
 
-// gatewayFrom returns the gateway's routes for the environment vars and the Keychain items, and
-// the token of a session in its database.
+// gatewayFrom returns the gateway's routes for the environment vars and the secrets in items,
+// and the token of a session in its database.
 func gatewayFrom(t *testing.T, vars, items map[string]string) (http.Handler, string) {
 	t.Helper()
 
-	router, err := routes(func(key string) string { return vars[key] }, keychainWith(items))
+	router, err := routes(func(key string) string { return vars[key] }, secretsWith(items))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func withSession(req *http.Request, token string) *http.Request {
 	return req
 }
 
-// gatewayEnv returns the test gateway's environment and Keychain items, with home, notes, pulls
+// gatewayEnv returns the test gateway's environment and secrets, with home, notes, pulls
 // and todos on a port where nothing listens, web at webURL and the database in a schema of its
 // own.
 func gatewayEnv(t *testing.T, webURL string) (vars, items map[string]string) {

@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/codedogapp/bakhyard/internal/secrets"
 )
 
 func TestPullsServesWithoutBitbucket(t *testing.T) {
-	router, err := routes(t.Context(), envOf(nil), keychainWith(nil))
+	router, err := routes(t.Context(), envOf(nil), secretsWith(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,13 +43,12 @@ func envOf(settings map[string]string) func(string) string {
 	return func(name string) string { return settings[name] }
 }
 
-// keychainWith returns a fake Keychain reader that has only items, by account, under the
-// service bakhyard.
-func keychainWith(items map[string]string) passwordReader {
-	return func(_ context.Context, service, account string) (string, error) {
-		secret, ok := items[account]
-		if service != "bakhyard" || !ok {
-			return "", fmt.Errorf("no Keychain item %s/%s", service, account)
+// secretsWith returns a fake secrets reader that has only items, by name.
+func secretsWith(items map[string]string) secrets.Reader {
+	return func(_ context.Context, name string) (string, error) {
+		secret, ok := items[name]
+		if !ok {
+			return "", fmt.Errorf("no secret %s", name)
 		}
 
 		return secret, nil

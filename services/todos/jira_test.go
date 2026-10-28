@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/codedogapp/bakhyard/internal/databasetest"
+	"github.com/codedogapp/bakhyard/internal/secrets"
 )
 
 // The Jira site and REST API in the settings of most tests.
@@ -18,7 +19,7 @@ const (
 
 func TestJiraClientSearchesTheJiraInTheSettings(t *testing.T) {
 	client, err := jiraClient(envOf(jiraSettings(jiraServer(t))),
-		keychainWith(map[string]string{"jira-token": "secret"}))
+		secretsWith(map[string]string{"jira-token": "secret"}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +31,7 @@ func TestJiraClientSearchesTheJiraInTheSettings(t *testing.T) {
 }
 
 func TestJiraClientIsOffWithoutTheSettings(t *testing.T) {
-	client, err := jiraClient(envOf(nil), keychainWith(nil))
+	client, err := jiraClient(envOf(nil), secretsWith(nil))
 	if client != nil || err != nil {
 		t.Errorf("got %v, %v, want no client and no error", client, err)
 	}
@@ -49,7 +50,7 @@ func TestJiraClientRejects(t *testing.T) {
 		notHTTPS(jiraAPIVar, "http://example.com"),
 	} {
 		client, err := jiraClient(envOf(test.settings),
-			keychainWith(map[string]string{"jira-token": "secret"}))
+			secretsWith(map[string]string{"jira-token": "secret"}))
 		if client != nil || err == nil || err.Error() != test.want {
 			t.Errorf("got %v, %v, want the error %s", client, err, test.want)
 		}
@@ -57,9 +58,9 @@ func TestJiraClientRejects(t *testing.T) {
 }
 
 func TestJiraClientNeedsTheToken(t *testing.T) {
-	client, err := jiraClient(envOf(jiraSettings(jiraAPI)), keychainWith(nil))
+	client, err := jiraClient(envOf(jiraSettings(jiraAPI)), secretsWith(nil))
 
-	want := "read the Jira token: no Keychain item bakhyard/jira-token"
+	want := "read the Jira token: no secret jira-token"
 	if client != nil || err == nil || err.Error() != want {
 		t.Errorf("got %v, %v, want the error %s", client, err, want)
 	}
@@ -92,7 +93,7 @@ func TestTodosStopsSearchingJiraWhenItStops(t *testing.T) {
 }
 
 func TestTodosStopsOnABadJiraSetting(t *testing.T) {
-	_, err := routes(t.Context(), envOf(jiraWith(jiraEmailVar, "")), keychainWith(nil))
+	_, err := routes(t.Context(), envOf(jiraWith(jiraEmailVar, "")), secretsWith(nil))
 	if err == nil || err.Error() != "BAKHYARD_JIRA_EMAIL is not set" {
 		t.Errorf("got %v, want the error BAKHYARD_JIRA_EMAIL is not set", err)
 	}
@@ -137,15 +138,15 @@ func getTickets(
 	schema := databasetest.NewSchema(t)
 	settings := jiraSettings(address)
 	settings[databaseVar] = schema.URL
-	keychain := keychainWith(map[string]string{
+	readSecret := secretsWith(map[string]string{
 		"postgres-todos": schema.Password, "jira-token": "secret",
 	})
 
 	for _, key := range keys {
-		addTodo(t, envOf(settings), keychain, key)
+		addTodo(t, envOf(settings), readSecret, key)
 	}
 
-	router, err := routes(ctx, envOf(settings), keychain)
+	router, err := routes(ctx, envOf(settings), readSecret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,13 +159,13 @@ func getTickets(
 }
 
 // addTodo adds a todo for the ticket key, through routes that stop at once.
-func addTodo(t *testing.T, getenv func(string) string, keychain passwordReader, key string) {
+func addTodo(t *testing.T, getenv func(string) string, readSecret secrets.Reader, key string) {
 	t.Helper()
 
 	stopped, stop := context.WithCancel(t.Context())
 	stop()
 
-	router, err := routes(stopped, getenv, keychain)
+	router, err := routes(stopped, getenv, readSecret)
 	if err != nil {
 		t.Fatal(err)
 	}

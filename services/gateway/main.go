@@ -14,6 +14,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/database"
 	"github.com/codedogapp/bakhyard/internal/env"
 	"github.com/codedogapp/bakhyard/internal/keychain"
+	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/migrations"
 	"github.com/codedogapp/bakhyard/services/gateway/internal/pin"
@@ -35,21 +36,17 @@ const (
 // (process-compose.yaml).
 const databaseVar = "BAKHYARD_DATABASE"
 
-// The login Keychain items that hold the gateway's secrets (decision 79).
+// The Keychain accounts of the gateway's secrets, and the names of their files (decisions 79
+// and 154).
 const (
-	secretService       = "bakhyard"
 	clientSecretAccount = "google-client-secret"
 	databaseAccount     = "postgres-gateway"
 )
 
-// passwordReader reads a password from the login Keychain: keychain.Reader.Password, or a fake
-// in tests.
-type passwordReader func(ctx context.Context, serviceName, account string) (string, error)
-
 func main() {
-	password := keychain.NewReader(keychain.Security).Password
+	readSecret := secrets.New(os.Getenv, keychain.NewReader(keychain.Security).Password)
 
-	err := service.Run(os.Getenv, served(password))
+	err := service.Run(os.Getenv, served(readSecret))
 	if err != nil {
 		slog.Error("failed", "err", err)
 		os.Exit(1)
@@ -58,7 +55,7 @@ func main() {
 
 // served returns the routes this build serves: the real gateway's, or the open ones of the build
 // for the end-to-end tests (decision 107), which it warns of.
-func served(password passwordReader) service.Routes {
+func served(readSecret secrets.Reader) service.Routes {
 	if e2e {
 		slog.Warn("authentication is off: this gateway is built for the end-to-end tests")
 
@@ -68,11 +65,11 @@ func served(password passwordReader) service.Routes {
 	}
 
 	return func(_ context.Context, getenv func(string) string) (http.Handler, error) {
-		return routes(getenv, password)
+		return routes(getenv, readSecret)
 	}
 }
 
-func routes(getenv func(string) string, password passwordReader) (http.Handler, error) {
+func routes(getenv func(string) string, readSecret secrets.Reader) (http.Handler, error) {
 	upstream, err := peers(getenv)
 	if err != nil {
 		return nil, err
@@ -88,12 +85,12 @@ func routes(getenv func(string) string, password passwordReader) (http.Handler, 
 		return nil, err
 	}
 
-	settings, err := googleSettings(getenv, host, password)
+	settings, err := googleSettings(getenv, host, readSecret)
 	if err != nil {
 		return nil, err
 	}
 
-	sessions, pins, err := stores(getenv, password)
+	sessions, pins, err := stores(getenv, readSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +142,9 @@ func peer(getenv func(string) string, name string) (*url.URL, error) {
 }
 
 // googleSettings returns the settings of the flow that signs the user in with Google and sends
-// them back to host. It reads the client secret with password.
+// them back to host. It reads the client secret with readSecret.
 func googleSettings(
-	getenv func(string) string, host string, password passwordReader,
+	getenv func(string) string, host string, readSecret secrets.Reader,
 ) (signin.Settings, error) {
 	clientID, err := env.Required(getenv, clientIDVar)
 	if err != nil {
@@ -159,7 +156,7 @@ func googleSettings(
 		return signin.Settings{}, err
 	}
 
-	secret, err := password(context.Background(), secretService, clientSecretAccount)
+	secret, err := readSecret(context.Background(), clientSecretAccount)
 	if err != nil {
 		return signin.Settings{}, fmt.Errorf("read the Google client secret: %w", err)
 	}
@@ -173,17 +170,17 @@ func googleSettings(
 	}, nil
 }
 
-// stores opens the gateway's database with the password from the Keychain, and returns the stores
-// that keep the sessions and the pins in it.
+// stores opens the gateway's database with the password that readSecret reads, and returns the
+// stores that keep the sessions and the pins in it.
 func stores(
-	getenv func(string) string, password passwordReader,
+	getenv func(string) string, readSecret secrets.Reader,
 ) (*session.Store, *pin.Store, error) {
 	address, err := env.Required(getenv, databaseVar)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	secret, err := password(context.Background(), secretService, databaseAccount)
+	secret, err := readSecret(context.Background(), databaseAccount)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read the database password: %w", err)
 	}

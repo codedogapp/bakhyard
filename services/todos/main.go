@@ -14,6 +14,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/env"
 	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/keychain"
+	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/todos/internal/api"
 	"github.com/codedogapp/bakhyard/services/todos/internal/migrations"
@@ -23,20 +24,14 @@ import (
 // databaseVar holds the URL of todos' database, without the password (process-compose.yaml).
 const databaseVar = "BAKHYARD_DATABASE"
 
-// The login Keychain item that holds the password of todos' database (decision 79).
-const (
-	secretService   = "bakhyard"
-	databaseAccount = "postgres-todos"
-)
-
-// passwordReader reads a password from the login Keychain: keychain.Reader.Password, or a fake
-// in tests.
-type passwordReader func(ctx context.Context, serviceName, account string) (string, error)
+// databaseAccount is the Keychain account of the password of todos' database, and the name of
+// its file (decisions 79 and 154).
+const databaseAccount = "postgres-todos"
 
 func main() {
-	keys := keychain.NewReader(keychain.Security)
+	readSecret := secrets.New(os.Getenv, keychain.NewReader(keychain.Security).Password)
 	served := func(ctx context.Context, getenv func(string) string) (http.Handler, error) {
-		return routes(ctx, getenv, keys.Password)
+		return routes(ctx, getenv, readSecret)
 	}
 
 	err := service.Run(os.Getenv, served)
@@ -51,14 +46,14 @@ func main() {
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
-	password passwordReader,
+	readSecret secrets.Reader,
 ) (http.Handler, error) {
-	client, err := jiraClient(getenv, password)
+	client, err := jiraClient(getenv, readSecret)
 	if err != nil {
 		return nil, err
 	}
 
-	store, err := open(getenv, password)
+	store, err := open(getenv, readSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -73,15 +68,15 @@ func routes(
 	return router, nil
 }
 
-// open opens todos' database, at the URL in BAKHYARD_DATABASE with the password from the
-// Keychain, runs its migrations and returns the store of the todos in it.
-func open(getenv func(string) string, password passwordReader) (*todo.Store, error) {
+// open opens todos' database, at the URL in BAKHYARD_DATABASE with the password that readSecret
+// reads, runs its migrations and returns the store of the todos in it.
+func open(getenv func(string) string, readSecret secrets.Reader) (*todo.Store, error) {
 	address, err := env.Required(getenv, databaseVar)
 	if err != nil {
 		return nil, err
 	}
 
-	secret, err := password(context.Background(), secretService, databaseAccount)
+	secret, err := readSecret(context.Background(), databaseAccount)
 	if err != nil {
 		return nil, fmt.Errorf("read the database password: %w", err)
 	}

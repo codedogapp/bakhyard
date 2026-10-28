@@ -8,9 +8,11 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+
+	"github.com/codedogapp/bakhyard/internal/secrets"
 )
 
-// testSecret is the client secret in the test gateway's Keychain.
+// testSecret is the client secret in the test gateway's secrets.
 const testSecret = "client-secret"
 
 func TestTheGatewaySendsTheUserToGoogle(t *testing.T) {
@@ -56,20 +58,19 @@ func TestTheGatewayNeedsTheClientSecret(t *testing.T) {
 
 	_, err := routes(
 		func(key string) string { return vars[key] },
-		func(context.Context, string, string) (string, error) { return "", locked },
+		func(context.Context, string) (string, error) { return "", locked },
 	)
 	if !errors.Is(err, locked) || err.Error() != "read the Google client secret: "+locked.Error() {
 		t.Errorf("got %v, want the error read the Google client secret: %v", err, locked)
 	}
 }
 
-// keychainWith returns a fake Keychain reader that has only items, by account, under the
-// service bakhyard.
-func keychainWith(items map[string]string) passwordReader {
-	return func(_ context.Context, service, account string) (string, error) {
-		secret, ok := items[account]
-		if service != "bakhyard" || !ok {
-			return "", fmt.Errorf("no Keychain item %s/%s", service, account)
+// secretsWith returns a fake secrets reader that has only items, by name.
+func secretsWith(items map[string]string) secrets.Reader {
+	return func(_ context.Context, name string) (string, error) {
+		secret, ok := items[name]
+		if !ok {
+			return "", fmt.Errorf("no secret %s", name)
 		}
 
 		return secret, nil
