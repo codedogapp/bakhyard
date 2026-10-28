@@ -6,7 +6,7 @@ threshold:
 
 exclude:
   paths:
-    - '^services/[^/]+/main\.go$'
+    - '^(services|tools)/[^/]+/main\.go$'
     # The code that buf generates from the protobuf contracts.
     - '^internal/gen/'
 

@@ -109,6 +109,7 @@ func TestTheGatewayRefusesEveryoneElse(t *testing.T) {
 	for _, target := range []string{
 		"/", "/notes", "/api/home", "/api/notes", "/api/notes/files/Inbox.md", "/api/pulls/mine",
 		"/api/todos", "/api/nothing", "/auth/google/login", "/auth/google/callback",
+		"/agent/questions", "/agent/questions/x", "/agent/sessions", "/agent/sessions/x/note",
 	} {
 		for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost} {
 			for _, req := range []*http.Request{
@@ -214,8 +215,12 @@ func gatewayEnv(t *testing.T, webURL string) (vars, items map[string]string) {
 
 	schema := databasetest.NewSchema(t)
 	vars = map[string]string{
-		"BAKHYARD_PEERS": "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1" +
-			",todos=tcp://127.0.0.1:1,web=tcp://" + strings.TrimPrefix(webURL, "http://"),
+		"BAKHYARD_PEERS": "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1" +
+			",nudge=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1" +
+			",todos=tcp://127.0.0.1:1,web=tcp://" + strings.TrimPrefix(
+			webURL,
+			"http://",
+		),
 		"BAKHYARD_TAILSCALE_LOGIN":  testLogin,
 		"BAKHYARD_HOST":             testHost,
 		"BAKHYARD_GOOGLE_CLIENT_ID": "client",

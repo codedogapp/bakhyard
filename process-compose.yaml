@@ -80,18 +80,54 @@ processes:
       initial_delay_seconds: 1
       period_seconds: 2
 
+  notify:
+    <<: *service
+    description: Keeps the phones' push subscriptions in its database and sends the pushes
+    command: bin/notify
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8086
+      - BAKHYARD_DATABASE=postgres://bakhyard_notify@127.0.0.1:5433/bakhyard_notify
+    readiness_probe:
+      http_get:
+        port: 8086
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
+  nudge:
+    <<: *service
+    description: Keeps the agents' questions in its database and sends them to the phone
+    command: bin/nudge
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8087
+      - BAKHYARD_PEERS=notify=tcp://127.0.0.1:8086
+      - BAKHYARD_DATABASE=postgres://bakhyard_nudge@127.0.0.1:5433/bakhyard_nudge
+    depends_on:
+      notify:
+        condition: process_healthy
+    readiness_probe:
+      http_get:
+        port: 8087
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
   gateway:
     <<: *service
     description: "The only way in: /api to the services, everything else to web"
     command: bin/gateway
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8080
-      - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,notes=tcp://127.0.0.1:8083,pulls=tcp://127.0.0.1:8085,todos=tcp://127.0.0.1:8084,web=tcp://127.0.0.1:8082
+      - BAKHYARD_PEERS=home=tcp://127.0.0.1:8081,notes=tcp://127.0.0.1:8083,notify=tcp://127.0.0.1:8086,nudge=tcp://127.0.0.1:8087,pulls=tcp://127.0.0.1:8085,todos=tcp://127.0.0.1:8084,web=tcp://127.0.0.1:8082
       - BAKHYARD_DATABASE=postgres://bakhyard_gateway@127.0.0.1:5433/bakhyard_gateway
     depends_on:
       home:
         condition: process_healthy
       notes:
+        condition: process_healthy
+      notify:
+        condition: process_healthy
+      nudge:
         condition: process_healthy
       pulls:
         condition: process_healthy

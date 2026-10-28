@@ -37,6 +37,9 @@ test.each([
   { path: '/github', want: 'app github' },
   { path: '/games/zelda', want: 'app games' },
   { path: '/planner', want: 'app planner' },
+  { path: '/nudge', want: 'nudge' },
+  { path: '/nudge/', want: 'nudge' },
+  { path: '/nudge-archive', want: 'missing' },
   { path: '/more', want: 'more' },
   { path: '/more/', want: 'more' },
   { path: '/elsewhere', want: 'missing' },
@@ -54,6 +57,7 @@ test.each([
   { page: pageAt('/todos'), want: 'Todos · Bakhyard' },
   { page: pageAt('/time'), want: 'Time · Bakhyard' },
   { page: pageAt('/pulls/42'), want: 'Pull requests · Bakhyard' },
+  { page: pageAt('/nudge'), want: 'Nudge · Bakhyard' },
   { page: pageAt('/more'), want: 'More · Bakhyard' },
   { page: { kind: 'missing' } satisfies Page, want: 'Page not found · Bakhyard' },
 ])('titles the $page.kind page "$want"', ({ page, want }) => {

@@ -14,6 +14,9 @@ import (
 // apiPrefix starts every public API path; the services serve their paths without it.
 const apiPrefix = "/api"
 
+// agentPrefix starts the paths that agents use; the service serves them with it.
+const agentPrefix = "/agent"
+
 // apiError is the JSON body of the gateway's own errors (plan decision 41).
 type apiError struct {
 	Code    string `json:"code"`
@@ -27,6 +30,13 @@ func Register(router chi.Router, name string, target *url.URL, logger *slog.Logg
 	forward := http.StripPrefix(apiPrefix, forwarder(name, target, logger))
 	router.Handle(apiPrefix+"/"+name, forward)
 	router.Handle(apiPrefix+"/"+name+"/*", forward)
+}
+
+// RegisterAgent forwards /agent/<path> on router to target unchanged, for every standard method:
+// the paths that agents on other machines use to ask and report. target answers for its own paths
+// and methods. Whoever calls it decides who gets in.
+func RegisterAgent(router chi.Router, name string, target *url.URL, logger *slog.Logger) {
+	router.Handle(agentPrefix+"/*", forwarder(name, target, logger))
 }
 
 // RegisterFallback forwards every path that router has no route for to target unchanged, as

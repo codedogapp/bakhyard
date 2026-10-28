@@ -111,24 +111,34 @@ func routes(getenv func(string) string, readSecret secrets.Reader) (http.Handler
 
 // upstreams are the URLs of the services that the gateway forwards to.
 type upstreams struct {
-	home, notes, pulls, todos, web *url.URL
+	home, notes, notify, nudge, pulls, todos, web *url.URL
 }
 
-// peers returns the URLs of home, notes, pulls, todos and web from BAKHYARD_PEERS, or an error
+// peers returns the URLs of home, notes, notify, nudge, pulls, todos and web from BAKHYARD_PEERS, or an error
 // that names every one of them it lacks.
 func peers(getenv func(string) string) (upstreams, error) {
 	home, homeErr := peer(getenv, "home")
 	notes, notesErr := peer(getenv, "notes")
+	notify, notifyErr := peer(getenv, "notify")
+	nudge, nudgeErr := peer(getenv, "nudge")
 	pulls, pullsErr := peer(getenv, "pulls")
 	todos, todosErr := peer(getenv, "todos")
 	web, webErr := peer(getenv, "web")
 
-	err := errors.Join(homeErr, notesErr, pullsErr, todosErr, webErr)
+	err := errors.Join(homeErr, notesErr, notifyErr, nudgeErr, pullsErr, todosErr, webErr)
 	if err != nil {
 		return upstreams{}, err
 	}
 
-	return upstreams{home: home, notes: notes, pulls: pulls, todos: todos, web: web}, nil
+	return upstreams{
+		home:   home,
+		notes:  notes,
+		notify: notify,
+		nudge:  nudge,
+		pulls:  pulls,
+		todos:  todos,
+		web:    web,
+	}, nil
 }
 
 // peer returns the URL of the peer name, from BAKHYARD_PEERS.

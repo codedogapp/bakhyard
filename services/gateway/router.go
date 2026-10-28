@@ -41,9 +41,17 @@ func wire(upstream upstreams, guard locks, logger *slog.Logger) http.Handler {
 		api.Use(guard.identified, guard.signedIn, session.Hide)
 		proxy.Register(api, "home", upstream.home, logger)
 		proxy.Register(api, "notes", upstream.notes, logger)
+		proxy.Register(api, "notify", upstream.notify, logger)
+		proxy.Register(api, "nudge", upstream.nudge, logger)
 		proxy.Register(api, "pulls", upstream.pulls, logger)
 		proxy.Register(api, "todos", upstream.todos, logger)
 		proxy.RegisterUnclaimed(api)
+	})
+	// Agents ask through the tailnet with the Tailscale identity only: they have no Google session
+	// (decision 164).
+	router.Group(func(agents chi.Router) {
+		agents.Use(guard.identified, session.Hide)
+		proxy.RegisterAgent(agents, "nudge", upstream.nudge, logger)
 	})
 	// The app's files hold no data, so they need the Tailscale identity only. This group is the
 	// root router's child, so that its web fallback, chi's NotFound handler, reaches the root router.

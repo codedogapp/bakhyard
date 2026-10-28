@@ -1,4 +1,5 @@
 import type { Home } from '../src/home/api';
+import type { State } from '../src/nudge/nudge';
 import type { Snapshot as Pulls } from '../src/pulls/pulls';
 import type { Todo } from '../src/todos/api';
 import type { Snapshot } from '../src/todos/tickets';
@@ -89,4 +90,35 @@ export const pulls: Pulls = {
     },
   ],
   searched: '2026-10-21T00:38:00Z',
+};
+
+/** A made-up user's nudge state at the tests' time: one agent's question with options, one without, and two sessions. */
+export const nudge: State = {
+  questions: [
+    {
+      id: '5f0c7d3e-8a1b-4c52-9d6e-2b7a1c4e9f03',
+      project: 'atlas (work-laptop)',
+      text: 'Merge the pull request?',
+      details: 'CI is green and two reviewers approved it.',
+      options: ['Yes', 'No'],
+      asked_at: '2026-10-21T00:38:00Z',
+    },
+    {
+      id: '9a2e4b60-3c7d-4f18-8e5a-7d0b6c1f2a84',
+      project: 'notes (home)',
+      text: 'What should the weekly review be called?',
+      details: '',
+      options: [],
+      asked_at: '2026-10-21T00:30:00Z',
+    },
+  ],
+  sessions: [
+    {
+      id: 's1',
+      project: 'atlas (work-laptop)',
+      note: 'Waiting on your merge decision',
+      noted_at: '2026-10-21T00:38:00Z',
+    },
+    { id: 's2', project: 'notes (home)', note: 'Drafting the review template', noted_at: '2026-10-21T00:36:00Z' },
+  ],
 };

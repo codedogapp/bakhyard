@@ -9,6 +9,7 @@ export type Page =
   | { kind: 'note'; note: Note }
   | { kind: 'todos' }
   | { kind: 'pulls' }
+  | { kind: 'nudge' }
   | { kind: 'app'; app: App }
   | { kind: 'more' }
   | { kind: 'missing' };
@@ -16,10 +17,12 @@ export type Page =
 const notesHref = appHref('notes');
 const todosHref = appHref('todos');
 const pullsHref = appHref('pulls');
+const nudgeHref = appHref('nudge');
 
 /**
  * The page at path. The Notes app's path shows the notes, and the paths under it their notes; the Todos app's paths
- * show the todos, and the PRs app's my PRs; another app's paths show its page, as the nav marks it.
+ * show the todos, the PRs app's my PRs, and the Nudge app's the agents' questions; another app's paths show its page,
+ * as the nav marks it.
  */
 export function pageAt(path: string): Page {
   if (path === '/') {
@@ -36,6 +39,9 @@ export function pageAt(path: string): Page {
   }
   if (isCurrent(pullsHref, path)) {
     return { kind: 'pulls' };
+  }
+  if (isCurrent(nudgeHref, path)) {
+    return { kind: 'nudge' };
   }
   if (isCurrent(moreHref, path)) {
     return { kind: 'more' };
@@ -68,6 +74,8 @@ export function pageTitle(page: Page): string {
       return `Todos · ${siteName}`;
     case 'pulls':
       return `Pull requests · ${siteName}`;
+    case 'nudge':
+      return `Nudge · ${siteName}`;
     case 'app':
       return `${page.app.name} · ${siteName}`;
     case 'more':

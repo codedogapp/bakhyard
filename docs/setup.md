@@ -26,9 +26,9 @@ cp mise.local.example.toml mise.local.toml
 | `BAKHYARD_BITBUCKET_WORKSPACES` | pulls | The slugs of the workspaces to list your open pull requests in, separated by commas |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
-The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, pulls and todos to start. Todos runs without Jira when none of the three Jira settings is set, and pulls without Bitbucket when none of the three Bitbucket settings is set.
+The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, notify, nudge, pulls and todos to start. Todos runs without Jira when none of the three Jira settings is set, and pulls without Bitbucket when none of the three Bitbucket settings is set.
 
-On the Mac, the gateway, todos and pulls read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `jira-token`, `bitbucket-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
+On the Mac, the gateway, todos and pulls read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
 
 ## Tailscale
 
@@ -96,6 +96,16 @@ security add-generic-password -s bakhyard -a postgres-todos -w
 ```
 
 Each service runs its migrations when it starts. It exits 1 with `read the database password: …` without its item, and with `reach the database: …` when Postgres doesn't answer within 10 s.
+
+Notify and nudge each have a database and a password of their own, made as for todos with the roles `bakhyard_notify` and `bakhyard_nudge`, and the Keychain accounts `postgres-notify` and `postgres-nudge`.
+
+Notify also needs the app's VAPID key, which signs the Web Push messages (decision 162). Make one, put it in the Keychain, and keep a copy: a new key makes every phone subscribe again.
+
+```sh
+security add-generic-password -s bakhyard -a vapid-key -w "$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
+```
+
+Then open Nudge in the app on the phone, add the app to the Home Screen and turn notifications on. The agents' side, `tools/nudge`, is in [Nudge](#nudge).
 
 ## The test database
 
@@ -170,3 +180,7 @@ To let another account in, for example after the address moved to a new Google a
 ```sql
 DELETE FROM pins WHERE email = 'you@example.com';
 ```
+
+## Nudge
+
+`mise run build` builds `tools/nudge` into `bin/tools/nudge`, the agents' command: `nudge ask`, `nudge mcp` and `nudge setup SERVER`. Run `nudge setup` with the app's `https://` address on each machine where an agent runs; it writes the `server` into `settings.json`, adds the MCP server and the skill to the agent. The agents reach the server's `/agent` path with the machine's Tailscale login, with no other key (decision 164).

@@ -1,5 +1,5 @@
 /** An app's id: the name of its service, and of its page (plan §4.3). */
-export type AppId = 'notes' | 'todos' | 'pulls' | 'time' | 'github' | 'games' | 'planner';
+export type AppId = 'notes' | 'todos' | 'pulls' | 'time' | 'github' | 'games' | 'planner' | 'nudge';
 
 export interface App {
   id: AppId;
@@ -19,6 +19,7 @@ const catalogue: readonly Omit<App, 'number'>[] = [
   { id: 'github', label: 'GitHub', name: 'GitHub', description: 'PRs, reviews and issues across owners' },
   { id: 'games', label: 'Games', name: 'Games', description: 'Backloggd and Exophase' },
   { id: 'planner', label: 'Planner', name: 'Planner', description: 'Copilot plans saved to the vault' },
+  { id: 'nudge', label: 'Nudge', name: 'Nudge', description: 'Questions from your agents, answered on your phone' },
 ];
 
 /** Every app, in the order the nav and the Home list them. */

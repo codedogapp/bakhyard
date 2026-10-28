@@ -26,7 +26,7 @@ test('gives Home, Notes, Todos and PRs a tab, then More', () => {
 });
 
 test('lists the other apps under More', () => {
-  expect(moreApps.map((app) => app.id)).toEqual(['time', 'github', 'games', 'planner']);
+  expect(moreApps.map((app) => app.id)).toEqual(['time', 'github', 'games', 'planner', 'nudge']);
 });
 
 test.each([
@@ -39,6 +39,7 @@ test.each([
   { path: '/github', want: [['More', 'true']] },
   { path: '/games/zelda', want: [['More', 'true']] },
   { path: '/planner', want: [['More', 'true']] },
+  { path: '/nudge', want: [['More', 'true']] },
   { path: '/more-ideas', want: [] },
   { path: '/elsewhere', want: [] },
 ])('marks the current tab at $path', ({ path, want }) => {

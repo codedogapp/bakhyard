@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -21,6 +22,7 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 	}
 	home, notes := service("home"), service("notes")
 	pulls, todos := service("pulls"), service("todos")
+	notify, nudge := service("notify"), service("nudge")
 
 	web := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		t.Errorf("web got %s %s, want nothing", r.Method, r.URL.Path)
@@ -30,6 +32,8 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 	vars, items := gatewayEnv(t, web.URL)
 	vars["BAKHYARD_PEERS"] = "home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
 		",notes=tcp://" + strings.TrimPrefix(notes.URL, "http://") +
+		",notify=tcp://" + strings.TrimPrefix(notify.URL, "http://") +
+		",nudge=tcp://" + strings.TrimPrefix(nudge.URL, "http://") +
 		",pulls=tcp://" + strings.TrimPrefix(pulls.URL, "http://") +
 		",todos=tcp://" + strings.TrimPrefix(todos.URL, "http://") +
 		",web=tcp://" + strings.TrimPrefix(web.URL, "http://")
@@ -49,6 +53,8 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 		{http.MethodPost, "/api/pulls", "pulls got POST /pulls"},
 		{http.MethodGet, "/api/todos", "todos got GET /todos"},
 		{http.MethodPost, "/api/todos", "todos got POST /todos"},
+		{http.MethodGet, "/api/notify/key", "notify got GET /notify/key"},
+		{http.MethodGet, "/api/nudge/state", "nudge got GET /nudge/state"},
 	} {
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, withSession(signedIn(t, test.method, test.target), token))
@@ -68,17 +74,27 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 	}
 }
 
+// withPeers returns BAKHYARD_PEERS with every peer but those in lacking.
+func withPeers(lacking ...string) string {
+	var peers []string
+
+	for _, name := range []string{"home", "notes", "notify", "nudge", "pulls", "todos", "web"} {
+		if !slices.Contains(lacking, name) {
+			peers = append(peers, name+"=tcp://127.0.0.1:1")
+		}
+	}
+
+	return strings.Join(peers, ",")
+}
+
 func TestTheGatewayNeedsItsPeers(t *testing.T) {
 	// The error names every peer that BAKHYARD_PEERS lacks, one per line.
 	for peers, missing := range map[string][]string{
-		"home=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1,web=tcp://127.0.0.1:2": {
-			"notes",
-		},
-		"home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1,web=tcp://127.0.0.1:2": {
-			"pulls",
-		},
-		"home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,web=tcp://127.0.0.1:2": {"pulls", "todos"},
-		"": {"home", "notes", "pulls", "todos", "web"},
+		withPeers("notes"):           {"notes"},
+		withPeers("pulls"):           {"pulls"},
+		withPeers("notify", "nudge"): {"notify", "nudge"},
+		withPeers("pulls", "todos"):  {"pulls", "todos"},
+		"":                           {"home", "notes", "notify", "nudge", "pulls", "todos", "web"},
 	} {
 		vars, items := gatewayEnv(t, "http://127.0.0.1:2")
 		vars["BAKHYARD_PEERS"] = peers

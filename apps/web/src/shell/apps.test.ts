@@ -11,6 +11,7 @@ test('numbers the apps in the order of plan §7', () => {
     ['05', 'github', 'GitHub', 'GitHub'],
     ['06', 'games', 'Games', 'Games'],
     ['07', 'planner', 'Planner', 'Planner'],
+    ['08', 'nudge', 'Nudge', 'Nudge'],
   ]);
 });
 
