@@ -16,7 +16,7 @@ func TestTheListNamesEveryFile(t *testing.T) {
 		{"none", nil, `{"files":[]}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			router, _ := newRouter(t, vaultWith(t), test.files)
+			router, _ := newRouter(t, vaultWith(t, test.files...).Name())
 			rec := get(t, router, "/notes", nil)
 
 			if rec.Code != http.StatusOK || rec.Body.String() != test.want ||
@@ -29,7 +29,7 @@ func TestTheListNamesEveryFile(t *testing.T) {
 }
 
 func TestEachPathTakesOnlyItsMethod(t *testing.T) {
-	router, _ := newRouter(t, vaultWith(t, "Inbox.md"), []string{"Inbox.md"})
+	router, _ := newRouter(t, vaultWith(t, "Inbox.md").Name())
 
 	for _, test := range []struct {
 		target  string

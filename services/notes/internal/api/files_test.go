@@ -22,7 +22,7 @@ func TestAListedFileComesWithItsHeaders(t *testing.T) {
 		"img/photo.png":  "image/png",
 	} {
 		t.Run(name, func(t *testing.T) {
-			router, _ := newRouter(t, vaultWith(t, name), []string{name})
+			router, _ := newRouter(t, vaultWith(t, name).Name())
 			rec := get(t, router, "/notes/files/"+name, nil)
 
 			if rec.Code != http.StatusOK || rec.Body.String() != text(name) {
@@ -49,7 +49,7 @@ func TestAListedFileComesWithItsHeaders(t *testing.T) {
 
 func TestEscapedNamesAreServed(t *testing.T) {
 	names := []string{"With space.md", "Why?.md", "C#.md", "100%.md", "I'm, here.md", "Café/日本.md"}
-	router, _ := newRouter(t, vaultWith(t, names...), names)
+	router, _ := newRouter(t, vaultWith(t, names...).Name())
 
 	for target, name := range map[string]string{
 		"/notes/files/With%20space.md": "With space.md",
@@ -70,15 +70,18 @@ func TestEscapedNamesAreServed(t *testing.T) {
 }
 
 func TestOnlyListedRegularFilesAreServed(t *testing.T) {
-	root := vaultWith(t, "Note.md", "Gone.md", "Moved.md", "Unlisted.md", ".obsidian/app.json",
-		"Daily/Today.md")
+	root := vaultWith(t, "Note.md", "Gone.md", "Moved.md", ".obsidian/app.json", "Daily/Today.md")
 	if err := root.Symlink("Note.md", "Link.md"); err != nil {
 		t.Fatal(err)
 	}
 
-	router, _ := newRouter(t, root, []string{"Note.md", "Gone.md", "Moved.md", "Daily/Today.md"})
+	router, _ := newRouter(t, root.Name())
 
-	// After the scan, one listed file is deleted and another becomes a folder.
+	// After the scan, a file is added, one listed file is deleted and another becomes a folder.
+	if err := root.WriteFile("Unlisted.md", []byte(text("Unlisted.md")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := root.Remove("Gone.md"); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +106,7 @@ func TestOnlyListedRegularFilesAreServed(t *testing.T) {
 
 func TestAFileThatCantBeReadIsAServerError(t *testing.T) {
 	root := vaultWith(t, "Locked.md")
-	router, log := newRouter(t, root, []string{"Locked.md"})
+	router, log := newRouter(t, root.Name())
 
 	if err := root.Chmod("Locked.md", 0); err != nil {
 		t.Fatal(err)
@@ -119,7 +122,7 @@ func TestAFileThatCantBeReadIsAServerError(t *testing.T) {
 }
 
 func TestAFileAnswersConditionalAndRangeRequests(t *testing.T) {
-	router, _ := newRouter(t, vaultWith(t, "Note.md"), []string{"Note.md"})
+	router, _ := newRouter(t, vaultWith(t, "Note.md").Name())
 	modified := get(t, router, "/notes/files/Note.md", nil).Header().Get("Last-Modified")
 
 	for _, test := range []struct {
@@ -171,14 +174,16 @@ func vaultWith(t *testing.T, names ...string) *os.Root {
 // text is what the file name holds in a vault from vaultWith.
 func text(name string) string { return "# " + name }
 
-// newRouter returns a router that serves root with the list files, and the log it writes.
-func newRouter(t *testing.T, root *os.Root, files []string) (http.Handler, *bytes.Buffer) {
+// newRouter returns a router that serves the vault in folder, and the log it writes.
+func newRouter(t *testing.T, folder string) (http.Handler, *bytes.Buffer) {
 	t.Helper()
 
 	var log bytes.Buffer
 
 	router := chi.NewRouter()
-	api.Register(router, root, files, slog.New(slog.NewTextHandler(&log, nil)))
+	if err := api.Register(router, folder, slog.New(slog.NewTextHandler(&log, nil))); err != nil {
+		t.Fatal(err)
+	}
 
 	return router, &log
 }
