@@ -29,6 +29,33 @@ func TestTodosListsItsTodosWhoseTicketIsDoneAsAttentionItems(t *testing.T) {
 	}
 }
 
+func TestTodosListsItsJiraInboxUntilItsTicketIsDismissed(t *testing.T) {
+	getenv, readSecret := jiraEnv(t, jiraServer(t))
+	addTodo(t, getenv, readSecret, "WEB-3")
+	router := served(t, getenv, readSecret)
+
+	want := []string{
+		"PAY-1 | Pay | PAY-1 · In the Jira inbox | SOURCE_JIRA",
+		"1 | Ship | WEB-3 · Done in Jira | SOURCE_JIRA",
+	}
+	if got := listItems(t, router); !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/todos/dismissals/PAY-1",
+		http.NoBody)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("got %d %q, want PAY-1 dismissed", rec.Code, rec.Body)
+	}
+
+	if got := listItems(t, router); !slices.Equal(got, want[1:]) {
+		t.Errorf("after the dismissal, got %q, want %q", got, want[1:])
+	}
+}
+
 func TestTodosListsItsHighTodosAsAttentionItemsWithoutJira(t *testing.T) {
 	database, items := todosEnv(t)
 	router := served(t, database, secretsWith(items))

@@ -24,7 +24,7 @@ func TestListItemsListsTheHighTodosBeforeAPollSucceeds(t *testing.T) {
 			done: []jira.Ticket{webNine},
 		})
 
-		got := list(t, todosOf(someTodos...), tickets)
+		got := list(t, todosOf(someTodos...), unread(t), tickets)
 
 		want := []string{callTheBank, shipTheExport, deployHigh}
 		if !slices.Equal(got, want) {
@@ -33,7 +33,7 @@ func TestListItemsListsTheHighTodosBeforeAPollSucceeds(t *testing.T) {
 	})
 }
 
-func TestListItemsKeepsTheDoneTicketsOfTheLastPollToSucceed(t *testing.T) {
+func TestListItemsKeepsWhatTheLastPollToSucceedFound(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		polls := 0
 		tickets := started(t, fakeJira{
@@ -43,18 +43,18 @@ func TestListItemsKeepsTheDoneTicketsOfTheLastPollToSucceed(t *testing.T) {
 					return nil, errors.New("jira is down")
 				}
 
-				return nil, nil
+				return []jira.Ticket{payOne}, nil
 			},
 			done: []jira.Ticket{webNine},
 		})
 
-		list(t, todosOf(someTodos...), tickets)
+		list(t, todosOf(someTodos...), dismissedOf(), tickets)
 		time.Sleep(5 * time.Minute)
 		synctest.Wait()
 
-		got := list(t, todosOf(someTodos...), tickets)
+		got := list(t, todosOf(someTodos...), dismissedOf(), tickets)
 
-		want := []string{callTheBank, fixTheLogin, shipTheExport, deployTheFix}
+		want := []string{payTheInvoice, callTheBank, fixTheLogin, shipTheExport, deployTheFix}
 		if polls != 2 || !slices.Equal(got, want) {
 			t.Errorf("after %d polls, got %q, want %q", polls, got, want)
 		}
@@ -83,8 +83,8 @@ func TestListItemsWaitsForTheFirstPollBeforeReadingTheTodos(t *testing.T) {
 		listed := make(chan answer)
 
 		go func() {
-			res, err := attention.NewLister(noted(&read), tickets).ListItems(t.Context(),
-				&attentionv1.ListItemsRequest{})
+			res, err := attention.NewLister(noted(&read), unread(t), tickets).ListItems(
+				t.Context(), &attentionv1.ListItemsRequest{})
 			listed <- answer{res, err}
 		}()
 
@@ -119,7 +119,7 @@ func TestListItemsStopsWaitingWhenItsContextEnds(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
-		res, err := attention.NewLister(noted(&read), tickets).ListItems(ctx,
+		res, err := attention.NewLister(noted(&read), unread(t), tickets).ListItems(ctx,
 			&attentionv1.ListItemsRequest{})
 		if !errors.Is(err, context.DeadlineExceeded) || res != nil || read.Load() {
 			t.Errorf("got %v and %v, read the todos: %t; want no answer, the context's error "+
