@@ -1,0 +1,56 @@
+# Builds each service's image with the cluster's BuildKit and pushes it to Gitea's registry, on every
+# mirror sync that brings a push to main, and on demand, in the homelab's Gitea, which mirrors this
+# repository (docs/plan.md, decisions 138, 152 and 153). GitHub ignores .gitea/.
+name: images
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BUILDKIT_HOST: tcp://buildkitd.buildkit.svc:1234
+      # renovate: datasource=github-releases depName=moby/buildkit
+      BUILDKIT_VERSION: v0.34.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Name the images
+        run: |
+          # Gitea's own address, so that the tailnet's name stays out of this public repo.
+          echo "REGISTRY=${GITHUB_SERVER_URL#https://}" >> "$GITHUB_ENV"
+          # Flux rolls out the tag with the newest commit time (decision 152).
+          echo "TAG=main-$(git show -s --format=%ct "$GITHUB_SHA")-${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+      - name: Install buildctl
+        run: |
+          curl -fsSL "https://github.com/moby/buildkit/releases/download/$BUILDKIT_VERSION/buildkit-$BUILDKIT_VERSION.linux-amd64.tar.gz" \
+            | tar -xz -C /usr/local bin/buildctl
+      - name: Log in to the registry
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          # Gitea takes a token given as the password whatever the user name, so the name is a placeholder.
+          mkdir -p ~/.docker
+          auth=$(printf 'token:%s' "$TOKEN" | base64 -w0)
+          printf '{"auths":{"%s":{"auth":"%s"}}}' "$REGISTRY" "$auth" > ~/.docker/config.json
+      - name: Build and push
+        run: |
+          for service in gateway home notes pulls todos web; do
+            image="$REGISTRY/codedogapp/bakhyard/$service"
+            buildctl build --frontend dockerfile.v0 \
+              --local context=. --local "dockerfile=services/$service" \
+              --opt platform=linux/amd64 \
+              --output "type=image,\"name=$image:main,$image:$TAG\",push=true"
+          done

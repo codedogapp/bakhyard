@@ -1,0 +1,14 @@
+.git
+.github
+.gitea
+**/.DS_Store
+docs
+bin
+coverage.out
+mise.local.toml
+**/node_modules
+apps/web/.svelte-check
+apps/web/coverage
+apps/web/test-results
+apps/web/playwright-report
+services/web/dist/app
