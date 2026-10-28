@@ -1,8 +1,10 @@
 package api_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -17,7 +19,7 @@ func TestASyncPicksUpTheVaultAsItIsNow(t *testing.T) {
 
 	want := `{"files":["New.md"]}`
 	for name, rec := range map[string]*httptest.ResponseRecorder{
-		"the sync":          post(t, router, "/notes/sync"),
+		"the sync":          postSync(t, router),
 		"the list after it": get(t, router, "/notes", nil),
 	} {
 		if rec.Code != http.StatusOK || rec.Body.String() != want ||
@@ -39,19 +41,10 @@ func TestASyncPicksUpTheVaultAsItIsNow(t *testing.T) {
 
 func TestAFailedSyncKeepsTheList(t *testing.T) {
 	root := vaultWith(t, "Note.md", "Locked/Inside.md")
-	router, log := newRouter(t, root, []string{"Locked/Inside.md", "Note.md"})
+	router, log := newRouter(t, root.Name())
+	lock(t, root, "Locked")
 
-	if err := root.Chmod("Locked", 0); err != nil {
-		t.Fatal(err)
-	}
-	// Runs before the vault's own cleanup, which must read the folder to remove it.
-	t.Cleanup(func() {
-		if err := root.Chmod("Locked", 0o700); err != nil {
-			t.Error(err)
-		}
-	})
-
-	rec := post(t, router, "/notes/sync")
+	rec := postSync(t, router)
 	if rec.Code != http.StatusInternalServerError ||
 		strings.Contains(rec.Body.String(), "Locked") ||
 		!strings.Contains(log.String(), "Locked: permission denied") {
@@ -70,28 +63,45 @@ func TestAFailedSyncKeepsTheList(t *testing.T) {
 }
 
 func TestSyncsAndReadsCanOverlap(t *testing.T) {
-	router, _ := newRouter(t, vaultWith(t, "Note.md"), []string{"Note.md"})
+	router, _ := newRouter(t, vaultWith(t, "Note.md").Name())
+	syncing, stop := context.WithCancel(t.Context())
 
-	var requests sync.WaitGroup
-	for range 10 {
-		requests.Go(func() {
-			if rec := post(t, router, "/notes/sync"); rec.Code != http.StatusOK {
-				t.Errorf("sync: got %d, want 200", rec.Code)
-			}
-		})
-		requests.Go(func() {
-			if rec := get(t, router, "/notes", nil); rec.Code != http.StatusOK {
-				t.Errorf("list: got %d, want 200", rec.Code)
-			}
-		})
-		requests.Go(func() {
-			if rec := get(t, router, "/notes/files/Note.md", nil); rec.Code != http.StatusOK {
-				t.Errorf("file: got %d, want 200", rec.Code)
+	// The reads go on until the syncs end, so that every swap and close lands amid them.
+	var reads sync.WaitGroup
+	for range 4 {
+		reads.Go(func() { readUntil(syncing, t, router) })
+	}
+
+	// Two at a time, so that the syncs overlap too.
+	var syncs sync.WaitGroup
+	for range 2 {
+		syncs.Go(func() {
+			for range 200 {
+				if rec := postSync(t, router); rec.Code != http.StatusOK {
+					t.Errorf("sync: got %d, want 200", rec.Code)
+				}
 			}
 		})
 	}
 
-	requests.Wait()
+	syncs.Wait()
+	stop()
+	reads.Wait()
+}
+
+// readUntil reads the list and a file from router until ctx ends, or until a read fails.
+func readUntil(ctx context.Context, t *testing.T, router http.Handler) {
+	t.Helper()
+
+	for ctx.Err() == nil {
+		for _, target := range []string{"/notes", "/notes/files/Note.md"} {
+			if rec := get(t, router, target, nil); rec.Code != http.StatusOK {
+				t.Errorf("GET %s: got %d, want 200", target, rec.Code)
+
+				return
+			}
+		}
+	}
 }
 
 // changedVault returns a router whose list names Old.md, over a vault that has since swapped it
@@ -100,7 +110,7 @@ func changedVault(t *testing.T) http.Handler {
 	t.Helper()
 
 	root := vaultWith(t, "Old.md")
-	router, _ := newRouter(t, root, []string{"Old.md"})
+	router, _ := newRouter(t, root.Name())
 
 	if err := root.WriteFile("New.md", []byte(text("New.md")), 0o600); err != nil {
 		t.Fatal(err)
@@ -113,12 +123,28 @@ func changedVault(t *testing.T) http.Handler {
 	return router
 }
 
-// post sends POST target to router, and returns the answer.
-func post(t *testing.T, router http.Handler, target string) *httptest.ResponseRecorder {
+// lock makes the folder name in root unreadable until the test ends.
+func lock(t *testing.T, root *os.Root, name string) {
+	t.Helper()
+
+	if err := root.Chmod(name, 0); err != nil {
+		t.Fatal(err)
+	}
+	// Runs before the vault's own cleanup, which must read the folder to remove it.
+	t.Cleanup(func() {
+		if err := root.Chmod(name, 0o700); err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+// postSync sends POST /notes/sync to router, and returns the answer.
+func postSync(t *testing.T, router http.Handler) *httptest.ResponseRecorder {
 	t.Helper()
 
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, target, nil))
+	router.ServeHTTP(rec,
+		httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/notes/sync", nil))
 
 	return rec
 }

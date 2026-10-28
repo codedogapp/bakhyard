@@ -18,19 +18,14 @@ const filesPath = "/notes/files/"
 // vault files share the app's origin (decision 92).
 const fileCSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
-// serveFile returns the handler of GET /notes/files/<path>: it answers the file at <path> in root
-// if idx's latest scan lists it, and 404 otherwise.
-func serveFile(root *os.Root, idx *index, logger *slog.Logger) http.HandlerFunc {
+// serveFile returns the handler of GET /notes/files/<path>: it answers the file at <path>, read
+// through the root of idx's latest scan, if that scan lists it, and 404 otherwise.
+func serveFile(idx *index, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// The decoded path, so that a name escaped in the URL, such as %3F for ?, matches the list.
 		name := strings.TrimPrefix(r.URL.Path, filesPath)
-		if !idx.current().listed[name] {
-			http.NotFound(w, r)
 
-			return
-		}
-
-		file, info, err := open(root, name)
+		file, info, err := idx.open(name)
 		if errors.Is(err, fs.ErrNotExist) {
 			http.NotFound(w, r)
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json/v2"
 	"log/slog"
 	"net/http"
-	"os"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -15,24 +14,30 @@ type list struct {
 	Files []string `json:"files"`
 }
 
-// Register serves the vault in root on router: GET /notes lists its files, starting with files,
-// GET /notes/files/<path> returns one of them, and POST /notes/sync scans the vault again. Other
-// methods get 405, and logger gets the errors that reading the vault runs into.
-func Register(router chi.Router, root *os.Root, files []string, logger *slog.Logger) {
-	idx := newIndex(root, files)
+// Register scans the vault in folder, and fails if it can't. Then it serves the vault on router:
+// GET /notes lists its files, GET /notes/files/<path> returns one of them, and POST /notes/sync
+// scans the vault again. Other methods get 405, and logger gets the errors that reading the vault
+// runs into.
+func Register(router chi.Router, folder string, logger *slog.Logger) error {
+	idx, err := newIndex(folder)
+	if err != nil {
+		return err
+	}
 
 	router.Get("/notes", func(w http.ResponseWriter, _ *http.Request) {
-		writeList(w, idx.current().files)
+		writeList(w, idx.files())
 	})
-	router.Get(filesPath+"*", serveFile(root, idx, logger))
+	router.Get(filesPath+"*", serveFile(idx, logger))
 	router.Post("/notes/sync", syncVault(idx, logger))
+
+	return nil
 }
 
 // syncVault returns the handler of POST /notes/sync: it scans the vault again and answers the new
 // list. When the scan fails, the client gets a 500, logger gets the cause, and the list stays.
 func syncVault(idx *index, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		latest, err := idx.rescan()
+		files, err := idx.rescan()
 		if err != nil {
 			logger.ErrorContext(r.Context(), "sync the vault", "err", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError),
@@ -41,7 +46,7 @@ func syncVault(idx *index, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		writeList(w, latest.files)
+		writeList(w, files)
 	}
 }
 
