@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import type { Snapshot } from '../src/todos/tickets';
 
@@ -24,18 +24,5 @@ export async function answerDismissals(page: Page, dismissed: string[] | number 
 export async function answerTickets(page: Page, snapshot: Snapshot | number) {
   await page.route('/api/todos/tickets', (route) =>
     typeof snapshot === 'number' ? route.fulfill({ status: snapshot }) : route.fulfill({ json: snapshot })
-  );
-}
-
-/** How each chip looks: filled with the ink, or outlined in it with its text in the ink; else its background. */
-export function chipLooks(chips: Locator): Promise<string[]> {
-  return chips.evaluateAll((all) =>
-    all.map((chip) => {
-      const { backgroundColor, borderTopColor, color } = getComputedStyle(chip);
-      if (backgroundColor === borderTopColor) {
-        return 'filled';
-      }
-      return backgroundColor === 'rgba(0, 0, 0, 0)' && color === borderTopColor ? 'outlined' : backgroundColor;
-    })
   );
 }

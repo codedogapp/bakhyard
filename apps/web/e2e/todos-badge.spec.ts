@@ -2,10 +2,11 @@ import type { Page } from '@playwright/test';
 
 import type { Todo } from '../src/todos/api';
 import { bounds } from './bounds';
+import { chipLooks } from './chips';
 import { home, tickets } from './demo';
 import { expect, test } from './fixtures';
 import { group } from './groups';
-import { answerDismissals, answerTickets, aTodo, chipLooks } from './jira';
+import { answerDismissals, answerTickets, aTodo } from './jira';
 
 /** Made-up todos: two name open tickets of the demo's snapshot, one a ticket that isn't open, one none. */
 const linked: Todo[] = [

@@ -8,16 +8,18 @@ export type Page =
   | { kind: 'notes' }
   | { kind: 'note'; note: Note }
   | { kind: 'todos' }
+  | { kind: 'pulls' }
   | { kind: 'app'; app: App }
   | { kind: 'more' }
   | { kind: 'missing' };
 
 const notesHref = appHref('notes');
 const todosHref = appHref('todos');
+const pullsHref = appHref('pulls');
 
 /**
  * The page at path. The Notes app's path shows the notes, and the paths under it their notes; the Todos app's paths
- * show the todos; another app's paths show its page, as the nav marks it.
+ * show the todos, and the PRs app's my PRs; another app's paths show its page, as the nav marks it.
  */
 export function pageAt(path: string): Page {
   if (path === '/') {
@@ -31,6 +33,9 @@ export function pageAt(path: string): Page {
   }
   if (isCurrent(todosHref, path)) {
     return { kind: 'todos' };
+  }
+  if (isCurrent(pullsHref, path)) {
+    return { kind: 'pulls' };
   }
   if (isCurrent(moreHref, path)) {
     return { kind: 'more' };
@@ -61,6 +66,8 @@ export function pageTitle(page: Page): string {
       return `${page.note.title} · ${siteName}`;
     case 'todos':
       return `Todos · ${siteName}`;
+    case 'pulls':
+      return `Pull requests · ${siteName}`;
     case 'app':
       return `${page.app.name} · ${siteName}`;
     case 'more':

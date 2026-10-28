@@ -1,9 +1,10 @@
 import type { Page } from '@playwright/test';
 
+import { chipLooks } from './chips';
 import { home, tickets, todos } from './demo';
 import { expect, test } from './fixtures';
 import { group, heads } from './groups';
-import { answerDismissals, answerTickets, chipLooks } from './jira';
+import { answerDismissals, answerTickets } from './jira';
 
 /** The Todos page's Jira section. */
 function jira(page: Page) {

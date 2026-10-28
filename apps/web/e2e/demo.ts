@@ -1,4 +1,5 @@
 import type { Home } from '../src/home/api';
+import type { Snapshot as Pulls } from '../src/pulls/pulls';
 import type { Todo } from '../src/todos/api';
 import type { Snapshot } from '../src/todos/tickets';
 
@@ -57,6 +58,34 @@ export const tickets: Snapshot = {
       status: 'To Do',
       category: 'to-do',
       url: 'https://jira.example.com/browse/OPS-31',
+    },
+  ],
+  searched: '2026-10-21T00:38:00Z',
+};
+
+/** A made-up user's open PRs on Bitbucket, the latest updated first, as the pulls service found them three minutes before the tests' time. */
+export const pulls: Pulls = {
+  pulls: [
+    {
+      id: 128,
+      title: 'WEB-12 Show the order history on the account page',
+      repo: 'acme/web',
+      url: 'https://bitbucket.org/acme/web/pull-requests/128',
+      draft: false,
+    },
+    {
+      id: 41,
+      title: 'Retry the payment webhook after a timeout',
+      repo: 'acme/payments',
+      url: 'https://bitbucket.org/acme/payments/pull-requests/41',
+      draft: true,
+    },
+    {
+      id: 126,
+      title: 'WEB-9 Fix the date picker in Safari',
+      repo: 'acme/web',
+      url: 'https://bitbucket.org/acme/web/pull-requests/126',
+      draft: false,
     },
   ],
   searched: '2026-10-21T00:38:00Z',
