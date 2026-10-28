@@ -59,7 +59,7 @@ func TestNewOrdersByUrgency(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			home := screen.New("", test.items, screen.Week{}, now)
+			home := screen.New("", test.items, now)
 
 			if got := ids(home.Items); !slices.Equal(got, test.want) {
 				t.Errorf("order = %v, want %v", got, test.want)
@@ -85,7 +85,7 @@ func TestNewName(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			home := screen.New(test.input, nil, screen.Week{}, time.Time{})
+			home := screen.New(test.input, nil, time.Time{})
 
 			if home.Name != test.want {
 				t.Errorf("name = %q, want %q", home.Name, test.want)
@@ -104,22 +104,21 @@ func TestNewMarksLateItems(t *testing.T) {
 	}
 	want := map[string]bool{"a/past": true, "a/now": false, "a/future": false, "a/none": false}
 
-	for _, item := range screen.New("", items, screen.Week{}, now).Items {
+	for _, item := range screen.New("", items, now).Items {
 		if item.Late != want[item.ID] {
 			t.Errorf("%s: late = %t, want %t", item.ID, item.Late, want[item.ID])
 		}
 	}
 }
 
-func TestNewKeepsInputAndWeek(t *testing.T) {
+func TestNewKeepsTheInput(t *testing.T) {
 	now := time.Date(2026, time.October, 18, 9, 0, 0, 0, time.UTC)
 	items := []screen.Item{
 		{ID: "a/2", Due: now.Add(-time.Hour)},
 		{ID: "a/1", Due: now.Add(-2 * time.Hour)},
 	}
-	week := screen.Week{LoggedHours: 1, TargetHours: 2}
 
-	home := screen.New("", items, week, now)
+	screen.New("", items, now)
 
 	if got := ids(items); !slices.Equal(got, []string{"a/2", "a/1"}) {
 		t.Errorf("input order = %v, want it unchanged", got)
@@ -127,10 +126,6 @@ func TestNewKeepsInputAndWeek(t *testing.T) {
 
 	if items[0].Late || items[1].Late {
 		t.Error("input items marked late, want them unchanged")
-	}
-
-	if home.Week != week {
-		t.Errorf("week = %+v, want %+v", home.Week, week)
 	}
 }
 
