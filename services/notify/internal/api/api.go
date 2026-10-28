@@ -18,8 +18,8 @@ import (
 // maxBody is the largest body notify reads: 64 KiB, many times a subscription or a message.
 const maxBody = 64 << 10
 
-// Subscriptions keeps the devices' subscriptions.
-type Subscriptions interface {
+// Adder keeps a device's subscription.
+type Adder interface {
 	Add(ctx context.Context, sub subscription.Subscription) error
 }
 
@@ -30,7 +30,7 @@ type Sender interface {
 
 // Backends are what notify's endpoints run on.
 type Backends struct {
-	Devices Subscriptions
+	Devices Adder
 	Sender  Sender
 }
 

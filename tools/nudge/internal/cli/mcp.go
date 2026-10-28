@@ -23,7 +23,9 @@ func runMCP(ctx context.Context, env Env) int {
 	defer stop()
 
 	label := project(env)
-	reporter := door.NewReporter(ctx, client, label)
+
+	reporter := door.NewReporter(client, label)
+	defer reporter.Close()
 
 	ask := func(ctx context.Context, question door.Question) (door.Answer, error) {
 		question.ID, question.Project = uuid.New().String(), label

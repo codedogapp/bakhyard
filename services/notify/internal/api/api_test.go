@@ -34,7 +34,7 @@ func (f *fakeSender) Send(_ context.Context, message push.Message) error {
 }
 
 func serve(
-	t *testing.T, devices api.Subscriptions, sender api.Sender,
+	t *testing.T, devices api.Adder, sender api.Sender,
 ) (http.Handler, *bytes.Buffer) {
 	t.Helper()
 

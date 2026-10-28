@@ -1,6 +1,7 @@
 package phone
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -8,7 +9,7 @@ import (
 
 // events streams "changed" to the page whenever a question or a session changes, so that it reads
 // the state again. It lasts until the page leaves or the service stops.
-func (d Door) events(w http.ResponseWriter, r *http.Request) {
+func (d Door) events(stopping context.Context, w http.ResponseWriter, r *http.Request) {
 	flusher := http.NewResponseController(w)
 
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -36,7 +37,7 @@ func (d Door) events(w http.ResponseWriter, r *http.Request) {
 			message = ": still here\n\n"
 		case <-r.Context().Done():
 			return
-		case <-d.Stopping.Done():
+		case <-stopping.Done():
 			return
 		}
 

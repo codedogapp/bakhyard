@@ -35,7 +35,7 @@ type asked struct {
 // that's there attaches to it, so an agent whose connection broke gets its answer without a
 // second push. A question that fails its rules gets a 400, one that was cancelled or expired
 // a 410, and a stopping service a 503.
-func (d Door) ask(w http.ResponseWriter, r *http.Request) {
+func (d Door) ask(stopping context.Context, w http.ResponseWriter, r *http.Request) {
 	var body asked
 	if !readBody(w, r, &body, "question") {
 		return
@@ -44,7 +44,7 @@ func (d Door) ask(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancelCause(r.Context())
 	defer cancel(nil)
 
-	stop := context.AfterFunc(d.Stopping, func() { cancel(errStopping) })
+	stop := context.AfterFunc(stopping, func() { cancel(errStopping) })
 	defer stop()
 
 	created, err := d.Questions.Ask(ctx, question.Question{

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json/v2"
 	"errors"
 	"net/http"
@@ -25,7 +26,7 @@ type report struct {
 
 // startSession starts a session and tells the agent its ID. It then holds the request open: the
 // session lasts until the agent leaves or the service stops.
-func (d Door) startSession(w http.ResponseWriter, r *http.Request) {
+func (d Door) startSession(stopping context.Context, w http.ResponseWriter, r *http.Request) {
 	var body start
 	if !readBody(w, r, &body, "start") {
 		return
@@ -46,7 +47,7 @@ func (d Door) startSession(w http.ResponseWriter, r *http.Request) {
 
 	select {
 	case <-r.Context().Done():
-	case <-d.Stopping.Done():
+	case <-stopping.Done():
 	}
 }
 

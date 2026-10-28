@@ -4,7 +4,10 @@ import type { State } from '../src/nudge/nudge';
 import { home, nudge } from './demo';
 import { expect, test } from './fixtures';
 
-/** What the page's calls to nudge get: the state it is given when it asks, and the answers it is sent. */
+/**
+ * What the page's calls to nudge get: the state it is given when it asks, and the answers it is sent. An answered
+ * question leaves the state, as it does in nudge.
+ */
 async function serve(page: Page, initial: State) {
   const served = { state: initial, answers: [] as { id: string; body: unknown }[] };
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
@@ -17,6 +20,7 @@ async function serve(page: Page, initial: State) {
   await page.route('/api/nudge/questions/*/answer', (route) => {
     const id = route.request().url().split('/').at(-2) ?? '';
     served.answers.push({ id, body: route.request().postDataJSON() });
+    served.state = { ...served.state, questions: served.state.questions.filter((question) => question.id !== id) };
     return route.fulfill({ status: 204 });
   });
   return served;
@@ -42,7 +46,8 @@ test('a tap on an option answers the question at once', async ({ page }) => {
   await page.goto('/nudge');
   await page.getByRole('button', { name: 'Yes' }).click();
 
-  await expect.poll(() => served.answers).toEqual([{ id: nudge.questions[0].id, body: { option: 'Yes' } }]);
+  await expect(page.getByRole('heading', { level: 3 })).toHaveText(['What should the weekly review be called?']);
+  expect(served.answers).toEqual([{ id: nudge.questions[0].id, body: { option: 'Yes' } }]);
 });
 
 test('a typed reply answers a question that has no options', async ({ page }) => {
@@ -52,7 +57,8 @@ test('a typed reply answers a question that has no options', async ({ page }) =>
   await field.fill('Friday wrap-up');
   await field.press('Enter');
 
-  await expect.poll(() => served.answers).toEqual([{ id: nudge.questions[1].id, body: { text: 'Friday wrap-up' } }]);
+  await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Merge the pull request?']);
+  expect(served.answers).toEqual([{ id: nudge.questions[1].id, body: { text: 'Friday wrap-up' } }]);
 });
 
 test('a question that arrives while the page is open shows without a reload', async ({ page }) => {
@@ -78,6 +84,7 @@ test('the page offers to turn notifications on, in a browser that can', async ({
 });
 
 test('the Nudge page is under More in the tab bar, and its card links to it', async ({ page }, testInfo) => {
+  // The tab bar is the phone layout.
   test.skip(testInfo.project.name !== 'phone', 'the tab bar is the phone layout');
   await serve(page, nudge);
   await page.goto('/nudge');
