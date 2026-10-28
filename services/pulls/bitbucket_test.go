@@ -19,7 +19,7 @@ func TestBitbucketClientListsEachWorkspaceInTheSettingsOnce(t *testing.T) {
 	settings[bitbucketWorkspacesVar] = " labs ,acme,labs"
 
 	client, err := bitbucketClient(envOf(settings),
-		keychainWith(map[string]string{"bitbucket-token": "secret"}))
+		secretsWith(map[string]string{"bitbucket-token": "secret"}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestBitbucketClientListsEachWorkspaceInTheSettingsOnce(t *testing.T) {
 }
 
 func TestBitbucketClientIsOffWithoutTheSettings(t *testing.T) {
-	client, err := bitbucketClient(envOf(nil), keychainWith(nil))
+	client, err := bitbucketClient(envOf(nil), secretsWith(nil))
 	if client != nil || err != nil {
 		t.Errorf("got %v, %v, want no client and no error", client, err)
 	}
@@ -61,8 +61,8 @@ func TestBitbucketClientRejects(t *testing.T) {
 		notSlugs("acme,,labs"), notSlugs("acme,"), notSlugs(" , "), notSlugs("."),
 		notSlugs("acme, .."),
 	} {
-		// No token: the settings are checked before the Keychain is read.
-		client, err := bitbucketClient(envOf(test.settings), keychainWith(nil))
+		// No token: the settings are checked before the token is read.
+		client, err := bitbucketClient(envOf(test.settings), secretsWith(nil))
 		if client != nil || err == nil || err.Error() != test.want {
 			t.Errorf("got %v, %v, want the error %s", client, err, test.want)
 		}
@@ -70,9 +70,9 @@ func TestBitbucketClientRejects(t *testing.T) {
 }
 
 func TestBitbucketClientNeedsTheToken(t *testing.T) {
-	client, err := bitbucketClient(envOf(bitbucketSettings(bitbucketAPI)), keychainWith(nil))
+	client, err := bitbucketClient(envOf(bitbucketSettings(bitbucketAPI)), secretsWith(nil))
 
-	want := "read the Bitbucket token: no Keychain item bakhyard/bitbucket-token"
+	want := "read the Bitbucket token: no secret bitbucket-token"
 	if client != nil || err == nil || err.Error() != want {
 		t.Errorf("got %v, %v, want the error %s", client, err, want)
 	}
@@ -100,7 +100,7 @@ func TestPullsStopsListingWhenItStops(t *testing.T) {
 }
 
 func TestPullsStopsOnABadBitbucketSetting(t *testing.T) {
-	_, err := routes(t.Context(), envOf(bitbucketWith(bitbucketEmailVar, "")), keychainWith(nil))
+	_, err := routes(t.Context(), envOf(bitbucketWith(bitbucketEmailVar, "")), secretsWith(nil))
 	if err == nil || err.Error() != "BAKHYARD_BITBUCKET_EMAIL is not set" {
 		t.Errorf("got %v, want the error BAKHYARD_BITBUCKET_EMAIL is not set", err)
 	}
@@ -168,7 +168,7 @@ func getMine(ctx context.Context, t *testing.T, address string) *httptest.Respon
 	t.Helper()
 
 	router, err := routes(ctx, envOf(bitbucketSettings(address)),
-		keychainWith(map[string]string{"bitbucket-token": "secret"}))
+		secretsWith(map[string]string{"bitbucket-token": "secret"}))
 	if err != nil {
 		t.Fatal(err)
 	}

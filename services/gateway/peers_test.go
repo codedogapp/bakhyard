@@ -88,7 +88,7 @@ func TestTheGatewayNeedsItsPeers(t *testing.T) {
 			lines = append(lines, `BAKHYARD_PEERS has no peer "`+name+`"`)
 		}
 
-		_, err := routes(func(key string) string { return vars[key] }, keychainWith(items))
+		_, err := routes(func(key string) string { return vars[key] }, secretsWith(items))
 		if want := strings.Join(lines, "\n"); err == nil || err.Error() != want {
 			t.Errorf("with the peers %q: got %v, want the error %q", peers, err, want)
 		}

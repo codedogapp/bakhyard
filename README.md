@@ -10,7 +10,7 @@ Each feature is a Go service of its own, in `services/`, behind a gateway that c
 
 ## Requirements
 
-- macOS, because the services read their secrets from the login Keychain.
+- macOS, because the services read their secrets from the login Keychain. On the laptop's k3s they read them from files instead ([docs/setup.md](docs/setup.md#local-settings)).
 - [mise](https://mise.jdx.dev), which installs every other tool at the version the repo pins.
 - [Tailscale](https://tailscale.com), on the Mac and on every device that opens the app.
 - PostgreSQL 18, on `127.0.0.1:5433`.

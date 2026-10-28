@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/codedogapp/bakhyard/internal/env"
+	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/services/pulls/internal/bitbucket"
 )
 
@@ -19,15 +20,14 @@ const (
 	bitbucketWorkspacesVar = "BAKHYARD_BITBUCKET_WORKSPACES"
 )
 
-// bitbucketAccount names the login Keychain item, under secretService, that holds the Bitbucket
-// API token.
+// bitbucketAccount is the Keychain account of the Bitbucket API token, and the name of its file.
 const bitbucketAccount = "bitbucket-token"
 
 // bitbucketClient returns the client of the Bitbucket workspaces in the settings, with the API
-// token from the Keychain, or nil when none of the Bitbucket settings is set.
+// token that readSecret reads, or nil when none of the Bitbucket settings is set.
 func bitbucketClient(
 	getenv func(string) string,
-	password passwordReader,
+	readSecret secrets.Reader,
 ) (*bitbucket.Client, error) {
 	settings := []string{bitbucketAPIVar, bitbucketEmailVar, bitbucketWorkspacesVar}
 	if !slices.ContainsFunc(settings, func(name string) bool { return getenv(name) != "" }) {
@@ -49,7 +49,7 @@ func bitbucketClient(
 		return nil, err
 	}
 
-	token, err := password(context.Background(), secretService, bitbucketAccount)
+	token, err := readSecret(context.Background(), bitbucketAccount)
 	if err != nil {
 		return nil, fmt.Errorf("read the Bitbucket token: %w", err)
 	}

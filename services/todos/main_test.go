@@ -9,12 +9,13 @@ import (
 	"testing"
 
 	"github.com/codedogapp/bakhyard/internal/databasetest"
+	"github.com/codedogapp/bakhyard/internal/secrets"
 )
 
 func TestTodosServesTheTodos(t *testing.T) {
 	database, items := todosEnv(t)
 
-	router, err := routes(t.Context(), database, keychainWith(items))
+	router, err := routes(t.Context(), database, secretsWith(items))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +60,7 @@ func TestTodosStartsAgainOnItsMigratedDatabase(t *testing.T) {
 
 	// The second start finds the migrations done; running them again would fail.
 	for range 2 {
-		_, err := routes(t.Context(), database, keychainWith(items))
+		_, err := routes(t.Context(), database, secretsWith(items))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,10 +78,10 @@ func TestTodosNeedsItsDatabase(t *testing.T) {
 		want     string
 	}{
 		{"", items, "BAKHYARD_DATABASE is not set"},
-		{unreachable, nil, "read the database password: no Keychain item bakhyard/postgres-todos"},
+		{unreachable, nil, "read the database password: no secret postgres-todos"},
 		{unreachable, items, "reach the database: "},
 	} {
-		_, err := routes(t.Context(), databaseAt(test.database), keychainWith(test.items))
+		_, err := routes(t.Context(), databaseAt(test.database), secretsWith(test.items))
 		if err == nil || !strings.HasPrefix(err.Error(), test.want) {
 			t.Errorf("with the database %q and the items %v: got %v, want an error that starts "+
 				"with %s", test.database, test.items, err, test.want)
@@ -88,8 +89,7 @@ func TestTodosNeedsItsDatabase(t *testing.T) {
 	}
 }
 
-// todosEnv returns todos' environment and Keychain items, with the database in a schema of its
-// own.
+// todosEnv returns todos' environment and secrets, with the database in a schema of its own.
 func todosEnv(t *testing.T) (func(string) string, map[string]string) {
 	t.Helper()
 
@@ -103,13 +103,12 @@ func databaseAt(address string) func(string) string {
 	return func(name string) string { return map[string]string{databaseVar: address}[name] }
 }
 
-// keychainWith returns a fake Keychain reader that has only items, by account, under the
-// service bakhyard.
-func keychainWith(items map[string]string) passwordReader {
-	return func(_ context.Context, service, account string) (string, error) {
-		secret, ok := items[account]
-		if service != "bakhyard" || !ok {
-			return "", fmt.Errorf("no Keychain item %s/%s", service, account)
+// secretsWith returns a fake secrets reader that has only items, by name.
+func secretsWith(items map[string]string) secrets.Reader {
+	return func(_ context.Context, name string) (string, error) {
+		secret, ok := items[name]
+		if !ok {
+			return "", fmt.Errorf("no secret %s", name)
 		}
 
 		return secret, nil

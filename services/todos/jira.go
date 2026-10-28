@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/codedogapp/bakhyard/internal/env"
+	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
 	"github.com/codedogapp/bakhyard/services/todos/internal/todo"
 )
@@ -19,12 +20,12 @@ const (
 	jiraEmailVar = "BAKHYARD_JIRA_EMAIL"
 )
 
-// jiraAccount names the login Keychain item, under secretService, that holds the Jira API token.
+// jiraAccount is the Keychain account of the Jira API token, and the name of its file.
 const jiraAccount = "jira-token"
 
-// jiraClient returns the client of the Jira site in the settings, with the API token from the
-// Keychain, or nil when none of the Jira settings is set.
-func jiraClient(getenv func(string) string, password passwordReader) (*jira.Client, error) {
+// jiraClient returns the client of the Jira site in the settings, with the API token that
+// readSecret reads, or nil when none of the Jira settings is set.
+func jiraClient(getenv func(string) string, readSecret secrets.Reader) (*jira.Client, error) {
 	settings := []string{jiraSiteVar, jiraAPIVar, jiraEmailVar}
 	if !slices.ContainsFunc(settings, func(name string) bool { return getenv(name) != "" }) {
 		return nil, nil
@@ -45,7 +46,7 @@ func jiraClient(getenv func(string) string, password passwordReader) (*jira.Clie
 		return nil, err
 	}
 
-	token, err := password(context.Background(), secretService, jiraAccount)
+	token, err := readSecret(context.Background(), jiraAccount)
 	if err != nil {
 		return nil, fmt.Errorf("read the Jira token: %w", err)
 	}

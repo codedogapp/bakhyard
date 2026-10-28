@@ -98,7 +98,7 @@ func TestTheOpenGatewayNeedsItsPeers(t *testing.T) {
 
 func TestOnlyTheEndToEndBuildIsOpen(t *testing.T) {
 	// The open gateway needs nothing but its peers; the real one needs its sign-in settings too.
-	_, err := served(keychainWith(nil))(t.Context(), func(key string) string {
+	_, err := served(secretsWith(nil))(t.Context(), func(key string) string {
 		if key == "BAKHYARD_PEERS" {
 			return "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1" +
 				",todos=tcp://127.0.0.1:1,web=tcp://127.0.0.1:1"
