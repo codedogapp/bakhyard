@@ -42,6 +42,8 @@ mise run check
 
 It runs the local quality gate for the Go code and the web app: formatting, linting, the tests with their coverage thresholds, and the vulnerability scans. Then it builds the app and runs the end-to-end tests in Chromium and WebKit, which Playwright downloads the first time. The Go tests need a database of their own, which [docs/setup.md](docs/setup.md#the-test-database) shows how to make. `mise tasks ls --all` lists every task.
 
+The services call each other through protobuf contracts in `proto/`. After changing one, run `mise run gen`, which regenerates their Go code in `internal/gen`; the gate fails while that code is out of date.
+
 A change is done when the gate passes and its pull request's CI is green. SonarQube Cloud runs only in CI, on demand on `main` ([AGENTS.md](AGENTS.md#sonarqube-cloud)).
 
 ## Docs

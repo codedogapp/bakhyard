@@ -143,12 +143,12 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `secrets-files` | The gateway, todos and pulls read their secrets through a new reader, `internal/secrets`: from the files in the folder that `BAKHYARD_SECRETS` names, where the laptop mounts its Kubernetes Secrets, each file named as the secret's Keychain account; or, with the setting unset, as on the Mac, from the login Keychain as before. A file is read exactly, through `os.Root`, so Kubernetes' links to the Secret's current version read and nothing outside the folder does; a missing, empty or unreadable file stops the service with an error that names it. The second of `deploy-k3s`'s four steps (decision 154) | Done (#122) |
 | `notes-reopen` | Each scan of the vault opens the vault's folder again, the first scan included, so a scan after git-sync has swapped the vault's link to a new checkout reads that checkout. A file is read through the folder of the scan that listed it, so a list and its files always come from one checkout, and a Sync closes the folder of the list it replaces. A scan that fails, the folder's included, keeps the list. The third of `deploy-k3s`'s four steps (decision 155) | Done (#123) |
 | `images-registry` | The images workflow reads the registry's host from Gitea's organisation variable `REGISTRY`, since in a Gitea job the server's URL is the runner's in-cluster address, and stops with a message when the variable is missing. Each image gets one tag, `main`, whose digest Flux follows, since the homelab's Gitea removes every other tag each night. A fix to `deploy-images` (decision 156) | Done (#124) |
-
+| `attention-contract` | The first contract between services, `bakhyard.attention.v1` in `proto/`, whose `AttentionService.ListItems` lists what a service has that needs me, for the Home's "Needs you today". buf lints and formats it and generates its Go code into `internal/gen`, which `mise run gen:check` keeps in step with it. Every service now answers gRPC over HTTP/2 without TLS (h2c) as well as HTTP/1.1, and pulls answers `ListItems` with my open pull requests. The first of `home-feed`'s five steps (decision 158) | Done (#126) |
 | `nudge-merge` | Nudge, the user's phone-questions tool for agents (`codedogapp/nudge`), moves into Bakhyard: one app, not two (decision 157). The nudge session does the work, one small PR per step, from its plan, [`bakhyard-merge.md`](https://github.com/codedogapp/nudge/blob/main/docs/bakhyard-merge.md); this session doesn't stop its own steps for it | Todo |
 
 After these: the product phases (§8.2), each split into steps.
 
-**Deferred until a step needs it**: gRPC and protobuf for service-to-service calls (decision 43), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and process-compose's detached mode and API server (§4.9).
+**Deferred until a step needs it**: TypeScript code from the contracts and `buf breaking` (decision 158), NATS and events, OpenTelemetry, Prometheus metrics, streaming, unix sockets, a shared kit, per-service Go modules and `go.work`, the git hook, most mise tasks, and process-compose's detached mode and API server (§4.9).
 
 **Ideas**: `sonar-issues` could page past 200 issues, or warn when it cuts them off. Longer task scripts could move into files that `check` shellchecks; today only the workflow's `run:` scripts are checked. A gate self-test could lint known-bad fixtures and expect every gate to fire, so a config typo can't switch one off silently (§10). pnpm's `savePrefix` setting could be empty, so `pnpm add` pins exact versions without `-E`. `//apps/web:check` could run `pnpm dedupe --check`, so a lockfile that a `pnpm add` by hand leaves with an older copy of a package fails too; Renovate's updates are deduped already (decision 101). The Home's components each style their own big numbers and mono labels (the app counts, the week's hours, the section head's note); shared type styles could replace the copies. The header's nav marks an app's link `aria-current="page"` on the app's deeper pages too (`/notes/x`); ARIA and GOV.UK's service navigation keep "page" for the link's own page and use "true" for a section the page is in, as the tab bar's More does (decision 52). Screen readers aren't told when a page changes in place; a polite live region that reads out the new title after each navigation could tell them, as SvelteKit's route announcer does. Each service's port is written twice in `process-compose.yaml`, in its `BAKHYARD_LISTEN` and its probe, and the gateway's `BAKHYARD_PEERS` repeats the other services'; a check could keep them in step. Nothing checks that every address is on the loopback, though nothing should listen on the LAN (§3). Pushover could join Web Push as a second notification channel, for alerts that repeat until acknowledged (§2, decision 64). After signing out, Back may bring back the signed-in page from the browser's back-forward cache, data included; the app could check its session again when a page is restored (`pageshow` with `persisted`). The web app's dev server (`//apps/web:dev`) proxies `/api` to the gateway on the loopback, which has answered 403 there since `auth-tailscale` (decision 77), so it shows the app without data; local development needs a way through the lock. The Notes filter matches the notes' paths only; a full-text search could look inside them too. A note with a dot in its name gets the web service's 404 when its page is reloaded (decision 94); the service could serve the app for every missing path under `/notes/`. Back and Forward can't put a note's page where it was left: the browser restores the scroll position once the page shows, before the note has loaded; the page could restore it itself once the note is in (the Navigation API's `scroll: 'manual'` and `event.scroll()`). Footnote links in a note go nowhere: rehype-sanitize prefixes the footnotes' ids but not the links to them, which GitHub fixes with a script (the vault has no footnotes yet). A task's checkbox has no accessible name, as on GitHub; it could take its item's text. These link forms wait until the vault uses them (decision 97): a note shown inline, where `![[Note]]` is a link today; heading and block links into other notes, which open the note at its top; links in a list property; links to files that aren't notes; relative paths (`../`); and links that match a note's name in another case. An image embed's size waits the same way (decision 98): `![[x.png|300]]` and `![[x.png|300x200]]` show the image at its own size today. So do embeds of other files, such as audio, video and PDFs, Markdown images of the vault's files (`![](x.png)`), and a way to see an image larger. Callouts, `> [!note]`, wait until the vault has one (decision 99). KaTeX's red for a formula that doesn't parse, `#cc0000`, has about 3.2:1 contrast on the dark paper, under WCAG AA's 4.5:1; a colour of our own could replace it. Every note's page loads KaTeX with the renderer, though one note in the vault has math; KaTeX could load only for a note that has some. The build also ships KaTeX's woff and ttf fonts, which a browser loads only when it can't read woff2, the first format KaTeX's stylesheet lists. Svelte's docs advise against the `class:` directive since 5.16, when the `class` attribute began to take an object or an array; `todos-groups` uses the attribute, while `AppCards` and the Notes `Tree` still use the directive. No test runs a migration's Down; a test could take each service's database down a migration and up again, so a Down that doesn't undo its Up fails. A todo dragged near the screen's top or bottom edge could scroll the page, so a todo on a long list can go further than the screen shows; today the user scrolls first, or uses the editor's moves (decision 120). Escape could cancel a drag. A dragged todo's row could follow the pointer while the other rows slide aside to make room, as iOS lists do, rather than a line marking the place; across groups, the cards would have to grow and shrink as it passes (decision 120). A todo could be dropped into a priority that has no todos, which has no section to drop it in; the editor's priority does that (decision 117). Three components copy the card's style, a 1 px `--rule` border on the `--surface` with the offset shadow: Home's "Needs you", the Todos page's groups and its Jira tickets; a shared class could replace the copies, as `list.css` did for the rows (decision 124). The end-to-end tests keep no trace of a failed test, so a flaky one can't be looked into afterwards; `trace: 'retain-on-failure'` would keep one. In `todos-ticket`, the Move test's five-second wait for the second move ran out twice in `mise run check`, on battery in Low Power Mode, though the move did land just after; it passed in 660 runs alone or in the whole suite. A linked todo's badge could link to its ticket in Jira; it sits in the box's label, where a tap ticks the todo, so the link needs a target of its own, at least 24 px and apart from the label (WCAG 2.2 SC 2.5.8, decision 126). The Jira inbox keeps a dismissal for good, so a dismissed ticket that leaves my open tickets and comes back later, reassigned to me or reopened, stays out of the inbox; the service could forget a dismissal once a search that succeeds no longer finds its ticket (decision 128). An inbox row could link to its ticket in Jira, as the Jira section's rows do; the row isn't a link, since it holds an Add button, so the link needs a target of its own, as the badge's does (decision 129). The Notes page's Sync could also make Gitea mirror the vault at once, through Gitea's `POST /repos/{owner}/{repo}/mirror-sync`, so a note that the Mac pushes shows on the laptop within a minute rather than up to ten (decision 151). The images workflow builds and tags all six images on every change, so Flux restarts every service each time (decision 152); it could build only the images that a change touches. GitHub's CI could build the images on each PR too, without pushing them, so a Dockerfile that no longer builds fails before the merge rather than in Gitea after it. The five Go services' Dockerfiles differ only in the service's name; one Dockerfile with the name as a build argument could replace them (decision 153).
 
@@ -303,7 +303,7 @@ The user's brief (2026-10-18):
 Choices taken (all recommended options):
 
 - **Cockpit**: process-compose, which supervises the services and has a TUI (decision 61). The v1.2 choice was our own supervisor daemon plus a TUI client.
-- **Contracts**: Protobuf + Connect RPC via buf, with generated Go and TypeScript.
+- **Contracts**: Protobuf + Connect RPC via buf, with generated Go and TypeScript. Built with `attention-contract`: Go only, with gRPC on the wire (decision 158).
 - **Events**: NATS, with JetStream enabled, running as its own service.
 - **Monitoring**: built in (health, readiness and Prometheus metrics), plus OpenTelemetry traces, off by default.
 
@@ -387,13 +387,13 @@ flowchart LR
 
 ### 4.5 Contracts
 
-> **v1.3:** for service-to-service calls and NATS payloads only (decision 43). The public APIs stay hand-written JSON.
+> **v1.3:** for service-to-service calls and NATS payloads only (decision 43). The public APIs stay hand-written JSON. `attention-contract` built the first contract, `bakhyard.attention.v1`, as decision 158 describes; the rest of this section is the v1.2 design.
 
 Schema-first protobuf in `proto/`, a buf v2 module (lint STANDARD, breaking FILE).
 
 | Package | RPCs | Exposure |
 | --- | --- | --- |
-| `bakhyard.attention.v1` | `AttentionService/ListItems` (NO_SIDE_EFFECTS) → `Item{id, title, detail, source, url, due}`. Event message `ItemsChanged{app, reason}` | Internal: every feature service implements it; never routed by the gateway |
+| `bakhyard.attention.v1` | `AttentionService/ListItems` (NO_SIDE_EFFECTS) → `Item{id, title, detail, source, due}`, with no `url`, since each row links to its app (decision 158). Event message `ItemsChanged{app, reason}`, with NATS | Internal: every feature service implements it; never routed by the gateway |
 | `bakhyard.home.v1` | `HomeService/GetHome` (NO_SIDE_EFFECTS, so the client uses HTTP GET) and `WatchHome` (server stream) → `Home{name, items, week, sources, generated_at}` | Public, via the gateway |
 | `bakhyard.time.v1` | `TimeService/GetWeek` → `{logged_hours, target_hours}` | Internal |
 
@@ -405,14 +405,14 @@ Schema-first protobuf in `proto/`, a buf v2 module (lint STANDARD, breaking FILE
 
 Code generation:
 
-- Go goes to `libs/go/contracts/gen` (protoc-gen-go + protoc-gen-connect-go v2, managed `go_package_prefix`).
-- TypeScript goes to `apps/web/src/gen` (protoc-gen-es, `target=ts`).
+- Go goes to `internal/gen` (protoc-gen-go + protoc-gen-connect-go v2, Go tools in `go.mod`, managed `go_package_prefix`), since `attention-contract` (decision 158).
+- TypeScript goes to `apps/web/src/gen` (protoc-gen-es, `target=ts`), once the app calls an RPC; it calls none yet (decision 158).
 - Both are committed and read-only. `mise run gen:check` fails on drift.
 
 Other rules:
 
 - NATS subject names live next to the generated code, in `libs/go/contracts/subjects`.
-- A breaking change gets a new `v2` package, served side by side. `mise run proto:breaking` checks against `main`.
+- A breaking change gets a new `v2` package, served side by side. `mise run proto:breaking` checks against `main`, from the first change to a contract in use (decision 158).
 
 ### 4.6 Events
 
@@ -494,12 +494,12 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
   - A unix-socket dialer with base URL `http://<peer>`.
   - Timeouts. Retries on dial errors only, and only when the request has no body or has `GetBody`.
   - otelhttp transport, request-ID propagation, client metrics.
-  - Connect clients come from `connect.NewClient(connecthttp.NewTransport(hc, base, connecthttp.WithHTTPGet()))`.
+  - Connect clients come from `connect.NewClient(connecthttp.NewTransport(hc, base, connecthttp.WithGRPC()))`, over an `http.Transport` that speaks h2c alone (decision 158).
 - **Tracing**: an OTLP/HTTP exporter only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Otherwise a noop provider that still propagates W3C trace context.
 - **Bus**: nats.go with `RetryOnFailedConnect` and unlimited reconnects; a non-critical readiness check; generic protobuf publish and subscribe with trace headers. Tests use an embedded nats-server.
 - **Tests**: `connectinprocess.New(srv)`, `httptest`, `t.Context()`, `slog.DiscardHandler`.
 
-**`libs/go/contracts`** holds the generated code and the NATS subjects. It may not import services or kit.
+**`libs/go/contracts`** holds the generated code and the NATS subjects. It may not import services or kit. Built as `internal/gen`, for the generated code alone (decision 158).
 
 **Sharing policy**
 
@@ -656,9 +656,9 @@ Verified on 2026-10-18:
 | golangci-lint | 2.15.0 |
 | Node | 26.12.0 |
 | pnpm | 12.14.0 |
-| buf | 1.74.0 |
-| protoc-gen-go, `google.golang.org/protobuf` | 1.36.12 |
-| protoc-gen-connect-go, `connectrpc.com/connect/v2` | 2.0.1 |
+| buf | 1.75.0 (verified on 2026-10-28) |
+| protoc-gen-go, `google.golang.org/protobuf` | 1.36.12 (verified on 2026-10-28) |
+| protoc-gen-connect-go, `connectrpc.com/connect/v2` | 2.0.2 (verified on 2026-10-28) |
 | nats-server | 2.15.1 |
 | TypeScript | 7.0.2 (as `@typescript/native`) + 6.0.3 (for svelte-check) |
 | svelte, svelte-check | 5.57.2, 4.7.7 |
@@ -694,9 +694,9 @@ Root tasks:
 | Task | Does |
 | --- | --- |
 | `setup` | Installs tools and web dependencies, enables the git hooks |
-| `gen`, `gen:go` | `buf lint` + `buf generate` for Go and TypeScript |
-| `gen:check` | Regenerates, then fails on drift or uncommitted generated files |
-| `proto:breaking` | `buf breaking` against `main` |
+| `gen` | `buf generate`: the contracts' Go code into `internal/gen` (decision 158) |
+| `gen:check` | Generates into a temporary folder, then fails when `internal/gen` differs (decision 158) |
+| `proto:breaking` | `buf breaking` against `main`, from the first change to a contract in use (decision 158) |
 | `build` | Web build into the web service, then `bin/<svc>` |
 | `build:e2e` | The gateway for the end-to-end tests, with no lock, into `bin/e2e/gateway` (decision 107) |
 | `up` | Builds, then runs every service with process-compose (§4.9) |
@@ -766,9 +766,9 @@ Web tasks (`//apps/web:`), as built in `web-scaffold`: `install`, `dev`, `build`
 > **v1.3:** for service-to-service calls and NATS payloads only (decision 43).
 
 - `buf.yaml`: v2, module `proto/`, lint STANDARD, breaking FILE.
-- `buf.gen.yaml` generates Go.
-- `apps/web/buf.gen.yaml` generates TypeScript (`local: node_modules/.bin/protoc-gen-es`), run from `apps/web` as `buf generate ../..`.
-- Generated code is committed and read-only; `gen:check` runs inside `check`.
+- `buf.gen.yaml` generates Go, with protoc-gen-go and protoc-gen-connect-go run as Go tools from `go.mod` (`go tool`), so each is the version of the library that its code uses (decision 158).
+- `apps/web/buf.gen.yaml` generates TypeScript (`local: node_modules/.bin/protoc-gen-es`), run from `apps/web` as `buf generate ../..`, once the app calls an RPC (decision 158).
+- Generated code is committed and read-only; `gen:check` runs inside `check`. Coverage and SonarQube Cloud skip it.
 
 ### 6.6 Git hook
 
@@ -1089,10 +1089,13 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `notes-reopen`: done (#123). Each scan of the vault opens its root again, so a scan after git-sync has swapped its link reads the new checkout, and a file is read through the root of the scan that listed it (decisions 141, 151 and 155).
   - `images-registry`: done (#124). The images workflow reads the registry's host from Gitea's organisation variable `REGISTRY` and pushes each image with one tag, `main`, whose digest Flux follows (decision 156).
   - `deploy-apps`: needs `deploy-images`, `secrets-files`, `notes-reopen` and `images-registry`. In the homelab repo: a Deployment for each service, notes' with a git-sync sidecar that syncs the vault from Gitea's mirror and has notes scan again after each sync (decision 151); the gateway's Tailscale Ingress, `bakhyard.<tailnet>.ts.net`, and default-deny NetworkPolicies (decision 137); the database and role of each service that keeps data, in the shared CloudNativePG cluster (decision 139); the Secrets, from the homelab's secrets tool (decision 140), each service's mounted in the folder that its `BAKHYARD_SECRETS` names, as files with the names that decision 154 lists; the Google OAuth client's callback on the new name; and Flux's image automation, which rolls out each new image: an ImagePolicy per image that follows the digest of its `main` tag, and an ImageUpdateAutomation that commits each new digest to the homelab repo with a deploy key of its own that can write, since Flux's own key only reads (decisions 152 and 156). It may split into smaller steps there.
-- `home-feed` [home]. Needs `auth-signin`, `frontend-shell`. Comes right after `deploy-k3s` (decision 150).
-  - Attention providers (`AttentionService` in each feature service) aggregated by home and sorted by urgency, with live updates.
-  - Home page per §7.
-  - Each module registers its provider as it lands. Partly done in the first slice (contracts, demo data).
+- `home-feed` [home, pulls, todos, web]. Needs `auth-signin`, `frontend-shell`. Comes right after `deploy-k3s` (decision 150). The Home's "Needs you today" lists what the services have that needs me, through the attention contract, in five steps and a change in the homelab repo (decision 158). Each later service answers the contract as it lands; live updates wait, so the app polls (decision 49).
+  - `attention-contract`: done (#126). The contract `bakhyard.attention.v1`, its generated Go code and its gates; gRPC over h2c in every service's server; pulls answers `ListItems` with my open pull requests.
+  - `todos-attention` [todos]: needs `attention-contract`. todos answers `ListItems` with its High todos left to do, and with the todos left to do whose Jira ticket is done (decision 134).
+  - `inbox-attention` [todos]: needs `todos-attention`. todos also lists the Jira inbox's tickets: my open tickets that no todo names and that I haven't dismissed (decision 128).
+  - `home-week-optional` [web]: the Home leaves out "This week" when its answer has no week, as it will until the time service logs hours.
+  - `homelab-home-peers`, in the homelab repo: home's `BAKHYARD_PEERS` names todos and pulls, and a NetworkPolicy lets home reach them. It goes live before `home-fanout` merges, since Flux rolls out each image as soon as it's built; today's home ignores the setting.
+  - `home-fanout` [home]: needs `attention-contract`, `home-week-optional` and `homelab-home-peers`. home calls `ListItems` on all its peers at once, each with 1.5 s to answer, and sorts the items as §4.11 says; a peer that doesn't implement it lists nothing, and one that fails is logged while the rest still show. The demo items and the demo week go, and `mise run up` and the end-to-end tests give home its peers.
 
 **Phase 2: notes, read-only (decision 69)**
 
@@ -1392,6 +1395,7 @@ Made on 2026-10-23:
     - **The app** gets a `/ask` route; the service worker tells open windows about a push, so that the open app updates without a refresh, as the user requires; and Home's "Needs you today" lists the waiting questions.
     - **The repo** gets `tools/nudge`, the agents' CLI, and its manifests and Flux image automation come with `deploy-nudge`.
     - A gateway or `nudge` rollout drops the questions that wait, so rollouts matter more than today (the plan's risk 1; open question below).
+158. **The attention contract, over gRPC**: the user's choices (2026-10-28) of gRPC on the wire and of the code generators as Go tools, and the lead's other choices, for the user to review. `attention-contract`, the first of `home-feed`'s steps (§8.2), makes the first call between services, which decision 43 waited for. The library is connect-go v2, `connectrpc.com/connect/v2`: its handlers mount on a service's chi router beside its JSON API and answer gRPC, gRPC-Web and Connect alike, whereas grpc-go runs a server of its own, and its `http.Handler` mode, by its own docs, lacks some of its features. The calls speak gRPC, the user's pick over Connect's own protocol, so they need HTTP/2: every service's shared server, `internal/server`, now answers HTTP/2 without TLS (h2c) as well as HTTP/1.1, through `http.Protocols`, and a client calls with `connecthttp.WithGRPC()` over an `http.Transport` that speaks h2c alone. Go serves h2c only to a client that opens with HTTP/2's preface, never through HTTP/1.1's `Upgrade: h2c`, so a request through the gateway, which speaks HTTP/1.1 to the services, can't switch protocols, and the gateway forwards only `/api/<svc>/…`, so no RPC is reachable from outside. The contract, `bakhyard.attention.v1` in `proto/`, in protobuf edition 2024, has one RPC, `AttentionService.ListItems`, with no side effects, which answers a list of `Item{id, title, detail, source, due}`: no `url`, since each Home row links to its app's page (decision 50); `source` names Bitbucket or Jira, the only sources with items so far; and `due`, which the Home already shows, stays unset until a source has due times. buf is a mise tool: `lint` and `fmt` lint (STANDARD) and format the contracts, and `mise run gen` generates their Go code into `internal/gen`, which is committed; `gen:check`, part of `check`, generates into a temporary folder and fails when `internal/gen` differs, and coverage and SonarQube Cloud skip the generated code. The generators, protoc-gen-go and protoc-gen-connect-go, are Go tools in `go.mod`, run with `go tool`, so each is always the version of the library that its code calls, the user's choice, which AGENTS.md records as the one exception to mise. Left out until a step needs them: TypeScript code, since the app calls no RPC; `buf breaking` and `proto:breaking`, which come with the first change to a contract in use; and interceptors, such as OpenTelemetry's. pulls answers `ListItems` with my open pull requests, in `GET /pulls/mine`'s order: each item's ID is `<repository>#<number>`, its title the pull request's, its detail the repository and number, with "· Draft" after them for a draft, and its source Bitbucket, with no due time. Like `GET /pulls/mine`, it waits for the first poll and lists what the latest poll to succeed found; without Bitbucket it lists nothing, and a call that ends first gets its context's error. `home-feed` becomes five steps and a change in the homelab repo (§8.2): `todos-attention`, `inbox-attention`, `home-week-optional` and `home-fanout` follow this one, and home's peers are set on the laptop before `home-fanout`. Rejected: Connect's protocol over HTTP/1.1, which would need no h2c, since the user chose gRPC; grpc-go; the generated code in `libs/go/contracts`, since code that services share lives in the root `internal/` (AGENTS.md); and the generators as mise tools at `latest`, whose versions could drift from the libraries' in `go.mod`. Settles decision 43's choice and answers §12's question about it.
 
 ## 10. Risks
 
@@ -1412,12 +1416,13 @@ Made on 2026-10-23:
 - **Microservices overhead**: about a dozen processes for one user, plus sockets, a supervisor and contracts to maintain. The effort goes up by about 25–40% (§11). Mitigated by process-compose, the kit and the contract checks.
 - **Bleeding-edge toolchain**:
   - TypeScript 7 relies on svelte-check's `--tsgo` mode, which has open issues, and TypeScript 6 must stay installed alongside until svelte-check supports TypeScript 7 directly.
-  - connect-go v2 is new; its ecosystem modules (for example OpenTelemetry or validation interceptors for v2) are not verified yet.
+  - connect-go v2 is new; its ecosystem modules (for example OpenTelemetry or validation interceptors for v2) are not verified yet. Bakhyard uses none so far (decision 158).
   - Biome's support for `.svelte` files is experimental (`html.experimentalFullSupportEnabled`), so a Biome release may change how they are formatted or linted.
 - **pnpm's minimum release age**: pnpm refuses npm releases younger than a day, so Renovate waits as long before it proposes one (decision 47). Renovate's wait covers only the package it updates; any transitive dependency that pnpm adds to the lockfile is left to pnpm's own check. Renovate never re-runs a failed check: it rebases a branch only when the branch conflicts, because `main` doesn't require branches to be up to date. So a Renovate PR that fails on a release's age needs its checks re-run by hand once the release is a day old.
 - **Our deepmerge** (decision 148): vite-plugin-svelte merges its options through our own stand-in for deepmerge, which does only what the plugin's one call asks. A release of the plugin that uses more of deepmerge fails the build when it calls what the stand-in lacks, such as `deepmerge.all`, and merges differently when it passes an option the stand-in ignores, such as `customMerge`. So a Renovate PR for the plugin needs a look at how it calls deepmerge. The override goes once the plugin no longer needs deepmerge (sveltejs/vite-plugin-svelte#1415, open) or deepmerge ships a fix.
 - **Security hotspots**: the Sonar way gate still counts `new_security_hotspots_reviewed`, but SonarQube Cloud deprecated the hotspots API on 2026-06-16 in favour of security issues. So `mise run sonar-issues` can't list hotspots; a gate that is red because of a hotspot has to be read in the SonarQube Cloud UI.
 - **Browser libraries in CI**: on Ubuntu, `//apps/web:browsers` installs the system libraries that Chromium and WebKit need through apt on every run, about 120 MB in 181 packages (decision 107). With the browsers, the step took about 40 s in a normal run, but on 2026-10-26 a mirror sent about 100 KB/s, the check job hit its 10-minute limit, and a re-run passed. It had happened nineteen times by 2026-10-27, at 40 to 120 KB/s, and a re-run always passed in the end, though `todos-from-ticket`'s run on `main` needed five attempts. If it happens often, the end-to-end tests can move to a job in Playwright's Docker image, whose tag must then follow `@playwright/test`.
+- **Generated code and Renovate** (decision 158): protoc-gen-go writes its version into each file it generates, so a Renovate update of `google.golang.org/protobuf`, or one of connect-go whose generator writes other code, fails `gen:check` until someone runs `mise run gen` and pushes the result to the update's branch. Renovate's `postUpgradeTasks` could run it, but the Mend-hosted app runs commands only for paying customers or, at Mend's discretion, for open-source projects that ask; a self-hosted Renovate could.
 - **Floating tool versions**: mise tools use `latest` with no lockfile, so a new release (for example a new jactionlint rule) can turn CI red with no change in the repo. A local run may also use an older version than CI until `mise upgrade --local`. When CI turns red for no reason, check the tool versions first.
 - **Unix socket paths** are limited to 104 bytes on macOS → keep `BAKHYARD_HOME` short.
 - **Wikilinks** (decision 97). A wikilink that Markdown splits stays text: `[[_x_]]`, whose underscores make emphasis, `[[www.x]]`, a GFM autolink, and a name that a `[x]: url` definition defines. Markdown's escapes come first, so `\[[x]]` is a link. Unverified, since the vault needs none of it: whether Obsidian matches a link in another case, which file it picks among several outside the linking note's folder, whether it links an escaped bracket, and whether it matches a heading's punctuation as our IDs do. Unverified for image embeds (decision 98): the alt text that Obsidian gives the image, and whether it shows a file whose extension is in another case, such as `.PNG`.
@@ -1459,7 +1464,6 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
 
 ## 12. Open questions
 
-- For the first service-to-service call: grpc-go or connect-go, and which connect-go v2 ecosystem modules (OpenTelemetry interceptors, validation) exist (decision 43)?
 - Do the todos in the Mac's Postgres move to the laptop's, with a `pg_dump` and a restore, or does the laptop start empty (decision 139)?
 - How do the laptop's alerts reach Bakhyard (decision 142): from vmalert straight to an endpoint that speaks Alertmanager's API, or through an Alertmanager's webhook? And how does a request from inside the cluster, which carries no Tailscale identity and no session, get past the gateway's two locks?
 - How do edits (Phase 6) get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151): as commits pushed to the GitHub repo, which obsidian-git pulls, with a credential that can write?
@@ -1582,7 +1586,9 @@ A rough estimate, made on 2026-10-18, in focused working days. It assumes an age
   - Minimum release age: Renovate's https://docs.renovatebot.com/key-concepts/minimum-release-age/ and its options `minimumReleaseAge`, `internalChecksFilter` and `rebaseWhen` at https://docs.renovatebot.com/configuration-options/; pnpm's default at https://pnpm.io/supply-chain-security
   - Deduping the lockfile: Renovate's `postUpdateOptions` at https://docs.renovatebot.com/configuration-options/#postupdateoptions; `pnpm dedupe` at https://pnpm.io/cli/dedupe
   - Known `--tsgo` issues: https://github.com/sveltejs/language-tools/issues/3145, https://github.com/sveltejs/language-tools/issues/3120, https://github.com/sveltejs/language-tools/issues/3142
-  - connect-go v2 guide: `docs/v2-guide.md` in the `connectrpc.com/connect/v2` v2.0.1 module
+  - connect-go v2 guide: `docs/v2-guide.md` in the `connectrpc.com/connect/v2` v2.0.2 module
+  - Go's HTTP protocols, h2c included: https://pkg.go.dev/net/http#Protocols; grpc-go's `http.Handler` mode, in the doc comment of `(*Server).ServeHTTP`: https://github.com/grpc/grpc-go/blob/master/server.go
+  - Renovate's `postUpgradeTasks`: https://docs.renovatebot.com/configuration-options/#postupgradetasks, and which Mend-hosted plans may run commands: https://docs.renovatebot.com/mend-hosted/faq/
   - KaTeX's common issues, with how it differs from MathJax and a display block that scrolls sideways: https://katex.org/docs/issues
   - GHSA-238p-pmpm-9mq7, in KaTeX from 0.11.0 to before 0.18.2: https://github.com/advisories/GHSA-238p-pmpm-9mq7; the PRs that move remark-math and rehype-katex to a fixed KaTeX: remarkjs/remark-math#122, micromark/micromark-extension-math#14
   - pnpm catalogs, which an override can name: https://pnpm.io/catalogs
