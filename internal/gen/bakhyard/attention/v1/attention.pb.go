@@ -343,7 +343,7 @@ type Item_builder struct {
 	Title *string
 	// detail is a second line under the title, empty for none.
 	Detail *string
-	// source is the outside service the item comes from.
+	// source is the outside service the item comes from, unset for none.
 	Source *Source
 	// due is when the item is due, unset for none.
 	Due *timestamppb.Timestamp

@@ -135,18 +135,13 @@ func getTickets(
 ) *httptest.ResponseRecorder {
 	t.Helper()
 
-	schema := databasetest.NewSchema(t)
-	settings := jiraSettings(address)
-	settings[databaseVar] = schema.URL
-	readSecret := secretsWith(map[string]string{
-		"postgres-todos": schema.Password, "jira-token": "secret",
-	})
+	getenv, readSecret := jiraEnv(t, address)
 
 	for _, key := range keys {
-		addTodo(t, envOf(settings), readSecret, key)
+		addTodo(t, getenv, readSecret, key)
 	}
 
-	router, err := routes(ctx, envOf(settings), readSecret)
+	router, err := routes(ctx, getenv, readSecret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,6 +151,20 @@ func getTickets(
 	router.ServeHTTP(rec, req)
 
 	return rec
+}
+
+// jiraEnv returns todos' environment, with Jira's REST API at address and the database in a
+// schema of its own, and its secrets, with the token of jiraServer.
+func jiraEnv(t *testing.T, address string) (func(string) string, secrets.Reader) {
+	t.Helper()
+
+	schema := databasetest.NewSchema(t)
+	settings := jiraSettings(address)
+	settings[databaseVar] = schema.URL
+
+	return envOf(settings), secretsWith(map[string]string{
+		"postgres-todos": schema.Password, "jira-token": "secret",
+	})
 }
 
 // addTodo adds a todo for the ticket key, through routes that stop at once.
