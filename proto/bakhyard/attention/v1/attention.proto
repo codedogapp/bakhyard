@@ -26,7 +26,7 @@ message Item {
   string title = 2;
   // detail is a second line under the title, empty for none.
   string detail = 3;
-  // source is the outside service the item comes from.
+  // source is the outside service the item comes from, unset for none.
   Source source = 4;
   // due is when the item is due, unset for none.
   google.protobuf.Timestamp due = 5;
