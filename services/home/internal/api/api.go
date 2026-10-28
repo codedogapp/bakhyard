@@ -12,14 +12,18 @@ import (
 	"github.com/codedogapp/bakhyard/services/home/internal/screen"
 )
 
-// Register serves GET /home on router for the user called name; other methods get 405. items
-// gathers what needs the user, and the items due before now(), read once they're in, are late.
+// Register serves GET /home on router for the user called name; other methods get 405. gather
+// asks home's peers for what needs the user and how asking each went, and the items due before
+// now(), read once they're in, are late.
 func Register(
-	router chi.Router, name string, now func() time.Time, items func(context.Context) []screen.Item,
+	router chi.Router,
+	name string,
+	now func() time.Time,
+	gather func(context.Context) ([]screen.Item, []screen.SourceStatus),
 ) {
 	router.Get("/home", func(w http.ResponseWriter, r *http.Request) {
-		listed := items(r.Context())
-		home := screen.New(name, listed, now())
+		items, sources := gather(r.Context())
+		home := screen.New(name, items, sources, now())
 
 		w.Header().Set("Content-Type", "application/json")
 		// The Home always encodes, so an error means the client has gone.

@@ -26,10 +26,19 @@ type item struct {
 	Late   bool   `json:"late"`
 }
 
-type home struct {
-	Name  string `json:"name"`
-	Items []item `json:"items"`
+type source struct {
+	App   string `json:"app"`
+	State string `json:"state"`
 }
+
+type home struct {
+	Name    string   `json:"name"`
+	Items   []item   `json:"items"`
+	Sources []source `json:"sources"`
+}
+
+// gatherer is what Register asks for what needs the user.
+type gatherer = func(context.Context) ([]screen.Item, []screen.SourceStatus)
 
 // userName is who the tests serve the Home for.
 const userName = "Ada"
@@ -40,11 +49,18 @@ func at() time.Time {
 }
 
 func TestHomeGet(t *testing.T) {
-	rec := serve(t, http.MethodGet, listing(
-		screen.Item{ID: "pulls/web#1", Source: screen.SourceBitbucket, Due: at().Add(time.Hour)},
-		screen.Item{ID: "todos/7", Source: screen.SourceBakhyard},
-		screen.Item{ID: "todos/WEB-9", Source: screen.SourceJira, Due: at().Add(-time.Hour)},
-	))
+	items := []screen.Item{
+		{ID: "pulls/web#1", Source: screen.SourceBitbucket, Due: at().Add(time.Hour)},
+		{ID: "todos/7", Source: screen.SourceBakhyard},
+		{ID: "todos/WEB-9", Source: screen.SourceJira, Due: at().Add(-time.Hour)},
+	}
+	sources := []screen.SourceStatus{
+		{App: "todos", State: screen.StateOK},
+		{App: "pulls", State: screen.StateUnavailable},
+	}
+	rec := serve(t, http.MethodGet, func(context.Context) ([]screen.Item, []screen.SourceStatus) {
+		return items, sources
+	})
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -66,9 +82,11 @@ func TestHomeGet(t *testing.T) {
 			{ID: "pulls/web#1", Source: "Bitbucket", Due: "2026-10-18T10:00:00Z"},
 			{ID: "todos/7", Source: "Bakhyard"},
 		},
+		Sources: []source{{App: "todos", State: "ok"}, {App: "pulls", State: "unavailable"}},
 	}
 
-	if got.Name != want.Name || !slices.Equal(got.Items, want.Items) {
+	if got.Name != want.Name || !slices.Equal(got.Items, want.Items) ||
+		!slices.Equal(got.Sources, want.Sources) {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 }
@@ -85,6 +103,10 @@ func TestHomeWithNothingToDo(t *testing.T) {
 		t.Errorf("items = %s, want []", items)
 	}
 
+	if sources := string(got["sources"]); sources != "[]" {
+		t.Errorf("sources = %s, want []", sources)
+	}
+
 	if week, found := got["week"]; found {
 		t.Errorf("week = %s, want none", week)
 	}
@@ -92,10 +114,10 @@ func TestHomeWithNothingToDo(t *testing.T) {
 
 func TestHomeMarksLateOnceTheItemsAreIn(t *testing.T) {
 	clock := at()
-	slow := func(context.Context) []screen.Item {
+	slow := func(context.Context) ([]screen.Item, []screen.SourceStatus) {
 		clock = clock.Add(time.Second)
 
-		return []screen.Item{{ID: "todos/1", Due: at().Add(time.Millisecond)}}
+		return []screen.Item{{ID: "todos/1", Due: at().Add(time.Millisecond)}}, nil
 	}
 
 	rec := serveWith(t, http.MethodGet, slow, func() time.Time { return clock })
@@ -116,14 +138,14 @@ func TestHomeAsksWithTheRequestsContext(t *testing.T) {
 
 	var asked error
 
-	items := func(ctx context.Context) []screen.Item {
+	gather := func(ctx context.Context) ([]screen.Item, []screen.SourceStatus) {
 		asked = ctx.Err()
 
-		return nil
+		return nil, nil
 	}
 
 	router := chi.NewRouter()
-	api.Register(router, userName, at, items)
+	api.Register(router, userName, at, gather)
 	router.ServeHTTP(httptest.NewRecorder(),
 		httptest.NewRequestWithContext(ctx, http.MethodGet, "/home", nil))
 
@@ -169,30 +191,27 @@ func TestHomeOtherMethods(t *testing.T) {
 	}
 }
 
-// listing returns an items function that lists items.
-func listing(items ...screen.Item) func(context.Context) []screen.Item {
-	return func(context.Context) []screen.Item { return items }
+// listing returns a gatherer that lists items and no sources.
+func listing(items ...screen.Item) gatherer {
+	return func(context.Context) ([]screen.Item, []screen.SourceStatus) { return items, nil }
 }
 
-// serve answers a request to /home with method, with the items that items lists, at the tests'
-// time.
-func serve(
-	t *testing.T, method string, items func(context.Context) []screen.Item,
-) *httptest.ResponseRecorder {
+// serve answers a request to /home with method, with what gather gathers, at the tests' time.
+func serve(t *testing.T, method string, gather gatherer) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return serveWith(t, method, items, at)
+	return serveWith(t, method, gather, at)
 }
 
 // serveWith is serve with the clock now.
 func serveWith(
-	t *testing.T, method string, items func(context.Context) []screen.Item, now func() time.Time,
+	t *testing.T, method string, gather gatherer, now func() time.Time,
 ) *httptest.ResponseRecorder {
 	t.Helper()
 
 	router := chi.NewRouter()
 	router.Use(middleware.GetHead)
-	api.Register(router, userName, now, items)
+	api.Register(router, userName, now, gather)
 
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, "/home", nil))

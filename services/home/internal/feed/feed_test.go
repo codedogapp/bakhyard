@@ -22,7 +22,7 @@ import (
 	"github.com/codedogapp/bakhyard/services/home/internal/screen"
 )
 
-func TestItemsGathersEveryPeersItems(t *testing.T) {
+func TestGatherGathersEveryPeersItems(t *testing.T) {
 	due := time.Date(2026, time.October, 18, 9, 30, 0, 0, time.UTC)
 	todos := serveAttention(t, answer(
 		attentionv1.Item_builder{
@@ -38,7 +38,7 @@ func TestItemsGathersEveryPeersItems(t *testing.T) {
 		}.Build(),
 	))
 
-	got, logs := items(
+	got, sources, logs := gather(
 		t,
 		env.Peer{Name: "todos", Address: todos},
 		env.Peer{Name: "pulls", Address: pulls},
@@ -57,17 +57,19 @@ func TestItemsGathersEveryPeersItems(t *testing.T) {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 
+	checkSources(t, sources, ok("todos"), ok("pulls"))
+
 	if logs != "" {
 		t.Errorf("logged %q, want nothing", logs)
 	}
 }
 
-func TestItemsLeavesOutAPeerWithoutTheContractQuietly(t *testing.T) {
+func TestGatherCountsAPeerWithoutTheContractAsOKQuietly(t *testing.T) {
 	// A service without the contract answers 404, which gRPC reads as Unimplemented.
 	notes := serveH2C(t, http.NewServeMux())
 	pulls := serveAttention(t, answer(attentionv1.Item_builder{Id: new("web#1")}.Build()))
 
-	got, logs := items(
+	got, sources, logs := gather(
 		t,
 		env.Peer{Name: "notes", Address: notes},
 		env.Peer{Name: "pulls", Address: pulls},
@@ -77,12 +79,14 @@ func TestItemsLeavesOutAPeerWithoutTheContractQuietly(t *testing.T) {
 		t.Errorf("got %q, want pulls/web#1 alone", ids)
 	}
 
+	checkSources(t, sources, ok("notes"), ok("pulls"))
+
 	if logs != "" {
 		t.Errorf("logged %q, want nothing", logs)
 	}
 }
 
-func TestItemsLeavesOutAFailingPeerAndLogsIt(t *testing.T) {
+func TestGatherMarksAFailingPeerUnavailableAndLogsIt(t *testing.T) {
 	tests := map[string]string{
 		"a peer that fails": serveAttention(t, failing{
 			connect.NewError(connect.CodeInternal, "the database is down"),
@@ -94,12 +98,14 @@ func TestItemsLeavesOutAFailingPeerAndLogsIt(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			pulls := serveAttention(t, answer(attentionv1.Item_builder{Id: new("web#1")}.Build()))
 
-			got, logs := items(t, env.Peer{Name: "todos", Address: address},
+			got, sources, logs := gather(t, env.Peer{Name: "todos", Address: address},
 				env.Peer{Name: "pulls", Address: pulls})
 
 			if ids := itemIDs(got); !slices.Equal(ids, []string{"pulls/web#1"}) {
 				t.Errorf("got %q, want pulls/web#1 alone", ids)
 			}
+
+			checkSources(t, sources, unavailable("todos"), ok("pulls"))
 
 			if !strings.Contains(logs, `level=ERROR msg="list the items" peer=todos err=`) ||
 				strings.Count(logs, "\n") != 1 {
@@ -109,15 +115,40 @@ func TestItemsLeavesOutAFailingPeerAndLogsIt(t *testing.T) {
 	}
 }
 
-// items returns the items that a Feed of peers gathers, and what it logs.
-func items(t *testing.T, peers ...env.Peer) ([]screen.Item, string) {
+func TestGatherWithoutPeers(t *testing.T) {
+	got, sources, logs := gather(t)
+
+	if len(got) != 0 || len(sources) != 0 || logs != "" {
+		t.Errorf("got %+v, sources %+v and logs %q, want none", got, sources, logs)
+	}
+}
+
+// gather returns what a Feed of peers gathers, and what it logs.
+func gather(t *testing.T, peers ...env.Peer) ([]screen.Item, []screen.SourceStatus, string) {
 	t.Helper()
 
 	var logs bytes.Buffer
 
-	got := feed.New(peers, slog.New(slog.NewTextHandler(&logs, nil))).Items(t.Context())
+	got, sources := feed.New(peers, slog.New(slog.NewTextHandler(&logs, nil))).Gather(t.Context())
 
-	return got, logs.String()
+	return got, sources, logs.String()
+}
+
+// checkSources fails the test unless got is want.
+func checkSources(t *testing.T, got []screen.SourceStatus, want ...screen.SourceStatus) {
+	t.Helper()
+
+	if !slices.Equal(got, want) {
+		t.Errorf("sources = %+v, want %+v", got, want)
+	}
+}
+
+func ok(app screen.App) screen.SourceStatus {
+	return screen.SourceStatus{App: app, State: screen.StateOK}
+}
+
+func unavailable(app screen.App) screen.SourceStatus {
+	return screen.SourceStatus{App: app, State: screen.StateUnavailable}
 }
 
 // answering answers ListItems with its items.

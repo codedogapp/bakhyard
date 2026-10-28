@@ -37,7 +37,7 @@ func routes(_ context.Context, getenv func(string) string) (http.Handler, error)
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, getenv("BAKHYARD_NAME"), time.Now, homeFeed.Items)
+	api.Register(router, getenv("BAKHYARD_NAME"), time.Now, homeFeed.Gather)
 
 	return router, nil
 }

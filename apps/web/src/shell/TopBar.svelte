@@ -3,11 +3,16 @@ import type { Connection } from '../home/poll';
 import { clockLabel } from './clock';
 import { statusLabel } from './status';
 
-let { now, connection, asOf }: { now: Date; connection: Connection; asOf?: Date } = $props();
+let {
+  now,
+  connection,
+  asOf,
+  unavailable = 0,
+}: { now: Date; connection: Connection; asOf?: Date; unavailable?: number } = $props();
 </script>
 
 <div class="top-bar">
-  <span role="status">{statusLabel(connection, asOf)}</span>
+  <span role="status">{statusLabel(connection, asOf, unavailable)}</span>
   <span>{clockLabel(now)}</span>
 </div>
 

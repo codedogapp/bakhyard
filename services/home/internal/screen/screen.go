@@ -38,16 +38,19 @@ type Item struct {
 	Late   bool      `json:"late"`
 }
 
-// Home is everything the Home screen shows. It has no week until the time service logs hours
-// (docs/plan.md decision 161).
+// Home is everything the Home screen shows. Sources says how asking each of home's peers went,
+// so that a Home without some of its items doesn't look whole. It has no week until the time
+// service logs hours (docs/plan.md decision 161).
 type Home struct {
-	Name  string `json:"name"`
-	Items []Item `json:"items"`
+	Name    string         `json:"name"`
+	Items   []Item         `json:"items"`
+	Sources []SourceStatus `json:"sources"`
 }
 
-// New builds the Home at now for the user called name (see cleanName). It marks the items past
-// their due time as late and puts the most urgent first. The caller's items are left as they are.
-func New(name string, items []Item, now time.Time) Home {
+// New builds the Home at now for the user called name (see cleanName), with the items and the
+// sources that its peers gave. It marks the items past their due time as late and puts the most
+// urgent first. The caller's items are left as they are.
+func New(name string, items []Item, sources []SourceStatus, now time.Time) Home {
 	sorted := slices.Clone(items)
 	for i := range sorted {
 		sorted[i].Late = !sorted[i].Due.IsZero() && sorted[i].Due.Before(now)
@@ -55,7 +58,7 @@ func New(name string, items []Item, now time.Time) Home {
 
 	slices.SortFunc(sorted, byUrgency)
 
-	return Home{Name: cleanName(name), Items: sorted}
+	return Home{Name: cleanName(name), Items: sorted, Sources: sources}
 }
 
 // cleanName drops the whitespace around name and replaces invalid UTF-8, which JSON can't encode,

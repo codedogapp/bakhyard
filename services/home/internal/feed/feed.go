@@ -54,34 +54,44 @@ func New(peers []env.Peer, logger *slog.Logger) *Feed {
 	return feed
 }
 
-// Items asks every peer at once and returns their items, each peer's in the order it sent them.
-// A peer that doesn't serve the contract has none. One that fails, or doesn't answer within
-// timeout, is left out and logged, unless ctx has ended: the client has gone.
-func (f *Feed) Items(ctx context.Context) []screen.Item {
+// Gather asks every peer at once. It returns their items, each peer's in the order it sent them,
+// and how asking each went, in the peers' order. A peer that doesn't serve the contract is OK and
+// has no items. One that fails, or doesn't answer within timeout, is unavailable: its items are
+// left out, and it's logged unless ctx has ended, since the client has gone then.
+func (f *Feed) Gather(ctx context.Context) ([]screen.Item, []screen.SourceStatus) {
 	lists := make([][]screen.Item, len(f.peers))
+	sources := make([]screen.SourceStatus, len(f.peers))
 
 	var wg sync.WaitGroup
 	for i, p := range f.peers {
-		wg.Go(func() { lists[i] = p.items(ctx, f.logger) })
+		wg.Go(func() { lists[i], sources[i] = p.ask(ctx, f.logger) })
 	}
 
 	wg.Wait()
 
-	return slices.Concat(lists...)
+	return slices.Concat(lists...), sources
 }
 
-// items asks the peer for its items. See Feed.Items.
-func (p peer) items(ctx context.Context, logger *slog.Logger) []screen.Item {
+// ask asks the peer for its items. See Feed.Gather.
+func (p peer) ask(ctx context.Context, logger *slog.Logger) ([]screen.Item, screen.SourceStatus) {
+	status := screen.SourceStatus{App: screen.App(p.name), State: screen.StateOK}
+
 	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	res, err := p.client.ListItems(callCtx, &attentionv1.ListItemsRequest{})
 	if err != nil {
-		if ctx.Err() == nil && connect.CodeOf(err) != connect.CodeUnimplemented {
+		if connect.CodeOf(err) == connect.CodeUnimplemented {
+			return nil, status
+		}
+
+		if ctx.Err() == nil {
 			logger.ErrorContext(ctx, "list the items", "peer", p.name, "err", err)
 		}
 
-		return nil
+		status.State = screen.StateUnavailable
+
+		return nil, status
 	}
 
 	items := make([]screen.Item, 0, len(res.GetItems()))
@@ -89,5 +99,5 @@ func (p peer) items(ctx context.Context, logger *slog.Logger) []screen.Item {
 		items = append(items, homeItem(p.name, listed))
 	}
 
-	return items
+	return items, status
 }
