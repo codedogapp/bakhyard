@@ -35,6 +35,7 @@ test('links a numbered card to every app, in order', () => {
     ['05', 'GitHub', '/github'],
     ['06', 'Games', '/games'],
     ['07', 'Planner', '/planner'],
+    ['08', 'Nudge', '/nudge'],
   ]);
   expect(within(card('Time')).getByText('Hours logged on the Jira tickets')).toBeInTheDocument();
 });
@@ -54,6 +55,6 @@ test.each([
 test('shows the cards without counts before the Home loads', () => {
   render(YourApps);
 
-  expect(screen.getAllByRole('link')).toHaveLength(7);
+  expect(screen.getAllByRole('link')).toHaveLength(8);
   expect(screen.queryByText(/^items?$/)).not.toBeInTheDocument();
 });

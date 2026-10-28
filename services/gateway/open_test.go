@@ -89,7 +89,7 @@ func TestTheOpenGatewayKeepsEverythingButTheLocks(t *testing.T) {
 func TestTheOpenGatewayNeedsItsPeers(t *testing.T) {
 	_, err := openRoutes(func(string) string { return "" })
 
-	for _, name := range []string{"home", "notes", "pulls", "todos", "web"} {
+	for _, name := range []string{"home", "notes", "notify", "nudge", "pulls", "todos", "web"} {
 		if err == nil || !strings.Contains(err.Error(), name) {
 			t.Errorf("without BAKHYARD_PEERS: got %v, want an error that names %s", err, name)
 		}
@@ -100,7 +100,8 @@ func TestOnlyTheEndToEndBuildIsOpen(t *testing.T) {
 	// The open gateway needs nothing but its peers; the real one needs its sign-in settings too.
 	_, err := served(secretsWith(nil))(t.Context(), func(key string) string {
 		if key == "BAKHYARD_PEERS" {
-			return "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1" +
+			return "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1" +
+				",nudge=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1" +
 				",todos=tcp://127.0.0.1:1,web=tcp://127.0.0.1:1"
 		}
 
@@ -119,7 +120,7 @@ func openGateway(t *testing.T) http.Handler {
 
 	var peers []string
 
-	for _, name := range []string{"home", "notes", "pulls", "todos", "web"} {
+	for _, name := range []string{"home", "notes", "notify", "nudge", "pulls", "todos", "web"} {
 		peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Got", name+" got "+r.Method+" "+r.URL.Path)
 			w.Header().Set("Got-Cookies", r.Header.Get("Cookie"))

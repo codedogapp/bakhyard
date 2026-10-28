@@ -21,9 +21,9 @@ process-compose = "latest"
 PC_NO_SERVER = "1"
 
 [tasks.build]
-description = "Build the web app, then the services into bin/"
+description = "Build the web app, then the services into bin/ and the tools into bin/tools/"
 depends = ["//apps/web:build"]
-run = "go build -o bin/ ./services/..."
+run = "go build -o bin/ ./services/... && go build -o bin/tools/ ./tools/..."
 
 [tasks."build:e2e"]
 description = "Build the gateway without its locks, for the end-to-end tests, into bin/e2e/"

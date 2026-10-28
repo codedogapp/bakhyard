@@ -124,7 +124,7 @@ test('shows each page in place as the browser navigates, with the Home it has al
   await go(navigation, '/more');
 
   expect(screen.getByRole('heading', { level: 1, name: 'More' })).toBeInTheDocument();
-  expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(4);
+  expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(5);
   expect(screen.getByRole('heading', { level: 2, name: 'Time' }).closest('a')).toHaveTextContent('1 item');
   expect(document.title).toBe('More · Bakhyard');
   expect(screen.getByRole('link', { name: 'More', current: 'page' })).toBeInTheDocument();

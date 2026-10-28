@@ -6,6 +6,7 @@ import { type Feed, pollHome } from './home/poll';
 import NotePage from './notes/NotePage.svelte';
 import NotesPage from './notes/NotesPage.svelte';
 import { NotesState } from './notes/state.svelte';
+import NudgePage from './nudge/NudgePage.svelte';
 import AppPage from './pages/AppPage.svelte';
 import MorePage from './pages/MorePage.svelte';
 import NotFound from './pages/NotFound.svelte';
@@ -71,6 +72,8 @@ $effect(() =>
       <TodosPage />
     {:else if page.kind === 'pulls'}
       <PullsPage />
+    {:else if page.kind === 'nudge'}
+      <NudgePage />
     {:else if page.kind === 'app'}
       <AppPage app={page.app} />
     {:else if page.kind === 'more'}

@@ -23,6 +23,7 @@ test('links every app in order', () => {
     ['GitHub', '/github'],
     ['Games', '/games'],
     ['Planner', '/planner'],
+    ['Nudge', '/nudge'],
   ]);
 });
 
