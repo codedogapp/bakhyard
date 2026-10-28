@@ -17,10 +17,12 @@ const authSize = 16
 var ErrInvalid = errors.New("invalid subscription")
 
 // Subscription is a browser's push subscription, with the names that its toJSON gives it: where
-// to send the pushes, and the keys that encrypt them.
+// to send the pushes, and the keys that encrypt them. A browser also sends expirationTime, null
+// in practice; it is read and ignored, as the API refuses members it doesn't know.
 type Subscription struct {
-	Endpoint string `json:"endpoint"`
-	Keys     Keys   `json:"keys"`
+	Endpoint       string   `json:"endpoint"`
+	ExpirationTime *float64 `json:"expirationTime,omitzero"`
+	Keys           Keys     `json:"keys"`
 }
 
 // Keys are a subscription's keys, each in base64url without padding.
