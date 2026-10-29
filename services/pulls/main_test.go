@@ -25,6 +25,9 @@ func TestPullsServesWithoutBitbucket(t *testing.T) {
 		{http.MethodGet, "/pulls/mine", http.StatusNotFound, "Bitbucket is not set up\n"},
 		{http.MethodHead, "/pulls/mine", http.StatusNotFound, "Bitbucket is not set up\n"},
 		{http.MethodPost, "/pulls/mine", http.StatusMethodNotAllowed, ""},
+		{http.MethodGet, "/pulls/reviews", http.StatusNotFound, "Bitbucket is not set up\n"},
+		{http.MethodHead, "/pulls/reviews", http.StatusNotFound, "Bitbucket is not set up\n"},
+		{http.MethodPost, "/pulls/reviews", http.StatusMethodNotAllowed, ""},
 		{http.MethodGet, "/healthz", http.StatusOK, `{"status":"ok"}`},
 	} {
 		req := httptest.NewRequestWithContext(t.Context(), test.method, test.target, nil)
