@@ -1,4 +1,4 @@
-// The service worker for nudge's notifications. It shows every push as a notification, because Safari revokes a
+// The service worker for the app's notifications. It shows every push as a notification, because Safari revokes a
 // subscription whose pushes show nothing, and tells the open pages, so that one on screen shows the question at once.
 
 const fallback = { title: 'Bakhyard', body: 'A new question', url: '/nudge' };

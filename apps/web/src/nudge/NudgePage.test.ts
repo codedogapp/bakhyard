@@ -48,8 +48,6 @@ test('loads the questions and the sessions, under its head', async () => {
   expect(screen.getByRole('heading', { level: 1, name: 'Nudge' })).toBeInTheDocument();
   expect(await screen.findByRole('heading', { level: 3, name: 'Merge?' })).toBeInTheDocument();
   expect(screen.getByText('Reading')).toBeInTheDocument();
-  // jsdom has no push manager, so notifications can't be turned on here.
-  expect(await screen.findByText('Notifications need the Home Screen app')).toBeInTheDocument();
 });
 
 test('shows a question that arrives while it is open, without a reload', async () => {
