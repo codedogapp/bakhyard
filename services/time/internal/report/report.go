@@ -16,12 +16,13 @@ const (
 	weekTarget = 40 * time.Hour
 )
 
-// Report is what the user logged in the last 7 days.
+// Report is what the user logged in the last 7 days. A report that New works out always has both
+// fields; the zero Report, which a poller keeps until a poll succeeds, encodes as {}.
 type Report struct {
 	// Days are the 7 days, the earliest first and today last.
-	Days []Day `json:"days"`
+	Days []Day `json:"days,omitzero"`
 	// Week is what the user logged this week, from Monday through today.
-	Week Week `json:"week"`
+	Week Week `json:"week,omitzero"`
 }
 
 // Day is what the user logged on one day.

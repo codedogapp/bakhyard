@@ -14,9 +14,9 @@ BAKHYARD_GOOGLE_CLIENT_ID = "1234567890-abcdef.apps.googleusercontent.com"
 BAKHYARD_GOOGLE_EMAIL = "you@example.com"
 # The Obsidian vault's folder, as an absolute path. The notes service lists its files.
 BAKHYARD_VAULT = "/Users/you/Documents/Vault"
-# The Jira site whose open tickets the todos service lists, Jira's REST API for a token with
-# scopes, and the email of the token's account; the token goes into the Keychain. Leave all
-# three out to run without Jira.
+# The Jira site whose open tickets the todos service lists and whose worklogs the time service
+# reads, Jira's REST API for a token with scopes, and the email of the token's account; the token
+# goes into the Keychain. Leave all three out to run without Jira.
 # BAKHYARD_JIRA_SITE = "https://your-site.atlassian.net"
 # BAKHYARD_JIRA_API = "https://api.atlassian.com/ex/jira/<cloud ID>"
 # BAKHYARD_JIRA_EMAIL = "you@example.com"
