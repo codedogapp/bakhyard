@@ -1,8 +1,8 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { expect, test } from 'vitest';
 
+import PullsSection from './PullsSection.svelte';
 import type { Pull, Pulls } from './pulls';
-import YourPulls from './YourPulls.svelte';
 
 const history: Pull = {
   id: 42,
@@ -20,8 +20,22 @@ const certificates: Pull = {
 };
 const searched = '2026-10-26T00:41:00Z';
 
-function show(pulls: Pulls) {
-  return render(YourPulls, { props: { pulls } });
+// The texts of the PRs page's two sections.
+const mine = {
+  title: 'Your',
+  accent: 'PRs',
+  empty: 'No open pull requests.',
+  failed: "Couldn't load the pull requests.",
+};
+const reviews = {
+  title: 'Review',
+  accent: 'requests',
+  empty: 'No pull requests to review.',
+  failed: "Couldn't load the review requests.",
+};
+
+function show(pulls: Pulls, texts = mine) {
+  return render(PullsSection, { props: { pulls, ...texts } });
 }
 
 const text = (element: Element) => element.textContent?.replaceAll(/\s+/g, ' ').trim();
@@ -101,4 +115,24 @@ test.each<Pulls>([{ kind: 'loading' }, { kind: 'off' }])('shows nothing while $k
 
   expect(container.childElementCount).toBe(0);
   expect(container.textContent).toBe('');
+});
+
+test('lists another list of PRs under its own head', () => {
+  show({ kind: 'loaded', snapshot: { pulls: [certificates], searched } }, reviews);
+
+  expect(screen.getByRole('heading', { level: 2, name: 'Review requests' })).toBeInTheDocument();
+  expect(screen.getByText('1 PR')).toBeInTheDocument();
+  expect(within(screen.getByRole('list')).getByRole('link')).toHaveAttribute('href', certificates.url);
+  expect(screen.queryByRole('heading', { level: 2, name: 'Your PRs' })).not.toBeInTheDocument();
+});
+
+test.each<{ pulls: Pulls; says: string }>([
+  { pulls: { kind: 'loaded', snapshot: { pulls: [], searched } }, says: 'No pull requests to review.' },
+  { pulls: { kind: 'failed' }, says: "Couldn't load the review requests." },
+])('says "$says" in its own words', ({ pulls, says }) => {
+  show(pulls, reviews);
+
+  expect(screen.getByRole('heading', { level: 2, name: 'Review requests' })).toBeInTheDocument();
+  expect(screen.getByText(says)).toBeInTheDocument();
+  expect(screen.queryByText(/^No open|^Couldn't load the pull requests/)).not.toBeInTheDocument();
 });
