@@ -12,7 +12,7 @@ function cycle() {
 }
 </script>
 
-<button type="button" aria-label="Theme: {names[choice]}" onclick={cycle}>
+<button class="icon-button" type="button" aria-label="Theme: {names[choice]}" onclick={cycle}>
   <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16">
     {#if choice === 'system'}
       <!-- Half dark, half light: the OS decides. -->
@@ -30,51 +30,8 @@ function cycle() {
 </button>
 
 <style>
-button {
-  position: relative;
-  display: block;
-  /* The tap target keeps the padding, but the header's row makes room only for the icon. */
-  margin-block: -4px;
-  padding: 4px;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-svg {
-  display: block;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: square;
-  stroke-width: 1.5;
-}
-
 .solid {
   fill: currentColor;
   stroke: none;
-}
-
-/* The hover underline of the header's other items, under the icon. */
-button::after {
-  content: "";
-  position: absolute;
-  right: 4px;
-  bottom: -2px;
-  left: 4px;
-  height: 1px;
-  background: var(--ink);
-  transform: scaleX(0);
-  transform-origin: left;
-}
-
-button:hover::after {
-  transform: scaleX(1);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  button::after {
-    transition: transform 250ms ease;
-  }
 }
 </style>

@@ -7,6 +7,7 @@ import './styles/base.css';
 import './styles/form.css';
 import './styles/list.css';
 import './styles/chip.css';
+import './styles/icon-button.css';
 
 import App from './App.svelte';
 import { applyChoice, loadChoice } from './shell/theme';

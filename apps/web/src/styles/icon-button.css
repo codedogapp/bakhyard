@@ -1,0 +1,43 @@
+/* The header's icon buttons (decision 178): an icon drawn in the text's colour, with the header's hover underline. */
+.icon-button {
+  position: relative;
+  display: block;
+  /* The tap target keeps the padding, but the header's row makes room only for the icon. */
+  margin-block: -4px;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.icon-button svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-width: 1.5;
+}
+
+/* The hover underline of the header's other items, under the icon. */
+.icon-button::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: -2px;
+  left: 4px;
+  height: 1px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.icon-button:hover::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .icon-button::after {
+    transition: transform 250ms ease;
+  }
+}
