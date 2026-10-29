@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/codedogapp/bakhyard/internal/jira"
 )
 
 // dismissSQL stores the dismissal of ticket $1, unless it is stored already.
@@ -17,7 +19,7 @@ const dismissedSQL = `SELECT jira_key FROM dismissals ORDER BY jira_key COLLATE 
 // Dismiss dismisses the Jira ticket key from the inbox for good (decision 130), and reports whether
 // it wasn't dismissed already. A key that isn't a Jira key gets ErrTicket, and nothing is stored.
 func (s *Store) Dismiss(ctx context.Context, key string) (bool, error) {
-	if !jiraKey.MatchString(key) {
+	if !jira.IsKey(key) {
 		return false, ErrTicket
 	}
 
