@@ -19,6 +19,7 @@ import { followNavigation } from './shell/navigation';
 import { pageAt, pageTitle, signedOutTitle } from './shell/page';
 import TabBar from './shell/TabBar.svelte';
 import TopBar from './shell/TopBar.svelte';
+import TimePage from './time/TimePage.svelte';
 import TodosPage from './todos/TodosPage.svelte';
 
 let path = $state(location.pathname);
@@ -73,6 +74,8 @@ $effect(() =>
       <TodosPage />
     {:else if page.kind === 'pulls'}
       <PullsPage />
+    {:else if page.kind === 'time'}
+      <TimePage />
     {:else if page.kind === 'nudge'}
       <NudgePage />
     {:else if page.kind === 'app'}

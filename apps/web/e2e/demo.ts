@@ -1,6 +1,7 @@
 import type { Home } from '../src/home/api';
 import type { State } from '../src/nudge/nudge';
 import type { Snapshot as Pulls } from '../src/pulls/pulls';
+import type { Report } from '../src/time/report';
 import type { Todo } from '../src/todos/api';
 import type { Snapshot } from '../src/todos/tickets';
 
@@ -155,4 +156,19 @@ export const nudge: State = {
     },
     { id: 's2', project: 'notes (home)', note: 'Drafting the review template', noted_at: '2026-10-21T00:36:00Z' },
   ],
+};
+
+/** A made-up user's time report at the tests' time: the last 7 days, with nothing logged on the Friday or the weekend. */
+export const report: Report = {
+  days: [
+    { date: '2026-10-15', loggedHours: 7.5, missing: false },
+    { date: '2026-10-16', loggedHours: 0, missing: true },
+    { date: '2026-10-17', loggedHours: 0, missing: false },
+    { date: '2026-10-18', loggedHours: 0, missing: false },
+    { date: '2026-10-19', loggedHours: 8, missing: false },
+    { date: '2026-10-20', loggedHours: 6.25, missing: false },
+    { date: '2026-10-21', loggedHours: 1.5, missing: false },
+  ],
+  week: { loggedHours: 15.75, targetHours: 40 },
+  searched: '2026-10-21T00:38:00Z',
 };

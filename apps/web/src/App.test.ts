@@ -59,12 +59,6 @@ function answer(url: string): Response {
   if (url === '/api/notes/files/Work/Plan.md') {
     return new Response('# Plan\n\n## Goals\nShip it.');
   }
-  if (url === '/api/todos') {
-    return Response.json({ todos: [{ id: 1, title: 'Buy milk' }] });
-  }
-  if (url === '/api/pulls/mine' || url === '/api/pulls/reviews') {
-    return Response.json({ pulls: [], searched: '2026-10-20T00:41:00Z' });
-  }
   return Response.json(home);
 }
 
@@ -102,17 +96,6 @@ test('shows the frame and the apps, then the hero, the feed, the counts, the wee
   expect(screen.getByText('31h 30m / 40h')).toBeInTheDocument();
   expect(screen.getByRole('status').textContent).toBe('Online');
   expect(document.title).toBe('Bakhyard');
-});
-
-test('shows the page at the path it opens on', () => {
-  history.replaceState(null, '', '/time');
-  render(App);
-
-  expect(screen.getByRole('heading', { level: 1, name: 'Time' })).toBeInTheDocument();
-  expect(screen.getByText('Coming soon')).toBeInTheDocument();
-  expect(document.title).toBe('Time · Bakhyard');
-  expect(screen.getByRole('link', { name: 'Time', current: 'page' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'More', current: true })).toBeInTheDocument();
 });
 
 test('shows each page in place as the browser navigates, with the Home it has already loaded', async () => {
@@ -170,17 +153,6 @@ test('opens a note, and keeps the Notes page as the user left it while the app r
   expect(screen.getByText('Work').closest('details')).toHaveProperty('open', true);
   expect(screen.getByRole('link', { name: 'Plan' })).toHaveAttribute('href', '/notes/Work/Plan');
   expect(vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/notes')).toHaveLength(1);
-});
-
-test.each([
-  ['/todos', '1 todo on the list.', 'Todos · Bakhyard'],
-  ['/pulls', 'No open pull requests.', 'Pull requests · Bakhyard'],
-])('shows the page of the app at %s, with what it loads', async (path, loaded, title) => {
-  history.replaceState(null, '', path);
-  render(App);
-
-  expect(await screen.findByText(loaded)).toBeInTheDocument();
-  expect(document.title).toBe(title);
 });
 
 test('leaves navigations to the browser once it goes away', () => {

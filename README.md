@@ -2,7 +2,7 @@
 
 A personal dashboard for one user, hosted at home: Obsidian notes, work todos and pull requests, GitHub, games, and a Copilot planner, in one place. It's reached over Tailscale and needs a Google sign-in. It works on a Mac and on an iPhone, where it installs as a Home Screen app.
 
-It's early. Today Bakhyard has its app shell, the sign-in, read-only notes, todos linked to Jira, open pull requests from Bitbucket with where each stands with its reviewers, the pull requests that wait for the user's review, and a Home that gathers what needs the user from the todos and the pull requests. The modules come one small step at a time, and [the plan](docs/plan.md) has the steps, their order and the decisions behind them. It runs at home on an always-on Linux laptop with k3s, deployed from a private homelab repo, and on a Mac for development.
+It's early. Today Bakhyard has its app shell, the sign-in, read-only notes, todos linked to Jira, open pull requests from Bitbucket with where each stands with its reviewers, the pull requests that wait for the user's review, the hours logged on Jira over the last 7 days, and a Home that gathers what needs the user from the todos and the pull requests. The modules come one small step at a time, and [the plan](docs/plan.md) has the steps, their order and the decisions behind them. It runs at home on an always-on Linux laptop with k3s, deployed from a private homelab repo, and on a Mac for development.
 
 ## How it's built
 
