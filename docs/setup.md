@@ -18,17 +18,17 @@ cp mise.local.example.toml mise.local.toml
 | `BAKHYARD_GOOGLE_CLIENT_ID` | gateway | The Google OAuth client's ID |
 | `BAKHYARD_GOOGLE_EMAIL` | gateway | The one email let in; its first sign-in pins its Google account ([below](#the-pinned-google-account)) |
 | `BAKHYARD_VAULT` | notes | The Obsidian vault's folder, as an absolute path |
-| `BAKHYARD_JIRA_SITE` | todos | The Jira site, `https://<site>.atlassian.net`, whose open tickets todos lists ([below](#jira)) |
-| `BAKHYARD_JIRA_API` | todos | Jira's REST API for a token with scopes, `https://api.atlassian.com/ex/jira/<cloud ID>` |
-| `BAKHYARD_JIRA_EMAIL` | todos | The email of the Atlassian account that owns the token |
+| `BAKHYARD_JIRA_SITE` | todos, time | The Jira site, `https://<site>.atlassian.net`, whose open tickets todos lists and whose worklogs time reads ([below](#jira)) |
+| `BAKHYARD_JIRA_API` | todos, time | Jira's REST API for a token with scopes, `https://api.atlassian.com/ex/jira/<cloud ID>` |
+| `BAKHYARD_JIRA_EMAIL` | todos, time | The email of the Atlassian account that owns the token |
 | `BAKHYARD_BITBUCKET_API` | pulls | Bitbucket's REST API, `https://api.bitbucket.org/2.0`, where pulls lists your open pull requests ([below](#bitbucket)) |
 | `BAKHYARD_BITBUCKET_EMAIL` | pulls | The email of the Atlassian account that owns the Bitbucket token |
 | `BAKHYARD_BITBUCKET_WORKSPACES` | pulls | The slugs of the workspaces to list your open pull requests in, separated by commas |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
-The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, notify, nudge, pulls and todos to start. Todos runs without Jira when none of the three Jira settings is set, and pulls without Bitbucket when none of the three Bitbucket settings is set.
+The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, notify, nudge, pulls and todos to start. Todos and time run without Jira when none of the three Jira settings is set, and pulls without Bitbucket when none of the three Bitbucket settings is set.
 
-On the Mac, the gateway, todos and pulls read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
+On the Mac, the gateway, todos, pulls and time read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
 
 ## Tailscale
 
@@ -131,16 +131,18 @@ Todos lists your open Jira tickets: those assigned to you whose status isn't in 
    curl https://<site>.atlassian.net/_edge/tenant_info
    ```
 
-2. On [your Atlassian account's API tokens](https://id.atlassian.com/manage-profile/security/api-tokens), select Create API token with scopes. Pick an expiry date, at most a year away, the Jira app, and the scopes `read:jira-work`, `read:jira-user` and `write:jira-work`; time tracking needs the last two later.
+2. On [your Atlassian account's API tokens](https://id.atlassian.com/manage-profile/security/api-tokens), select Create API token with scopes. Pick an expiry date, at most a year away, the Jira app, and the scopes `read:jira-work`, `read:jira-user` and `write:jira-work`: time reads your worklogs with the first two, and will add them with the last.
 3. Put the token in the Keychain. With `-w` last, `security` asks for it:
 
    ```sh
    security add-generic-password -s bakhyard -a jira-token -w
    ```
 
-4. In `mise.local.toml`, set `BAKHYARD_JIRA_SITE` to `https://<site>.atlassian.net`, `BAKHYARD_JIRA_API` to `https://api.atlassian.com/ex/jira/<cloud ID>` and `BAKHYARD_JIRA_EMAIL` to your account's email, then restart todos.
+4. In `mise.local.toml`, set `BAKHYARD_JIRA_SITE` to `https://<site>.atlassian.net`, `BAKHYARD_JIRA_API` to `https://api.atlassian.com/ex/jira/<cloud ID>` and `BAKHYARD_JIRA_EMAIL` to your account's email, then restart todos and time.
 
-Both URLs must be https, so the token never travels in the clear; only a loopback IP address, such as `http://127.0.0.1:8090`, may take http, for a stand-in Jira in tests. With only some of the settings, a URL that isn't https or no token in the Keychain, todos exits 1 and says which: `BAKHYARD_JIRA_EMAIL is not set`, `BAKHYARD_JIRA_API: "…" is not an https URL` or `read the Jira token: no Keychain item with service bakhyard and account jira-token`. Without any of the settings, `GET /api/todos/tickets` answers 404 `Jira is not set up`. Todos polls Jira as it starts and every 5 minutes after (decisions 122 and 133): it searches your open tickets, then fetches the other tickets that your todos left to do name. When Jira refuses the token, for example once it has expired, `GET /api/todos/tickets` keeps answering what the last poll to succeed found, adds Jira's answer as its `failure`, such as `search Jira: 401 Unauthorized` or `fetch Jira tickets: 401 Unauthorized`, and todos logs `poll Jira` with it. To replace the token, add `-U` to the command in step 3, then restart todos.
+Both URLs must be https, so the token never travels in the clear; only a loopback IP address, such as `http://127.0.0.1:8090`, may take http, for a stand-in Jira in tests. With only some of the settings, a URL that isn't https or no token in the Keychain, todos exits 1 and says which: `BAKHYARD_JIRA_EMAIL is not set`, `BAKHYARD_JIRA_API: "…" is not an https URL` or `read the Jira token: no Keychain item with service bakhyard and account jira-token`. Without any of the settings, `GET /api/todos/tickets` answers 404 `Jira is not set up`. Todos polls Jira as it starts and every 5 minutes after (decisions 122 and 133): it searches your open tickets, then fetches the other tickets that your todos left to do name. When Jira refuses the token, for example once it has expired, `GET /api/todos/tickets` keeps answering what the last poll to succeed found, adds Jira's answer as its `failure`, such as `search Jira: 401 Unauthorized` or `fetch Jira tickets: 401 Unauthorized`, and todos logs `poll Jira` with it. To replace the token, add `-U` to the command in step 3, then restart todos and time.
+
+Time reads your worklogs with the same settings and token (decisions 180 to 182). As it starts and every 5 minutes after, it reads the worklogs you logged in the last 7 days, today included, and works out the time report: the hours you logged on each day, the weekdays before today with nothing logged, and this week's hours against 40. Its days follow its time zone: the Mac's, or a container's `TZ`, without which a container keeps UTC. `mise run up` runs it on port 8088, where `GET /time/report` answers the report, with when the latest poll to succeed began and why the latest poll failed, if it did; the gateway doesn't forward it yet. Without any of the Jira settings, time answers 404 `Jira is not set up`; with only some, it exits 1 and says which, as todos does. When Jira refuses the token, time keeps answering the last report it worked out, adds Jira's answer as its `failure`, such as `read the Jira account: 401 Unauthorized`, and logs `poll Jira worklogs` with it.
 
 ## Bitbucket
 

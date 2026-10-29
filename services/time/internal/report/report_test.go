@@ -144,3 +144,14 @@ func TestReportJSON(t *testing.T) {
 		t.Errorf("got %s, want %s", got, want)
 	}
 }
+
+func TestZeroReportJSON(t *testing.T) {
+	got, err := json.Marshal(Report{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(got) != "{}" {
+		t.Errorf("got %s, want {}", got)
+	}
+}

@@ -115,6 +115,19 @@ processes:
       initial_delay_seconds: 1
       period_seconds: 2
 
+  time:
+    <<: *service
+    description: Works out the time report from my Jira worklogs
+    command: bin/time
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8088
+    readiness_probe:
+      http_get:
+        port: 8088
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
   gateway:
     <<: *service
     description: "The only way in: /api to the services, everything else to web"
