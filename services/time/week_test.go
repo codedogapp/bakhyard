@@ -1,13 +1,8 @@
 package main
 
 import (
-	"encoding/json/v2"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-
-	"connectrpc.com/connect/v2"
-	"connectrpc.com/connect/v2/connecthttp"
 
 	timev1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/time/v1"
 	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/time/v1/timev1connect"
@@ -21,17 +16,7 @@ func TestTimeAnswersTheWeekOfItsReport(t *testing.T) {
 	}
 
 	got := getWeek(t, router)
-
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/time/report", nil)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	var want answer
-
-	err = json.Unmarshal(rec.Body.Bytes(), &want)
-	if err != nil {
-		t.Fatalf("got the report %s (%v), want JSON", rec.Body, err)
-	}
+	want := reportOf(t, router)
 
 	// Jira logs an hour more with each read, so the two agree only when they come from the same
 	// read. Its worklog started a minute ago, which may be last week: the report says which.
@@ -56,21 +41,7 @@ func TestTimeAnswersNoWeekWithoutJira(t *testing.T) {
 func getWeek(t *testing.T, router http.Handler) *timev1.GetWeekResponse {
 	t.Helper()
 
-	// gRPC needs HTTP/2; between services it runs without TLS (h2c), as internal/server allows.
-	h2c := new(http.Protocols)
-	h2c.SetUnencryptedHTTP2(true)
-
-	server := httptest.NewUnstartedServer(router)
-	server.Config.Protocols = h2c
-	server.Start()
-	t.Cleanup(server.Close)
-
-	transport := &http.Transport{Protocols: h2c}
-	t.Cleanup(transport.CloseIdleConnections)
-
-	httpClient := &http.Client{Transport: transport}
-	client := timev1connect.NewTimeServiceClient(
-		connect.NewClient(connecthttp.NewTransport(httpClient, server.URL, connecthttp.WithGRPC())))
+	client := timev1connect.NewTimeServiceClient(grpcClient(t, router))
 
 	res, err := client.GetWeek(t.Context(), &timev1.GetWeekRequest{})
 	if err != nil {

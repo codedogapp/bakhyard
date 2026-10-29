@@ -5,12 +5,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1/attentionv1connect"
 	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/time/v1/timev1connect"
 	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/jira"
@@ -18,6 +20,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/time/internal/api"
+	"github.com/codedogapp/bakhyard/services/time/internal/attention"
 	"github.com/codedogapp/bakhyard/services/time/internal/week"
 )
 
@@ -34,8 +37,9 @@ func main() {
 	}
 }
 
-// routes returns time's handler, which serves its API and its side of the time contract. With
-// Jira set up, it polls Jira for the user's worklogs in the background until ctx ends.
+// routes returns time's handler, which serves its API and its sides of the time and attention
+// contracts. With Jira set up, it polls Jira for the user's worklogs in the background until ctx
+// ends.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
@@ -51,12 +55,16 @@ func routes(
 	router.Use(middleware.GetHead)
 	health.Register(router)
 
-	reports := poll(ctx, client, slog.Default())
+	// The days of the reports, and so the items' due times, follow the local zone: the Mac's, or
+	// the one that the container's TZ names.
+	loc := time.Local
+	reports := poll(ctx, client, loc, slog.Default())
 	api.Register(router, reports)
 
-	timeServer := connect.NewServer()
-	timev1connect.RegisterTimeServiceHandler(timeServer, week.NewServer(reports))
-	connecthttp.Mount(router, timeServer)
+	server := connect.NewServer()
+	timev1connect.RegisterTimeServiceHandler(server, week.NewServer(reports))
+	attentionv1connect.RegisterAttentionServiceHandler(server, attention.NewLister(reports, loc))
+	connecthttp.Mount(router, server)
 
 	return router, nil
 }
