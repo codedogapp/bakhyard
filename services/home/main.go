@@ -15,6 +15,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/home/internal/api"
 	"github.com/codedogapp/bakhyard/services/home/internal/feed"
+	"github.com/codedogapp/bakhyard/services/home/internal/week"
 )
 
 func main() {
@@ -32,12 +33,14 @@ func routes(_ context.Context, getenv func(string) string) (http.Handler, error)
 	}
 
 	homeFeed := feed.New(peers, slog.Default())
+	homeWeek := week.New(peers, slog.Default())
 
 	router := chi.NewRouter()
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, getenv("BAKHYARD_NAME"), time.Now, homeFeed.Gather)
+	api.Register(router, getenv("BAKHYARD_NAME"), time.Now,
+		api.Peers{Items: homeFeed.Gather, Week: homeWeek.Ask})
 
 	return router, nil
 }

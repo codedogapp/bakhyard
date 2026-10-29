@@ -92,7 +92,7 @@ func TestHomeGet(t *testing.T) {
 }
 
 func TestHomeWithNothingToDo(t *testing.T) {
-	rec := serve(t, http.MethodGet, listing())
+	rec := serve(t, http.MethodGet, nothing)
 
 	var got map[string]jsontext.Value
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
@@ -110,6 +110,10 @@ func TestHomeWithNothingToDo(t *testing.T) {
 	if week, found := got["week"]; found {
 		t.Errorf("week = %s, want none", week)
 	}
+
+	if state, found := got["weekState"]; found {
+		t.Errorf("weekState = %s, want none: home has no time service", state)
+	}
 }
 
 func TestHomeMarksLateOnceTheItemsAreIn(t *testing.T) {
@@ -120,7 +124,8 @@ func TestHomeMarksLateOnceTheItemsAreIn(t *testing.T) {
 		return []screen.Item{{ID: "todos/1", Due: at().Add(time.Millisecond)}}, nil
 	}
 
-	rec := serveWith(t, http.MethodGet, slow, func() time.Time { return clock })
+	rec := serveWith(t, http.MethodGet, api.Peers{Items: slow, Week: noTime},
+		func() time.Time { return clock })
 
 	var got home
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
@@ -136,27 +141,34 @@ func TestHomeAsksWithTheRequestsContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	var asked error
+	var items, week error
 
-	gather := func(ctx context.Context) ([]screen.Item, []screen.SourceStatus) {
-		asked = ctx.Err()
+	peers := api.Peers{
+		Items: func(ctx context.Context) ([]screen.Item, []screen.SourceStatus) {
+			items = ctx.Err()
 
-		return nil, nil
+			return nil, nil
+		},
+		Week: func(ctx context.Context) (*screen.Week, screen.State) {
+			week = ctx.Err()
+
+			return nil, ""
+		},
 	}
 
 	router := chi.NewRouter()
-	api.Register(router, userName, at, gather)
+	api.Register(router, userName, at, peers)
 	router.ServeHTTP(httptest.NewRecorder(),
 		httptest.NewRequestWithContext(ctx, http.MethodGet, "/home", nil))
 
-	if !errors.Is(asked, context.Canceled) {
-		t.Errorf("the items were asked for with a context that ended with %v, want %v",
-			asked, context.Canceled)
+	if !errors.Is(items, context.Canceled) || !errors.Is(week, context.Canceled) {
+		t.Errorf("the items and the week were asked for with contexts that ended with %v and "+
+			"%v, want %v", items, week, context.Canceled)
 	}
 }
 
 func TestHomeHead(t *testing.T) {
-	rec := serve(t, http.MethodHead, listing())
+	rec := serve(t, http.MethodHead, nothing)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -178,7 +190,7 @@ func TestHomeOtherMethods(t *testing.T) {
 
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
-			rec := serve(t, method, listing())
+			rec := serve(t, method, nothing)
 
 			if rec.Code != http.StatusMethodNotAllowed {
 				t.Errorf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
@@ -191,27 +203,33 @@ func TestHomeOtherMethods(t *testing.T) {
 	}
 }
 
-// listing returns a gatherer that lists items and no sources.
-func listing(items ...screen.Item) gatherer {
-	return func(context.Context) ([]screen.Item, []screen.SourceStatus) { return items, nil }
+// nothing lists no items and no sources.
+func nothing(context.Context) ([]screen.Item, []screen.SourceStatus) {
+	return nil, nil
 }
 
-// serve answers a request to /home with method, with what gather gathers, at the tests' time.
+// noTime answers the week as home does without a time service: no week and no state.
+func noTime(context.Context) (*screen.Week, screen.State) {
+	return nil, ""
+}
+
+// serve answers a request to /home with method, with what gather gathers, at the tests' time,
+// as home without a time service.
 func serve(t *testing.T, method string, gather gatherer) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return serveWith(t, method, gather, at)
+	return serveWith(t, method, api.Peers{Items: gather, Week: noTime}, at)
 }
 
-// serveWith is serve with the clock now.
+// serveWith answers a request to /home with method, with what peers answer, at the clock now.
 func serveWith(
-	t *testing.T, method string, gather gatherer, now func() time.Time,
+	t *testing.T, method string, peers api.Peers, now func() time.Time,
 ) *httptest.ResponseRecorder {
 	t.Helper()
 
 	router := chi.NewRouter()
 	router.Use(middleware.GetHead)
-	api.Register(router, userName, now, gather)
+	api.Register(router, userName, now, peers)
 
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), method, "/home", nil))
