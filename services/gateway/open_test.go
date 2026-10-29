@@ -14,6 +14,7 @@ func TestTheOpenGatewayLetsEveryRequestThrough(t *testing.T) {
 		{http.MethodGet, "/api/home", "home got GET /home"},
 		{http.MethodGet, "/api/notes/files/Inbox.md", "notes got GET /notes/files/Inbox.md"},
 		{http.MethodGet, "/api/pulls/mine", "pulls got GET /pulls/mine"},
+		{http.MethodGet, "/api/time/report", "time got GET /time/report"},
 		{http.MethodPost, "/api/todos", "todos got POST /todos"},
 		{http.MethodGet, "/", "web got GET /"},
 		{http.MethodHead, "/todos", "web got HEAD /todos"},
@@ -89,7 +90,7 @@ func TestTheOpenGatewayKeepsEverythingButTheLocks(t *testing.T) {
 func TestTheOpenGatewayNeedsItsPeers(t *testing.T) {
 	_, err := openRoutes(func(string) string { return "" })
 
-	for _, name := range []string{"home", "notes", "notify", "nudge", "pulls", "todos", "web"} {
+	for _, name := range peerNames() {
 		if err == nil || !strings.Contains(err.Error(), name) {
 			t.Errorf("without BAKHYARD_PEERS: got %v, want an error that names %s", err, name)
 		}
@@ -102,7 +103,7 @@ func TestOnlyTheEndToEndBuildIsOpen(t *testing.T) {
 		if key == "BAKHYARD_PEERS" {
 			return "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1" +
 				",nudge=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1" +
-				",todos=tcp://127.0.0.1:1,web=tcp://127.0.0.1:1"
+				",time=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1,web=tcp://127.0.0.1:1"
 		}
 
 		return ""
@@ -120,7 +121,7 @@ func openGateway(t *testing.T) http.Handler {
 
 	var peers []string
 
-	for _, name := range []string{"home", "notes", "notify", "nudge", "pulls", "todos", "web"} {
+	for _, name := range peerNames() {
 		peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Got", name+" got "+r.Method+" "+r.URL.Path)
 			w.Header().Set("Got-Cookies", r.Header.Get("Cookie"))

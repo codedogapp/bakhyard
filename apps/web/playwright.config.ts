@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// The tests' own ports, apart from mise run up's (8080 to 8085), so both can run at once.
+// The tests' own ports, apart from mise run up's (8080 to 8088), so both can run at once.
 const gateway = '127.0.0.1:8180';
 const web = '127.0.0.1:8182';
 // Nothing listens here: the tests answer the app's API calls in the browser, so none should reach the services.
@@ -37,7 +37,7 @@ export default defineConfig({
       env: {
         BAKHYARD_LISTEN: `tcp://${gateway}`,
         BAKHYARD_PEERS: [
-          ...['home', 'notes', 'notify', 'nudge', 'pulls', 'todos'].map((name) => `${name}=${nowhere}`),
+          ...['home', 'notes', 'notify', 'nudge', 'pulls', 'time', 'todos'].map((name) => `${name}=${nowhere}`),
           `web=tcp://${web}`,
         ].join(','),
       },

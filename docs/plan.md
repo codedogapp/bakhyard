@@ -164,6 +164,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `jira-worklogs` | The shared Jira client reads my worklogs in a span of time: my account from `/myself`, the tickets I logged work on from a `worklogAuthor` search, then each ticket's worklogs, keeping mine that start in the span, the earliest first. The second of `time-tracking`'s eleven steps (decision 180) | Done (#148) |
 | `time-report` | A package of the new `time` service, `report`, works out the time report from my worklogs: the hours I logged on each of the last 7 days, the weekdays before today with nothing logged marked as missing, and this week's hours against its 40-hour target. The third of `time-tracking`'s twelve steps (decision 181) | Done (#149) |
 | `time-service` | A new `time` service polls Jira for my worklogs of the last 7 days as it starts and every 5 minutes after, and answers the time report at `GET /time/report`, with when the latest poll to succeed began and why the latest poll failed, if it did. It reads todos' Jira settings and token: without them it answers 404, and with only some it doesn't start. `mise run up` runs it on port 8088 and the Gitea workflow builds its image; the gateway reaches it with `time-gateway`. The fourth of `time-tracking`'s twelve steps (decision 182) | Done (#150) |
+| `time-gateway` | The gateway forwards `/api/time` to the `time` service, behind both of its locks, so the app reaches my time report at `GET /api/time/report`. `time` is one of the gateway's peers, each of which `BAKHYARD_PEERS` must name, and `mise run up` starts the gateway once time is ready. The sixth of `time-tracking`'s twelve steps (decision 181) | Done (#151) |
 | `nudge-merge` | Nudge, the user's phone-questions tool for agents (`codedogapp/nudge`), moves into Bakhyard: one app, not two (decision 157). The nudge session does the work, one small PR per step, from its plan, [`bakhyard-merge.md`](https://github.com/codedogapp/nudge/blob/main/docs/bakhyard-merge.md); this session doesn't stop its own steps for it | In review |
 
 After these: the product phases (§8.2), each split into steps.
@@ -373,7 +374,7 @@ flowchart LR
 | Service | Role | Listens on | Peers | Grows into (§8.2) |
 | --- | --- | --- | --- | --- |
 | nats | Event bus; JetStream on for later durable flows | `tcp://127.0.0.1:4222`, monitoring `:8222` | | reminders → notify |
-| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home, notes, pulls, todos | auth-signin |
+| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home, notes, notify, nudge, pulls, time, todos | auth-signin |
 | web | Serves the embedded Svelte build | unix socket | | frontend-shell (PWA parts) |
 | home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner | home-feed |
 | notes | Obsidian vault | unix socket | nats | vault-index, vault-render, vault-edit-sync |
@@ -549,7 +550,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 - Each service has a `description`, a `command` (`bin/<name>`, run with `bash -c` from the repo root) and an `environment` with its `BAKHYARD_LISTEN` and, for the gateway, `BAKHYARD_PEERS` (§4.7).
 - A readiness probe checks each service's `GET /healthz` (§4.7), first 1 s after the start, then every 2 s. A check gets 1 s to answer, and 3 failures in a row fail the probe.
-- The gateway `depends_on` home, notes, pulls, todos and web with `condition: process_healthy`, so it starts once their probes pass.
+- The gateway `depends_on` home, notes, notify, nudge, pulls, time, todos and web with `condition: process_healthy`, so it starts once their probes pass.
 - What every service shares sits in an `x-service` YAML anchor, merged into each with `<<: *service`:
   - `availability.restart: always`: a service that exits, or fails its probe, restarts after 1 s, however often it needs to. A service stopped by hand stays stopped.
   - `shutdown.timeout_seconds: 10`: a stop sends SIGTERM to the service's process group, then SIGKILL if it's still running 10 s later. Without the timeout, process-compose never sends SIGKILL, and a hung service never stops.
@@ -1199,8 +1200,8 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `jira-worklogs`: the client reads my worklogs in a span of days: my account from `/myself`, the tickets I logged on from a `worklogAuthor` search, and each ticket's worklogs. Done (#148).
   - `time-report`: a package of the `time` service, `report`, works out the time report from my worklogs: the hours I logged on each of the last 7 days, with every weekday before today that has none marked as missing, plus this week's total against the target. Done (#149).
   - `time-service`: a new `time` service polls the last 7 days' worklogs every 5 minutes and answers the time report at `GET /time/report` (decision 182). Done (#150).
-  - `homelab-time`: in the homelab repo, `time` runs on the laptop with todos' Jira settings and token, and the gateway's and home's peers name it.
-  - `time-gateway`: the gateway forwards `/api/time` to `time`.
+  - `homelab-time`: done (codedogapp/homelab#42). In the homelab repo, `time` runs on the laptop with todos' Jira settings and token, and the gateway's and home's peers name it.
+  - `time-gateway`: the gateway forwards `/api/time` to `time`. Done (#151).
   - `time-page`: the Time page shows the time report.
   - `time-week`: `time` answers `TimeService/GetWeek` (§4.10).
   - `home-week`: home asks `time` for the week, and the Home's "This week" shows it, or "Hours unavailable" when `time` doesn't answer (§7).

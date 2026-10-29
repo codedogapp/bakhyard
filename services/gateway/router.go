@@ -44,6 +44,7 @@ func wire(upstream upstreams, guard locks, logger *slog.Logger) http.Handler {
 		proxy.Register(api, "notify", upstream.notify, logger)
 		proxy.Register(api, "nudge", upstream.nudge, logger)
 		proxy.Register(api, "pulls", upstream.pulls, logger)
+		proxy.Register(api, "time", upstream.time, logger)
 		proxy.Register(api, "todos", upstream.todos, logger)
 		proxy.RegisterUnclaimed(api)
 	})

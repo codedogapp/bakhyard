@@ -217,7 +217,7 @@ func gatewayEnv(t *testing.T, webURL string) (vars, items map[string]string) {
 	vars = map[string]string{
 		"BAKHYARD_PEERS": "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1" +
 			",nudge=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1" +
-			",todos=tcp://127.0.0.1:1,web=tcp://" + strings.TrimPrefix(
+			",time=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1,web=tcp://" + strings.TrimPrefix(
 			webURL,
 			"http://",
 		),
