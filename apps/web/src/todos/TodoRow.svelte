@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { Ticket } from '../jira/tickets';
 import type { Todo } from './api';
 import type { Drag } from './drag.svelte';
 import EditForm from './EditForm.svelte';
@@ -7,7 +8,6 @@ import type { Focus } from './focus';
 import { rowLabel } from './labels';
 import type { TodosState } from './state.svelte';
 import TicketBadge from './TicketBadge.svelte';
-import type { Ticket } from './tickets';
 
 // `open` holds my open tickets by key, which give the editor its choices, and `done` the done tickets that the todos
 // name; both give a linked todo's badge its status.

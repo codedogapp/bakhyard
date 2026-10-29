@@ -1,9 +1,9 @@
 import type { Home } from '../src/home/api';
+import type { Snapshot } from '../src/jira/tickets';
 import type { State } from '../src/nudge/nudge';
 import type { Snapshot as Pulls } from '../src/pulls/pulls';
 import type { Report } from '../src/time/report';
 import type { Todo } from '../src/todos/api';
-import type { Snapshot } from '../src/todos/tickets';
 
 /** A made-up user's Home at the tests' time (fixtures.ts): three items, one of them late. */
 export const home: Home = {

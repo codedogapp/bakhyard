@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
+import type { Snapshot } from '../src/jira/tickets';
 import type { Todo } from '../src/todos/api';
-import type { Snapshot } from '../src/todos/tickets';
 import { bounds } from './bounds';
 import { chipLooks } from './chips';
 import { home, tickets } from './demo';

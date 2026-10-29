@@ -2,10 +2,11 @@ import { flushSync } from 'svelte';
 import type { Attachment } from 'svelte/attachments';
 import { SvelteMap } from 'svelte/reactivity';
 
+import type { Ticket, Tickets } from '../jira/tickets';
 import { type Added, addTodo, dismissTicket, fetchDismissals } from './api';
 import type { Focus } from './focus';
 import type { AddStatus, TodosState } from './state.svelte';
-import { inboxTickets, type Ticket, type Tickets } from './tickets';
+import { inboxTickets } from './tickets';
 
 /** What an inbox row's buttons do: add the ticket as a todo, or dismiss it. */
 export type Action = 'add' | 'dismiss';

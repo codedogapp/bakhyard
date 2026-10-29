@@ -1,7 +1,7 @@
 <script lang="ts">
+import type { Ticket } from '../jira/tickets';
 import { ticketChoices } from './choices';
 import type { Editor } from './editor.svelte';
-import type { Ticket } from './tickets';
 
 // `open` holds my open tickets by key, in Jira's order.
 let { editor, open }: { editor: Editor; open: ReadonlyMap<string, Ticket> } = $props();

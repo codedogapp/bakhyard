@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
+import { loadTickets, type Snapshot } from '../jira/tickets';
 import { fetchTodos, type Todo } from './api';
 import TodosPage from './TodosPage.svelte';
-import { loadTickets, type Snapshot } from './tickets';
 
 // Spies that call through, so a test can wait for the todos or the tickets to load.
 vi.mock('./api', { spy: true });
-vi.mock('./tickets', { spy: true });
+vi.mock('../jira/tickets', { spy: true });
 
 afterEach(() => {
   vi.unstubAllGlobals();

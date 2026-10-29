@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 
+import { loadTickets, type Tickets } from '../jira/tickets';
 import PageHead from '../shell/PageHead.svelte';
 import Section from '../shell/Section.svelte';
 import AddForm from './AddForm.svelte';
@@ -14,7 +15,7 @@ import JiraTickets from './JiraTickets.svelte';
 import { groupNote, priorityLabel, todosSummary } from './labels';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
-import { doneTickets, loadTickets, openTickets, type Tickets } from './tickets';
+import { doneTickets, openTickets } from './tickets';
 
 const list = new TodosState();
 let addField = $state<HTMLInputElement>();

@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { Ticket } from './tickets';
+import type { Ticket } from '../jira/tickets';
 
 let { ticket }: { ticket: Ticket } = $props();
 </script>

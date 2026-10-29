@@ -1,6 +1,6 @@
 <script lang="ts">
+import type { Ticket } from '../jira/tickets';
 import TicketStatus from './TicketStatus.svelte';
-import type { Ticket } from './tickets';
 
 // The key a todo names, its ticket when that's one of my open tickets or a done one, and whether the todo is ticked.
 let { key, ticket, ticked }: { key: string; ticket: Ticket | undefined; ticked: boolean } = $props();
