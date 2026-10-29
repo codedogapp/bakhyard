@@ -2,8 +2,9 @@ import type { Locator, Page } from '@playwright/test';
 
 import type { Report } from '../src/time/report';
 import { chipLooks } from './chips';
-import { home, report } from './demo';
+import { home, report, tickets } from './demo';
 import { expect, test } from './fixtures';
+import { answerTickets } from './jira';
 
 /** Answers the Time page's call for the report with the report, or with the status. */
 async function answerReport(page: Page, answer: Report | number) {
@@ -16,8 +17,10 @@ const heads = (page: Page) => page.getByRole('main').getByRole('heading', { leve
 const days = (page: Page) => page.getByRole('main').getByRole('listitem');
 const color = (locator: Locator) => locator.evaluate((element) => getComputedStyle(element).color);
 
+// My open tickets, for the form that fills a day (time-fill.spec.ts).
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await answerTickets(page, tickets);
 });
 
 test("the Time page shows this week's hours and the last 7 days' from Jira", async ({ page }) => {
@@ -48,9 +51,9 @@ test('the hours of a day show in the ink once logged, and stay muted like its da
 
   const hours = (day: string) => days(page).filter({ hasText: day }).locator('.list-end > :last-child');
   await expect(hours('19 Oct')).toHaveText('8h');
-  expect(await color(hours('19 Oct'))).toBe(await color(page.getByText('Monday')));
-  expect(await color(hours('17 Oct'))).toBe(await color(page.getByText('17 Oct')));
-  expect(await color(hours('17 Oct'))).not.toBe(await color(page.getByText('Saturday')));
+  expect(await color(hours('19 Oct'))).toBe(await color(days(page).getByText('Monday')));
+  expect(await color(hours('17 Oct'))).toBe(await color(days(page).getByText('17 Oct')));
+  expect(await color(hours('17 Oct'))).not.toBe(await color(days(page).getByText('Saturday')));
 });
 
 test('the Time page is current in the header, or under More in the tab bar', async ({ page }, testInfo) => {

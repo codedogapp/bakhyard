@@ -1,5 +1,7 @@
 import type { Attachment } from 'svelte/attachments';
 
+import { focusLost } from '../shell/focus';
+
 /** Focuses the editor's field as it shows, with the caret after the title. */
 export const focusField: Attachment<HTMLInputElement> = (input) => {
   input.focus();
@@ -38,8 +40,7 @@ export class Focus {
    * save, a delete or a move ran.
    */
   recover(button: HTMLButtonElement | undefined): void {
-    const focused = document.activeElement;
-    if (focused !== document.body && !focused?.closest('dialog:not([open])')) {
+    if (!focusLost()) {
       return;
     }
     if (button) {

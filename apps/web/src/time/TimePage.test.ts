@@ -8,8 +8,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// Answers the report's request; my open tickets, which only the form needs (TimePage.fill.test.ts), keep loading.
 function answer(response: () => Promise<Response>) {
-  const fetchMock = vi.fn<typeof fetch>(response);
+  const fetchMock = vi.fn<typeof fetch>((url) => (url === '/api/time/report' ? response() : loading()));
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
@@ -38,7 +39,7 @@ test('loads the time report as it shows, with this week and the last 7 days', as
   expect(screen.getByRole('heading', { level: 1, name: 'Time' })).toBeInTheDocument();
   expect(await screen.findByText('9h 30m / 40h')).toBeInTheDocument();
   expect(heads()).toEqual(['This week', 'Last 7 days']);
-  expect(fetchMock.mock.calls).toEqual([['/api/time/report']]);
+  expect(fetchMock.mock.calls).toEqual([['/api/time/report'], ['/api/todos/tickets']]);
 });
 
 test('lists each day with its date, weekday and hours, and marks the missing one', async () => {

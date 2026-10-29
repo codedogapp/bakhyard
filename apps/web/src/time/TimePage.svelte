@@ -6,16 +6,24 @@ import Section from '../shell/Section.svelte';
 import { searchedLabel } from '../shell/snapshot';
 import DayList from './DayList.svelte';
 import { missingNote } from './days';
+import FillDialog from './FillDialog.svelte';
+import FillForm from './FillForm.svelte';
+import { Fill } from './fill.svelte';
 import { loadReport, type TimeReport } from './report';
 import WeekCard from './WeekCard.svelte';
 
 let report = $state.raw<TimeReport>({ kind: 'loading' });
+const fill = new Fill((loaded) => {
+  report = loaded;
+});
 
-// The report loads each time the page shows, as the time service's latest poll has it (decision 184).
+// The report loads each time the page shows, as the time service's latest poll has it (decision 184), and so do my
+// open tickets, which the form offers.
 onMount(() => {
   void loadReport().then((loaded) => {
     report = loaded;
   });
+  void fill.load();
 });
 </script>
 
@@ -34,6 +42,9 @@ onMount(() => {
       {/if}
     </p>
   {/if}
+  {#if days?.length}
+    <FillForm {fill} {days} />
+  {/if}
   {#if week}
     <Section title="This" accent="week">
       <WeekCard {week} />
@@ -45,6 +56,7 @@ onMount(() => {
     </Section>
   {/if}
 {/if}
+<FillDialog {fill} />
 
 <style>
 .off,
