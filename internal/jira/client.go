@@ -1,10 +1,11 @@
 // Package jira reads the user's tickets and worklogs on a Jira Cloud site, through Jira's REST
-// API v3 and a scoped API token: it finds the open tickets, fetches tickets by key and reads the
-// user's worklogs, for each service that the Jira settings set up (docs/plan.md §2, decisions
-// 103, 121, 133 and 180).
+// API v3 and a scoped API token: it finds the open tickets, fetches tickets by key, and reads and
+// adds the user's worklogs, for each service that the Jira settings set up (docs/plan.md §2,
+// decisions 103, 121, 133, 180 and 189).
 package jira
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
 	"fmt"
@@ -42,7 +43,7 @@ type Settings struct {
 	Token string
 }
 
-// Client reads tickets and worklogs on a Jira site.
+// Client reads tickets and worklogs on a Jira site, and adds worklogs.
 type Client struct {
 	settings Settings
 	client   *http.Client
@@ -149,19 +150,38 @@ func (c *Client) page(ctx context.Context, jql, fields, token string) (page, err
 	return found, nil
 }
 
-// get asks Jira for target and reads Jira's answer into answer, as do does.
+// get asks Jira for target and reads Jira's answer, a 200, into answer, as do does.
 func (c *Client) get(ctx context.Context, target *url.URL, action string, answer any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", action, err)
 	}
 
-	return c.do(req, action, answer)
+	return c.do(req, http.StatusOK, action, answer)
 }
 
-// do sends req to Jira as the user and reads Jira's answer into answer. Its errors start with
-// action, such as "search Jira", or with "read Jira's answer" when the answer is no use.
-func (c *Client) do(req *http.Request, action string, answer any) error {
+// newPost returns a request that posts body to target as JSON.
+func newPost(ctx context.Context, target *url.URL, body any) (*http.Request, error) {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target.String(),
+		bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	return req, nil
+}
+
+// do sends req to Jira as the user and, unless answer is nil, reads Jira's answer into answer.
+// Jira must answer with the status want. Its errors start with action, such as "search Jira",
+// or with "read Jira's answer" when the answer is no use.
+func (c *Client) do(req *http.Request, want int, action string, answer any) error {
 	req.SetBasicAuth(c.settings.Email, c.settings.Token)
 	req.Header.Set("Accept", "application/json")
 
@@ -172,8 +192,12 @@ func (c *Client) do(req *http.Request, action string, answer any) error {
 
 	defer func() { _ = res.Body.Close() }()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != want {
 		return fmt.Errorf("%s: %s", action, res.Status)
+	}
+
+	if answer == nil {
+		return nil
 	}
 
 	err = json.UnmarshalRead(io.LimitReader(res.Body, maxAnswer), answer)

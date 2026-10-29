@@ -1,9 +1,7 @@
 package jira
 
 import (
-	"bytes"
 	"context"
-	"encoding/json/v2"
 	"fmt"
 	"net/http"
 	"slices"
@@ -47,24 +45,15 @@ func (c *Client) Fetch(ctx context.Context, keys []string) ([]Ticket, error) {
 
 // fetch returns Jira's answer for a batch of at most fetchSize keys.
 func (c *Client) fetch(ctx context.Context, keys []string) (fetched, error) {
-	body, err := json.Marshal(bulkFetch{Keys: keys, Fields: []string{"summary", "status"}})
+	req, err := newPost(ctx, c.settings.API.JoinPath("rest/api/3/issue/bulkfetch"),
+		bulkFetch{Keys: keys, Fields: []string{"summary", "status"}})
 	if err != nil {
 		return fetched{}, fmt.Errorf("fetch Jira tickets: %w", err)
 	}
-
-	target := c.settings.API.JoinPath("rest/api/3/issue/bulkfetch")
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target.String(),
-		bytes.NewReader(body))
-	if err != nil {
-		return fetched{}, fmt.Errorf("fetch Jira tickets: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
 
 	var found fetched
 
-	err = c.do(req, "fetch Jira tickets", &found)
+	err = c.do(req, http.StatusOK, "fetch Jira tickets", &found)
 	if err != nil {
 		return fetched{}, err
 	}

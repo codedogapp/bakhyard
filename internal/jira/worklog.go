@@ -14,7 +14,8 @@ const (
 	// worklogPageSize is the number of worklogs that the client asks for in each page. A worklog
 	// takes about 2.4 KB with its two users' avatars, so a page stays under maxAnswer.
 	worklogPageSize = 1000
-	// startedLayout is the layout of a worklog's start in Jira's answers, which isn't RFC 3339.
+	// startedLayout is the layout of a worklog's start in Jira's answers and in a new worklog,
+	// which isn't RFC 3339.
 	startedLayout = "2006-01-02T15:04:05.000-0700"
 )
 
