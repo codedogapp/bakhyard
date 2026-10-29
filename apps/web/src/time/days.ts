@@ -21,6 +21,11 @@ function format(date: string, options: Intl.DateTimeFormatOptions): string {
   return new Date(date).toLocaleDateString('en-GB', { ...options, timeZone: 'UTC' });
 }
 
+/** A day by its weekday and date: "Monday 19 Oct". */
+export function dayName(date: string): string {
+  return format(date, { weekday: 'long', day: 'numeric', month: 'short' });
+}
+
 /** The report's days as the Time page lists them, in the report's order, whose last day is today (decision 181). */
 export function dayRows(days: readonly Day[]): DayRow[] {
   return days.map((day, index) => ({

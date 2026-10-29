@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { dayRows, missingNote } from './days';
+import { dayName, dayRows, missingNote } from './days';
 import type { Day } from './report';
 
 afterEach(() => {
@@ -37,6 +37,21 @@ test('names each day as the report does in a time zone behind UTC too', () => {
     '15 Oct Thursday',
     '16 Oct Today',
   ]);
+});
+
+test.each([
+  { date: '2026-10-16', want: 'Friday 16 Oct' },
+  { date: '2026-10-19', want: 'Monday 19 Oct' },
+  // en-GB shortens September to four letters.
+  { date: '2026-09-30', want: 'Wednesday 30 Sept' },
+])('names $date "$want"', ({ date, want }) => {
+  expect(dayName(date)).toBe(want);
+});
+
+test('names a day as the report does in a time zone behind UTC too', () => {
+  vi.stubEnv('TZ', 'America/Los_Angeles');
+
+  expect(dayName('2026-10-16')).toBe('Friday 16 Oct');
 });
 
 test('lists no row for no day', () => {
