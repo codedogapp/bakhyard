@@ -1,4 +1,4 @@
-package jira_test
+package tickets_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/internal/jira"
 )
 
 // webThreeJSON is webThree as JSON.

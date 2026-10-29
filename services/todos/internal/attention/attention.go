@@ -8,7 +8,8 @@ import (
 	"strconv"
 
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/internal/jira"
+	"github.com/codedogapp/bakhyard/services/todos/internal/tickets"
 	"github.com/codedogapp/bakhyard/services/todos/internal/todo"
 )
 
@@ -17,18 +18,18 @@ import (
 type Lister struct {
 	list      func(context.Context) ([]todo.Todo, error)
 	dismissed func(context.Context) ([]string, error)
-	tickets   *jira.Poller
+	poller    *tickets.Poller
 }
 
 // NewLister returns a lister of the todos that list reads, such as a Store's List, and of the Jira
 // inbox, which leaves out the tickets that dismissed reads, such as a Store's Dismissed. It learns
-// from tickets which tickets are open and which are done; tickets is nil when Jira isn't set up.
+// from poller which tickets are open and which are done; poller is nil when Jira isn't set up.
 func NewLister(
 	list func(context.Context) ([]todo.Todo, error),
 	dismissed func(context.Context) ([]string, error),
-	tickets *jira.Poller,
+	poller *tickets.Poller,
 ) *Lister {
-	return &Lister{list: list, dismissed: dismissed, tickets: tickets}
+	return &Lister{list: list, dismissed: dismissed, poller: poller}
 }
 
 // ListItems lists the Jira inbox's tickets, then, in the list's order, the todos left to do that
@@ -67,14 +68,14 @@ func (l *Lister) ListItems(
 
 // found returns what the latest Jira poll to succeed found, once the first poll has ended, and
 // nothing when Jira isn't set up.
-func (l *Lister) found(ctx context.Context) (jira.Found, error) {
-	if l.tickets == nil {
-		return jira.Found{}, nil
+func (l *Lister) found(ctx context.Context) (tickets.Found, error) {
+	if l.poller == nil {
+		return tickets.Found{}, nil
 	}
 
-	latest, err := l.tickets.Latest(ctx)
+	latest, err := l.poller.Latest(ctx)
 	if err != nil {
-		return jira.Found{}, err
+		return tickets.Found{}, err
 	}
 
 	return latest.Found, nil

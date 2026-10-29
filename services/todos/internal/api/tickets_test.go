@@ -11,13 +11,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/codedogapp/bakhyard/internal/jira"
 	"github.com/codedogapp/bakhyard/services/todos/internal/api"
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/services/todos/internal/tickets"
 )
 
 // A bubble's clock starts at midnight UTC on 1 January 2000, when the poller searches first.
 func TestGetTicketsAnswersWhatThePollerFound(t *testing.T) {
-	tickets := []jira.Ticket{
+	open := []jira.Ticket{
 		{
 			Key: "PAY-2", Summary: `Answer "Re: <the plan>"`, Status: "In Review",
 			Category: jira.InProgress, URL: "https://acme.example/browse/PAY-2",
@@ -40,7 +41,7 @@ func TestGetTicketsAnswersWhatThePollerFound(t *testing.T) {
 		want    string
 	}{
 		{
-			tickets, nil, nil,
+			open, nil, nil,
 			`{"tickets":[{"key":"PAY-2","summary":"Answer \"Re: <the plan>\"",` +
 				`"status":"In Review","category":"in-progress",` +
 				`"url":"https://acme.example/browse/PAY-2"},` +
@@ -98,7 +99,7 @@ func withJira(
 
 	fake := fakeJira{search: search, done: done}
 
-	poller := jira.NewPoller(fake, fake.linked, slog.New(slog.DiscardHandler))
+	poller := tickets.NewPoller(fake, fake.linked, slog.New(slog.DiscardHandler))
 	go poller.Run(t.Context())
 
 	router := chi.NewRouter()
