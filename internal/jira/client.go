@@ -1,13 +1,14 @@
 // Package jira reads the user's tickets and worklogs on a Jira Cloud site, through Jira's REST
 // API v3 and a scoped API token: it finds the open tickets, fetches tickets by key, and reads and
 // adds the user's worklogs, for each service that the Jira settings set up (docs/plan.md §2,
-// decisions 103, 121, 133, 180 and 189).
+// decisions 103, 121, 133, 180, 189 and 191).
 package jira
 
 import (
 	"bytes"
 	"context"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,6 +48,7 @@ type Settings struct {
 type Client struct {
 	settings Settings
 	client   *http.Client
+	writes   ownWrites
 }
 
 // New returns the client of the site in settings. It reaches Jira only when it's asked for
@@ -178,9 +180,30 @@ func newPost(ctx context.Context, target *url.URL, body any) (*http.Request, err
 	return req, nil
 }
 
-// do sends req to Jira as the user and, unless answer is nil, reads Jira's answer into answer.
-// Jira must answer with the status want. Its errors start with action, such as "search Jira",
-// or with "read Jira's answer" when the answer is no use.
+// errAnswer marks do's error for an answer from Jira that do can't read.
+var errAnswer = errors.New("read Jira's answer")
+
+// statusError is the error of an answer from Jira whose status isn't the one the client wants.
+type statusError struct {
+	action, status string
+	code           int
+}
+
+func (e *statusError) Error() string {
+	return e.action + ": " + e.status
+}
+
+// isNotFound reports whether err is Jira's 404: the ticket doesn't exist, the user may not see
+// it, or the site doesn't track time.
+func isNotFound(err error) bool {
+	failure, ok := errors.AsType[*statusError](err)
+
+	return ok && failure.code == http.StatusNotFound
+}
+
+// do sends req to Jira as the user and reads Jira's answer into answer. Jira must answer with
+// the status want, or do returns a *statusError. Its errors start with action, such as "search
+// Jira", or with errAnswer's "read Jira's answer" when the answer is no use.
 func (c *Client) do(req *http.Request, want int, action string, answer any) error {
 	req.SetBasicAuth(c.settings.Email, c.settings.Token)
 	req.Header.Set("Accept", "application/json")
@@ -193,16 +216,12 @@ func (c *Client) do(req *http.Request, want int, action string, answer any) erro
 	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != want {
-		return fmt.Errorf("%s: %s", action, res.Status)
-	}
-
-	if answer == nil {
-		return nil
+		return &statusError{action: action, status: res.Status, code: res.StatusCode}
 	}
 
 	err = json.UnmarshalRead(io.LimitReader(res.Body, maxAnswer), answer)
 	if err != nil {
-		return fmt.Errorf("read Jira's answer: %w", err)
+		return fmt.Errorf("%w: %w", errAnswer, err)
 	}
 
 	return nil
