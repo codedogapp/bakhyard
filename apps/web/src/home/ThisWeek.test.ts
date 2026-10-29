@@ -10,3 +10,11 @@ test("shows the week's card under its head, which links to the day report", () =
   expect(screen.getByRole('link', { name: 'Day report' })).toHaveAttribute('href', '/time');
   expect(screen.getByText('30h / 40h')).toBeInTheDocument();
 });
+
+test('without a week, keeps its head and link, and its card says the hours are unavailable', () => {
+  render(ThisWeek);
+
+  expect(screen.getByRole('heading', { level: 2, name: 'This week' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Day report' })).toHaveAttribute('href', '/time');
+  expect(screen.getByText('Hours unavailable')).toBeInTheDocument();
+});
