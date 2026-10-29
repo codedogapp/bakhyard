@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/codedogapp/bakhyard/internal/jsonbody"
 	"github.com/codedogapp/bakhyard/services/todos/internal/todo"
 )
 
@@ -16,7 +17,7 @@ import (
 // (decision 125), and before or after names the todo to go right before or right after (decision
 // 118). A body that isn't a JSON object with just those members, a title, a priority or a ticket
 // that breaks its rule, both before and after, or a todo to go next to that doesn't exist gets a
-// 400 with the reason, a body over maxBody a 413, a todo that doesn't exist a 404, and a database
+// 400 with the reason, a body over 64 KiB a 413, a todo that doesn't exist a 404, and a database
 // error a 500, whose cause logger gets.
 func changeTodo(store *todo.Store, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -26,8 +27,8 @@ func changeTodo(store *todo.Store, logger *slog.Logger) http.HandlerFunc {
 		}
 
 		var change todo.Change
-		if !readBody(w, r, &change, "the body isn't a JSON object with just a title, a done mark, "+
-			"a priority, a ticket and the ID of a todo to go before or after") {
+		if !jsonbody.Read(w, r, &change, "the body isn't a JSON object with just a title, a "+
+			"done mark, a priority, a ticket and the ID of a todo to go before or after") {
 			return
 		}
 
