@@ -31,6 +31,7 @@ func TestTheGatewayNeedsASessionForTheAPIOnly(t *testing.T) {
 		{http.MethodGet, "/api/notes", http.StatusUnauthorized},
 		{http.MethodGet, "/api/notes/files/Inbox.md", http.StatusUnauthorized},
 		{http.MethodGet, "/api/pulls/mine", http.StatusUnauthorized},
+		{http.MethodGet, "/api/time/report", http.StatusUnauthorized},
 		{http.MethodGet, "/api/todos", http.StatusUnauthorized},
 		{http.MethodGet, "/api/nudge/state", http.StatusUnauthorized},
 		{http.MethodPost, "/api/notify/subscriptions", http.StatusUnauthorized},
@@ -69,11 +70,13 @@ func TestTheGatewayKeepsTheSessionFromTheServices(t *testing.T) {
 		return srv
 	}
 	home, pulls, todos, web := service("home"), service("pulls"), service("todos"), service("web")
+	timeService := service("time")
 
 	vars, items := gatewayEnv(t, web.URL)
 	vars["BAKHYARD_PEERS"] = "home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
 		",notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1,nudge=tcp://127.0.0.1:1" +
 		",pulls=tcp://" + strings.TrimPrefix(pulls.URL, "http://") +
+		",time=tcp://" + strings.TrimPrefix(timeService.URL, "http://") +
 		",todos=tcp://" + strings.TrimPrefix(todos.URL, "http://") +
 		",web=tcp://" + strings.TrimPrefix(web.URL, "http://")
 	router, token := gatewayFrom(t, vars, items)
@@ -86,6 +89,7 @@ func TestTheGatewayKeepsTheSessionFromTheServices(t *testing.T) {
 	}{
 		{"/api/home", "home", true},
 		{"/api/pulls/mine", "pulls", true},
+		{"/api/time/report", "time", true},
 		{"/api/todos", "todos", true},
 		{"/notes", "web", false},
 	} {

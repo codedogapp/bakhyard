@@ -33,7 +33,7 @@ func TestEveryResponseCarriesTheSecurityHeaders(t *testing.T) {
 	vars["BAKHYARD_PEERS"] = "home=tcp://127.0.0.1:1" +
 		",notes=tcp://" + strings.TrimPrefix(notes.URL, "http://") +
 		",notify=tcp://127.0.0.1:1,nudge=tcp://127.0.0.1:1" +
-		",pulls=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1" +
+		",pulls=tcp://127.0.0.1:1,time=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1" +
 		",web=tcp://" + strings.TrimPrefix(web.URL, "http://")
 	router, token := gatewayFrom(t, vars, items)
 
