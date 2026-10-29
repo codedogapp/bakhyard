@@ -1,4 +1,8 @@
-import type { Week } from './api';
+/** The hours logged this week, against the weekly target. */
+export interface Week {
+  loggedHours: number;
+  targetHours: number;
+}
 
 const minutesPerHour = 60;
 const full = 100;
