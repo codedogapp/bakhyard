@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/svelte';
 import { expect, test } from 'vitest';
 
 import PullsSection from './PullsSection.svelte';
-import type { Pull, Pulls } from './pulls';
+import type { Pull, Pulls, Reviewer } from './pulls';
 
 const history: Pull = {
   id: 42,
@@ -26,6 +26,7 @@ const mine = {
   accent: 'PRs',
   empty: 'No open pull requests.',
   failed: "Couldn't load the pull requests.",
+  showReviewers: true,
 };
 const reviews = {
   title: 'Review',
@@ -34,7 +35,7 @@ const reviews = {
   failed: "Couldn't load the review requests.",
 };
 
-function show(pulls: Pulls, texts = mine) {
+function show(pulls: Pulls, texts: typeof reviews & { showReviewers?: boolean } = mine) {
   return render(PullsSection, { props: { pulls, ...texts } });
 }
 
@@ -47,12 +48,29 @@ test('lists my PRs in their order under a head that counts them, each a link to 
   expect(screen.getByText('2 PRs')).toBeInTheDocument();
   const links = within(screen.getByRole('list')).getAllByRole('link');
   expect(links.map((link) => [link.getAttribute('href'), text(link)])).toEqual([
-    [history.url, '#42 Show the <b>order</b> history acme/web'],
-    [certificates.url, '#7 Rotate the staging certificates acme/ops Draft'],
+    [history.url, '#42 Show the <b>order</b> history acme/web No reviewers'],
+    [certificates.url, '#7 Rotate the staging certificates acme/ops No reviewers Draft'],
   ]);
   expect(screen.getByText('Draft')).toHaveClass('chip');
   expect(screen.getByText('Draft')).not.toHaveClass('chip-filled');
   expect(screen.queryByText(/failed/)).not.toBeInTheDocument();
+});
+
+test('says where each of my PRs stands with its reviewers, under its repo', () => {
+  const reviewers: Reviewer[] = [
+    { name: 'Ana', verdict: 'approved' },
+    { name: 'Ben', verdict: 'pending' },
+  ];
+  show({ kind: 'loaded', snapshot: { pulls: [{ ...history, reviewers }, certificates], searched } });
+
+  const links = within(screen.getByRole('list')).getAllByRole('link');
+  expect(links.map(text)).toEqual([
+    '#42 Show the <b>order</b> history acme/web Waiting for Ben · Approved by Ana',
+    '#7 Rotate the staging certificates acme/ops No reviewers Draft',
+  ]);
+  const line = screen.getByText('Waiting for Ben · Approved by Ana');
+  expect(line).toHaveClass('list-detail');
+  expect(line.previousElementSibling).toHaveTextContent(/^acme\/web$/);
 });
 
 test("a PR without a link to Bitbucket gets a row that isn't a link", () => {
@@ -61,8 +79,8 @@ test("a PR without a link to Bitbucket gets a row that isn't a link", () => {
 
   const rows = within(screen.getByRole('list')).getAllByRole('listitem');
   expect(rows.map(text)).toEqual([
-    '#42 Show the <b>order</b> history acme/web',
-    '#7 Rotate the staging certificates acme/ops Draft',
+    '#42 Show the <b>order</b> history acme/web No reviewers',
+    '#7 Rotate the staging certificates acme/ops No reviewers Draft',
   ]);
   expect(within(rows[0]).queryByRole('link')).not.toBeInTheDocument();
   expect(rows[0].querySelector('.list-row')).not.toHaveAttribute('href');
@@ -117,13 +135,15 @@ test.each<Pulls>([{ kind: 'loading' }, { kind: 'off' }])('shows nothing while $k
   expect(container.textContent).toBe('');
 });
 
-test('lists another list of PRs under its own head', () => {
-  show({ kind: 'loaded', snapshot: { pulls: [certificates], searched } }, reviews);
+test('lists another list of PRs under its own head, without the reviewers', () => {
+  const reviewers: Reviewer[] = [{ name: 'Ana', verdict: 'approved' }];
+  show({ kind: 'loaded', snapshot: { pulls: [{ ...certificates, reviewers }], searched } }, reviews);
 
   expect(screen.getByRole('heading', { level: 2, name: 'Review requests' })).toBeInTheDocument();
   expect(screen.getByText('1 PR')).toBeInTheDocument();
   expect(within(screen.getByRole('list')).getByRole('link')).toHaveAttribute('href', certificates.url);
   expect(screen.queryByRole('heading', { level: 2, name: 'Your PRs' })).not.toBeInTheDocument();
+  expect(screen.getByRole('link')).toHaveTextContent(/^#7 Rotate the staging certificates acme\/ops Draft$/);
 });
 
 test.each<{ pulls: Pulls; says: string }>([

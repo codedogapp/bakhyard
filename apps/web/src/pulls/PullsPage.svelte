@@ -30,6 +30,7 @@ onMount(() => {
     accent="PRs"
     empty="No open pull requests."
     failed="Couldn't load the pull requests."
+    showReviewers
   />
   <PullsSection
     pulls={reviews}
