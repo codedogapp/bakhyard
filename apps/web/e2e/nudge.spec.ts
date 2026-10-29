@@ -16,7 +16,6 @@ async function serve(page: Page, initial: State) {
   await page.route('/api/nudge/events', (route) =>
     route.fulfill({ contentType: 'text/event-stream', body: 'retry: 600000\n: open\n\n' })
   );
-  await page.route('/api/notify/key', (route) => route.fulfill({ json: { key: 'AQID' } }));
   await page.route('/api/nudge/questions/*/answer', (route) => {
     const id = route.request().url().split('/').at(-2) ?? '';
     served.answers.push({ id, body: route.request().postDataJSON() });
@@ -71,16 +70,6 @@ test('a question that arrives while the page is open shows without a reload', as
   await page.evaluate(() => navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: 'push' })));
 
   await expect(page.getByRole('heading', { level: 3, name: 'Merge the pull request?' })).toBeVisible();
-});
-
-test('the page offers to turn notifications on, in a browser that can', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name === 'phone', 'WebKit has no push service to subscribe to');
-  // Headless Chromium reports the permission as denied, where a browser that was never asked says "default".
-  await page.addInitScript(() => Object.defineProperty(Notification, 'permission', { get: () => 'default' }));
-  await serve(page, nudge);
-  await page.goto('/nudge');
-
-  await expect(page.getByRole('button', { name: 'Turn on notifications' })).toBeVisible();
 });
 
 test('the Nudge page is under More in the tab bar, and its card links to it', async ({ page }, testInfo) => {

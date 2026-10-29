@@ -1,4 +1,5 @@
 <script lang="ts">
+import Bell from '../notify/Bell.svelte';
 import { isCurrent, navItems } from './nav';
 import ThemeToggle from './ThemeToggle.svelte';
 
@@ -17,6 +18,7 @@ let { path }: { path: string } = $props();
     </ul>
   </nav>
   <div class="actions">
+    <Bell />
     <ThemeToggle />
     <!-- The gateway ends this device's session and sends the browser to /, where the app shows its sign-in screen. -->
     <form class="sign-out" method="post" action="/auth/logout">
@@ -33,6 +35,8 @@ let { path }: { path: string } = $props();
   align-items: center;
   padding: 24px var(--page-padding);
   border-bottom: 1px solid var(--rule);
+  /* The notifications panel hangs from the header's bottom edge. */
+  anchor-name: --header;
 }
 
 .wordmark {
@@ -72,6 +76,8 @@ ul {
   border: 0;
   background: none;
   cursor: pointer;
+  /* Its words stay together, so the header's row keeps its height on narrow phones. */
+  white-space: nowrap;
 }
 
 /* Sign out looks like the nav's links. */
@@ -115,7 +121,9 @@ ul {
 
 /* The bottom tab bar takes over the nav here (plan §7). */
 @media (max-width: 980px) {
+  /* The hidden nav's empty column still has a gap on each side; at half width they leave the actions room down to 320 px. */
   .header {
+    column-gap: 16px;
     padding-block: 18px;
   }
 

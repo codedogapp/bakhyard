@@ -105,7 +105,7 @@ Notify also needs the app's VAPID key, which signs the Web Push messages (decisi
 security add-generic-password -s bakhyard -a vapid-key -w "$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
 ```
 
-Then open Nudge in the app on the phone, add the app to the Home Screen and turn notifications on. The agents' side, `tools/nudge`, is in [Nudge](#nudge).
+Then add the app to the phone's Home Screen, open it from there and turn notifications on with the bell in the header. The agents' side, `tools/nudge`, is in [Nudge](#nudge).
 
 ## The test database
 
