@@ -162,6 +162,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `notify-header` | The control that turns notifications on moves from the Nudge page to a bell in the header, before the theme toggle: its name and look say how this device's notifications stand, and its panel says it in words and turns them on. The last step of `notifications` (decision 179) | Done (#146) |
 | `shared-jira` | todos' Jira client moves to the root `internal/jira`, with the code that reads its settings and token, for the `time` service; todos' poller of my tickets moves to a package of its own, `tickets`. Nothing changes in behaviour. The first of `time-tracking`'s eleven steps (decision 180) | Done (#147) |
 | `jira-worklogs` | The shared Jira client reads my worklogs in a span of time: my account from `/myself`, the tickets I logged work on from a `worklogAuthor` search, then each ticket's worklogs, keeping mine that start in the span, the earliest first. The second of `time-tracking`'s eleven steps (decision 180) | Done (#148) |
+| `time-report` | A package of the new `time` service, `report`, works out the time report from my worklogs: the hours I logged on each of the last 7 days, the weekdays before today with nothing logged marked as missing, and this week's hours against its 40-hour target. The third of `time-tracking`'s twelve steps (decision 181) | Done (#149) |
 | `nudge-merge` | Nudge, the user's phone-questions tool for agents (`codedogapp/nudge`), moves into Bakhyard: one app, not two (decision 157). The nudge session does the work, one small PR per step, from its plan, [`bakhyard-merge.md`](https://github.com/codedogapp/nudge/blob/main/docs/bakhyard-merge.md); this session doesn't stop its own steps for it | In review |
 
 After these: the product phases (§8.2), each split into steps.
@@ -1192,13 +1193,14 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `pulls-reminders`: at 10:00 and 15:00 on weekdays, pulls pushes one reminder that lists my PRs under their required approvals (decision 177). Done (#144).
   - `homelab-pulls-notify`: done (codedogapp/homelab#40). In the homelab repo, pulls' `BAKHYARD_PEERS` names notify, `TZ` gives it the user's zone, and a NetworkPolicy lets pulls reach notify.
   - Later, with a database for pulls: snooze (2 h / tomorrow / until updated) and mark as nudged, from the PRs page.
-- `time-tracking` [time]. Needs `todos-jira`. Reads and writes standard Jira worklogs (§2, decision 46), with no timers: Clockwork already has them inside Jira. Eleven steps (decision 180):
+- `time-tracking` [time]. Needs `todos-jira`. Reads and writes standard Jira worklogs (§2, decision 46), with no timers: Clockwork already has them inside Jira. Twelve steps (decisions 180 and 181):
   - `shared-jira`: todos' Jira client moves to the root `internal/jira`, with the code that reads its settings and token, for the `time` service; todos' poller of my tickets moves to a package of its own, `tickets`. Nothing changes in behaviour. Done (#147).
   - `jira-worklogs`: the client reads my worklogs in a span of days: my account from `/myself`, the tickets I logged on from a `worklogAuthor` search, and each ticket's worklogs. Done (#148).
-  - `time-service`: a new `time` service polls the last 7 days' worklogs every 5 minutes and answers the day report at `GET /time/report`: the hours I logged on each day, with every weekday that has none marked as missing, plus the week's total against the target.
+  - `time-report`: a package of the `time` service, `report`, works out the time report from my worklogs: the hours I logged on each of the last 7 days, with every weekday before today that has none marked as missing, plus this week's total against the target. Done (#149).
+  - `time-service`: a new `time` service polls the last 7 days' worklogs every 5 minutes and answers the time report at `GET /time/report`.
   - `homelab-time`: in the homelab repo, `time` runs on the laptop with todos' Jira settings and token, and the gateway's and home's peers name it.
   - `time-gateway`: the gateway forwards `/api/time` to `time`.
-  - `time-page`: the Time page shows the day report.
+  - `time-page`: the Time page shows the time report.
   - `time-week`: `time` answers `TimeService/GetWeek` (§4.10).
   - `home-week`: home asks `time` for the week, and the Home's "This week" shows it, or "Hours unavailable" when `time` doesn't answer (§7).
   - `time-attention`: `time` answers the attention contract with today's hours until they're logged, and each missing weekday.
@@ -1536,6 +1538,13 @@ Made on 2026-10-23:
      - **Days and the target**: days and weeks follow `time.Local`, the pod's `TZ`, as decision 175's reminders do. A week runs Monday to Sunday, and a worklog counts on the day it starts. The target is 8 hours a weekday, Monday to Friday, 40 a week, fixed in code. Today isn't missing until it's over; holidays show as missing until a setting for them (§0 idea).
      - **Writing worklogs** (`worklog-add`, `fill-day`): `POST /rest/api/3/issue/{key}/worklog` with `started` and `timeSpentSeconds`, keeping Jira's defaults (`notifyUsers`, `adjustEstimate=auto`); it answers 201, so the client takes a 201 there. A new worklog starts at 09:00 local time, and `time` polls again after a write.
      - **Rejected**: copying todos' client into `time`; a Jira client per service; timers (decision 46); a database of worklogs, which Jira already keeps.
+181. **The time report** (`time-report`): the lead's choices (2026-10-29), for the user to review. `time-service` is over a step's 150 hand-written lines, so it splits in two and `time-tracking` has twelve steps (§8.2): `time-report` works the report out in a package of its own, `services/time/internal/report`, and `time-service` polls Jira and answers the report, as `bitbucket-client` (#112) came before `pulls-service`.
+     - **The span** is the last 7 days, today last: from the start of the day six days before today up to, but not including, the start of tomorrow, the span that `Client.Worklogs` reads. A worklog that starts after today isn't read, so time logged ahead counts once its day comes. Where the clocks skip midnight, a day starts as they skip it: in zones behind UTC (Havana, Santiago), Go's `time.Date` puts a skipped midnight before the skip, on the day before, so the day starts where the zone in effect then ends. Checked against every zone in tzdata 2025c from 2026 to 2030; Budapest's clocks never skip midnight.
+     - **Each day** has its date (`2026-10-29`) and the hours of the worklogs that start on it. A day is missing when it's a weekday before today with nothing logged at all: a day with some hours isn't, and today never is.
+     - **The week** runs from this Monday through today, so it always lies within the 7 days. Its target is 40 hours.
+     - **Hours**: the JSON gives hours as numbers, `loggedHours` and `targetHours`, the shape that the web app's `Week` type already reads, so the Time page and the Home's "This week" can share its formatting. `encoding/json/v2` has no default encoding for a `time.Duration`. The sums are kept as durations and turned into hours once, so 6 and 12 minutes make 0.3 hours rather than 0.30000000000000004.
+     - **Nothing reads the clock or the zone**: the time it's given brings both, and the service will give `time.Now()`, in `time.Local` (decision 180).
+     - **Rejected**: minutes or seconds in the JSON; a week through Sunday, which needs a longer span; a day under 8 hours counting as missing; `time.Date`'s midnight in every zone.
 
 ## 10. Risks
 
