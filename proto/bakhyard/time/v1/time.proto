@@ -1,0 +1,26 @@
+edition = "2024";
+
+package bakhyard.time.v1;
+
+// TimeService answers the time that the user logged on Jira, for the Home's "This week". It's
+// internal: home calls it, and the gateway never routes it.
+service TimeService {
+  // GetWeek answers this week's hours against the week's target. It fails with UNAVAILABLE while
+  // Jira is set up but no read of the worklogs has succeeded yet.
+  rpc GetWeek(GetWeekRequest) returns (GetWeekResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+message GetWeekRequest {}
+
+message GetWeekResponse {
+  // week is unset when there's none, as when Jira isn't set up.
+  Week week = 1;
+}
+
+// Week is the time logged this week, from Monday through today, against the week's target.
+message Week {
+  double logged_hours = 1;
+  double target_hours = 2;
+}
