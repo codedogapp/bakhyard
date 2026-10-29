@@ -36,7 +36,7 @@ func TestReportAnswersWhatThePollerFound(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		rec := serve(t, routes(reports), http.MethodGet)
+		rec := serve(t, routes(api.Backends{Reports: reports}), http.MethodGet)
 		sent := rec.Result().Header.Get("Content-Type")
 
 		if rec.Code != http.StatusOK || rec.Body.String() != string(want) ||
@@ -47,7 +47,7 @@ func TestReportAnswersWhatThePollerFound(t *testing.T) {
 }
 
 func TestReportIsNotFoundWithoutJira(t *testing.T) {
-	rec := serve(t, routes(nil), http.MethodGet)
+	rec := serve(t, routes(api.Backends{}), http.MethodGet)
 
 	want := "Jira is not set up\n"
 	if rec.Code != http.StatusNotFound || rec.Body.String() != want {
@@ -56,16 +56,16 @@ func TestReportIsNotFoundWithoutJira(t *testing.T) {
 }
 
 func TestReportTakesOnlyGET(t *testing.T) {
-	rec := serve(t, routes(nil), http.MethodPost)
+	rec := serve(t, routes(api.Backends{}), http.MethodPost)
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("got %d, want 405", rec.Code)
 	}
 }
 
-// routes returns the routes that Register gives reports.
-func routes(reports *worklogs.Poller) http.Handler {
+// routes returns the routes that Register gives backends, with days in UTC.
+func routes(backends api.Backends) http.Handler {
 	router := chi.NewRouter()
-	api.Register(router, reports)
+	api.Register(router, backends, time.UTC, slog.New(slog.DiscardHandler))
 
 	return router
 }

@@ -25,6 +25,8 @@ func TestTimeServesWithoutJira(t *testing.T) {
 		{http.MethodGet, "/time/report", http.StatusNotFound, "Jira is not set up\n"},
 		{http.MethodHead, "/time/report", http.StatusNotFound, "Jira is not set up\n"},
 		{http.MethodPost, "/time/report", http.StatusMethodNotAllowed, ""},
+		{http.MethodPost, "/time/worklogs", http.StatusNotFound, "Jira is not set up\n"},
+		{http.MethodGet, "/time/worklogs", http.StatusMethodNotAllowed, ""},
 		{http.MethodGet, "/healthz", http.StatusOK, `{"status":"ok"}`},
 	} {
 		req := httptest.NewRequestWithContext(t.Context(), test.method, test.target, nil)

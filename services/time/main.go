@@ -39,7 +39,7 @@ func main() {
 
 // routes returns time's handler, which serves its API and its sides of the time and attention
 // contracts. With Jira set up, it polls Jira for the user's worklogs in the background until ctx
-// ends.
+// ends, and adds worklogs with the same client.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
@@ -58,12 +58,13 @@ func routes(
 	// The days of the reports, and so the items' due times, follow the local zone: the Mac's, or
 	// the one that the container's TZ names.
 	loc := time.Local
-	reports := poll(ctx, client, loc, slog.Default())
-	api.Register(router, reports)
+	backends := poll(ctx, client, loc, slog.Default())
+	api.Register(router, backends, loc, slog.Default())
 
 	server := connect.NewServer()
-	timev1connect.RegisterTimeServiceHandler(server, week.NewServer(reports))
-	attentionv1connect.RegisterAttentionServiceHandler(server, attention.NewLister(reports, loc))
+	timev1connect.RegisterTimeServiceHandler(server, week.NewServer(backends.Reports))
+	attentionv1connect.RegisterAttentionServiceHandler(server,
+		attention.NewLister(backends.Reports, loc))
 	connecthttp.Mount(router, server)
 
 	return router, nil
