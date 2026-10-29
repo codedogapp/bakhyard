@@ -6,17 +6,18 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/codedogapp/bakhyard/internal/jsonbody"
 	"github.com/codedogapp/bakhyard/services/todos/internal/todo"
 )
 
 // addTodo returns the handler of POST /todos, which adds a todo and answers 201 with it. A body
 // that isn't a JSON object with just a title and a ticket, or a title or a ticket that breaks its
-// rule, gets a 400 with the reason, the title's first; a body over maxBody gets a 413, and a
+// rule, gets a 400 with the reason, the title's first; a body over 64 KiB gets a 413, and a
 // database error a 500, whose cause logger gets. An empty, null or missing ticket names none.
 func addTodo(store *todo.Store, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var addition todo.Addition
-		if !readBody(w, r, &addition,
+		if !jsonbody.Read(w, r, &addition,
 			"the body isn't a JSON object with just a title and a ticket") {
 			return
 		}

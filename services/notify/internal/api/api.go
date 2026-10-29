@@ -11,12 +11,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/codedogapp/bakhyard/internal/jsonbody"
 	"github.com/codedogapp/bakhyard/services/notify/internal/push"
 	"github.com/codedogapp/bakhyard/services/notify/internal/subscription"
 )
-
-// maxBody is the largest body notify reads: 64 KiB, many times a subscription or a message.
-const maxBody = 64 << 10
 
 // Adder keeps a device's subscription.
 type Adder interface {
@@ -73,7 +71,7 @@ type route[T any] struct {
 func (rt route[T]) handler(logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body T
-		if !readBody(w, r, &body, rt.refusal) {
+		if !jsonbody.Read(w, r, &body, rt.refusal) {
 			return
 		}
 
@@ -94,26 +92,4 @@ func (rt route[T]) handler(logger *slog.Logger) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusNoContent)
 	}
-}
-
-// readBody decodes r's body, a JSON object without members that v lacks, into v. When it can't,
-// the client gets a 413 for a body over maxBody or a 400 with refusal otherwise, and readBody
-// returns false.
-func readBody(w http.ResponseWriter, r *http.Request, v any, refusal string) bool {
-	err := json.UnmarshalRead(http.MaxBytesReader(w, r.Body, maxBody), v,
-		json.RejectUnknownMembers(true))
-	if _, tooLarge := errors.AsType[*http.MaxBytesError](err); tooLarge {
-		http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge),
-			http.StatusRequestEntityTooLarge)
-
-		return false
-	}
-
-	if err != nil {
-		http.Error(w, refusal, http.StatusBadRequest)
-
-		return false
-	}
-
-	return true
 }
