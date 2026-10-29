@@ -1,5 +1,6 @@
-// Package poll looks something up in the background, at once and then at a fixed interval, keeps
-// the latest of what it found, and answers it over HTTP (decisions 122, 135 and 145).
+// Package poll looks something up in the background, at once and then at a fixed interval, and on
+// request, keeps the latest of what it found, and answers it over HTTP (decisions 122, 135, 145
+// and 189).
 package poll
 
 import (
@@ -29,30 +30,36 @@ type Poller[T any] struct {
 	look   func(context.Context) (T, error)
 	logger *slog.Logger
 	latest atomic.Pointer[Snapshot[T]]
-	// polled is closed once the first poll has ended, however it ended.
+	// polled is closed once Run's first poll has ended, however it ended.
 	polled chan struct{}
+	// turn holds a token while a poll runs, so that polls take turns and an older look-up can't
+	// replace what a newer one found.
+	turn chan struct{}
 }
 
-// New returns a poller that looks source up with look, at once and then every interval, once
-// Run runs; with an interval that isn't positive, it polls only once. It logs each poll that
-// fails to logger, as "poll <source>".
+// New returns a poller that looks source up with look whenever PollNow asks, and at once and
+// then every interval once Run runs; with an interval that isn't positive, Run polls only once.
+// It logs each poll that fails to logger, as "poll <source>".
 func New[T any](
 	source string, every time.Duration, look func(context.Context) (T, error), logger *slog.Logger,
 ) *Poller[T] {
 	poller := &Poller[T]{
-		source: source, every: every, look: look, logger: logger, polled: make(chan struct{}),
+		source: source, every: every, look: look, logger: logger,
+		polled: make(chan struct{}), turn: make(chan struct{}, 1),
 	}
 	poller.latest.Store(&Snapshot[T]{})
 
 	return poller
 }
 
-// Run polls at once and then every interval, until ctx ends, which also cuts short the poll that
-// runs then. It must run only once.
+// Run polls at once and then every interval, taking turns with PollNow, until ctx ends, which
+// also cuts short its poll that runs then. It must run only once.
 func (p *Poller[T]) Run(ctx context.Context) {
 	tick := time.Tick(p.every)
 
-	p.poll(ctx)
+	// PollNow fails only once ctx has ended, which the loop then sees.
+	_ = p.PollNow(ctx)
+
 	close(p.polled)
 
 	for {
@@ -60,12 +67,27 @@ func (p *Poller[T]) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tick:
-			p.poll(ctx)
+			_ = p.PollNow(ctx)
 		}
 	}
 }
 
-// Latest returns what the polls have found, once the first poll has ended, or ctx's error if
+// PollNow polls with ctx at once, or as soon as the poll that runs has ended, and returns once
+// its own poll has ended, whether the look-up succeeded or failed. If ctx ends first, its poll
+// counts for nothing, and it returns ctx's error. It doesn't need Run to run.
+func (p *Poller[T]) PollNow(ctx context.Context) error {
+	select {
+	case p.turn <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	defer func() { <-p.turn }()
+
+	return p.poll(ctx)
+}
+
+// Latest returns what the polls have found, once Run's first poll has ended, or ctx's error if
 // ctx ends first.
 func (p *Poller[T]) Latest(ctx context.Context) (Snapshot[T], error) {
 	select {
@@ -76,15 +98,18 @@ func (p *Poller[T]) Latest(ctx context.Context) (Snapshot[T], error) {
 	}
 }
 
-// poll polls once and keeps what it finds, or why it failed.
-func (p *Poller[T]) poll(ctx context.Context) {
+// poll polls once and keeps what it finds, or why it failed, unless ctx ends first: then the poll
+// counts for nothing, and poll returns ctx's error.
+func (p *Poller[T]) poll(ctx context.Context) error {
 	began := time.Now().UTC().Truncate(time.Second)
 
 	found, err := p.look(ctx)
+	ended := ctx.Err()
 
 	switch {
-	case ctx.Err() != nil:
-		// The service is stopping, which cut the poll short: that's no news.
+	case ended != nil:
+		// The service is stopping, or the caller gave up, which may have cut the poll short:
+		// that's no news.
 	case err != nil:
 		p.logger.ErrorContext(ctx, "poll "+p.source, "err", err)
 
@@ -95,4 +120,6 @@ func (p *Poller[T]) poll(ctx context.Context) {
 	default:
 		p.latest.Store(&Snapshot[T]{Found: found, Searched: began})
 	}
+
+	return ended
 }
