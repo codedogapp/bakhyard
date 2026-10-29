@@ -50,8 +50,8 @@ func routes(
 	router.Use(middleware.GetHead)
 	health.Register(router)
 
-	mine := poll(ctx, client, slog.Default())
-	api.Register(router, mine)
+	mine, reviews := poll(ctx, client, slog.Default())
+	api.Register(router, mine, reviews)
 
 	attentionServer := connect.NewServer()
 	attentionv1connect.RegisterAttentionServiceHandler(attentionServer, attention.NewLister(mine))

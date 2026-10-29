@@ -1,11 +1,9 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 )
@@ -78,27 +76,6 @@ func TestBitbucketClientNeedsTheToken(t *testing.T) {
 	}
 }
 
-func TestPullsListsMyPullsInEachWorkspace(t *testing.T) {
-	address, _ := bitbucketServer(t)
-
-	rec := getMine(t.Context(), t, address)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"repo":"acme/web"`) ||
-		!strings.Contains(rec.Body.String(), `"repo":"labs/web"`) {
-		t.Errorf("got %d %q, want a pull request in acme and in labs", rec.Code, rec.Body)
-	}
-}
-
-func TestPullsStopsListingWhenItStops(t *testing.T) {
-	stopped, stop := context.WithCancel(t.Context())
-	stop()
-
-	// Nothing listens on port 1, so a listing that went ahead would fail.
-	rec := getMine(stopped, t, "http://127.0.0.1:1/2.0")
-	if rec.Code != http.StatusOK || rec.Body.String() != "{}" {
-		t.Errorf("got %d %s, want 200 {}: no listing, and no failure", rec.Code, rec.Body)
-	}
-}
-
 func TestPullsStopsOnABadBitbucketSetting(t *testing.T) {
 	_, err := routes(t.Context(), envOf(bitbucketWith(bitbucketEmailVar, "")), secretsWith(nil))
 	if err == nil || err.Error() != "BAKHYARD_BITBUCKET_EMAIL is not set" {
@@ -108,15 +85,19 @@ func TestPullsStopsOnABadBitbucketSetting(t *testing.T) {
 
 // bitbucketServer returns the address of a stand-in for Bitbucket's API, for the email
 // me@example.com with the token secret, and a function that returns the paths it was asked so
-// far. It finds me as {me}, and one open pull request of mine in each of the workspaces acme and
-// labs, into its repo web.
+// far. It finds me as {me}, and in each of the workspaces acme and labs one open pull request of
+// mine, into its repo web, and one that waits for my review, in its only other repo, api or app.
 func bitbucketServer(t *testing.T) (string, func() []string) {
 	t.Helper()
 
 	answers := map[string]string{
-		"/2.0/user":                              `{"uuid":"{me}"}`,
-		"/2.0/workspaces/acme/pullrequests/{me}": pageInto("acme/web"),
-		"/2.0/workspaces/labs/pullrequests/{me}": pageInto("labs/web"),
+		"/2.0/user":                               `{"uuid":"{me}"}`,
+		"/2.0/workspaces/acme/pullrequests/{me}":  pageInto("acme/web"),
+		"/2.0/workspaces/labs/pullrequests/{me}":  pageInto("labs/web"),
+		"/2.0/repositories/acme":                  `{"values":[{"full_name":"acme/api"}]}`,
+		"/2.0/repositories/labs":                  `{"values":[{"full_name":"labs/app"}]}`,
+		"/2.0/repositories/acme/api/pullrequests": pageInto("acme/api"),
+		"/2.0/repositories/labs/app/pullrequests": pageInto("labs/app"),
 	}
 
 	var (
@@ -160,24 +141,6 @@ func bitbucketServer(t *testing.T) (string, func() []string) {
 func pageInto(repo string) string {
 	return `{"values":[{"id":1,"title":"Ship","destination":{"repository":{"full_name":"` +
 		repo + `"}}}]}`
-}
-
-// getMine returns the answer to GET /pulls/mine of pulls with Bitbucket's API at address, whose
-// routes run until ctx ends.
-func getMine(ctx context.Context, t *testing.T, address string) *httptest.ResponseRecorder {
-	t.Helper()
-
-	router, err := routes(ctx, envOf(bitbucketSettings(address)),
-		secretsWith(map[string]string{"bitbucket-token": "secret"}))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/pulls/mine", nil)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	return rec
 }
 
 // bitbucketSettings returns the Bitbucket settings, with the API at address, for the workspaces

@@ -85,16 +85,23 @@ func workspaces(getenv func(string) string) ([]string, error) {
 	return slices.Compact(slugs), nil
 }
 
-// poll starts polling Bitbucket with client for the user's open pull requests, until ctx ends,
-// and returns the poller that keeps what the polls find, or nil when Bitbucket is off and client
-// is nil.
-func poll(ctx context.Context, client *bitbucket.Client, logger *slog.Logger) *bitbucket.Poller {
+// poll starts polling Bitbucket with client for the user's open pull requests and for those that
+// wait for the user's review, until ctx ends, and returns the pollers that keep what the polls
+// find, or nil ones when Bitbucket is off and client is nil.
+func poll(
+	ctx context.Context,
+	client *bitbucket.Client,
+	logger *slog.Logger,
+) (mine, reviews *bitbucket.Poller) {
 	if client == nil {
-		return nil
+		return nil, nil
 	}
 
-	poller := bitbucket.NewPoller(client.Mine, logger)
-	go poller.Run(ctx)
+	mine = bitbucket.NewPoller(client.Mine, logger)
+	go mine.Run(ctx)
 
-	return poller
+	reviews = bitbucket.NewReviewsPoller(client.Reviews, logger)
+	go reviews.Run(ctx)
+
+	return mine, reviews
 }

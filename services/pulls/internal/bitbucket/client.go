@@ -1,5 +1,6 @@
-// Package bitbucket lists the user's open pull requests on Bitbucket Cloud, through its REST API
-// 2.0 and a scoped API token (docs/plan.md §2, decision 135).
+// Package bitbucket lists the user's open pull requests on Bitbucket Cloud, and those that wait for
+// the user's review, through its REST API 2.0 and a scoped API token (docs/plan.md §2, decisions
+// 135 and 171).
 package bitbucket
 
 import (
@@ -68,7 +69,7 @@ func (c *Client) Mine(ctx context.Context) ([]Pull, error) {
 			"state": {"OPEN"}, "pagelen": {strconv.Itoa(pageSize)},
 		}.Encode()
 
-		found, err := c.pages(ctx, target)
+		found, err := c.pages(ctx, target, listing)
 		if err != nil {
 			return nil, err
 		}
@@ -76,9 +77,15 @@ func (c *Client) Mine(ctx context.Context) ([]Pull, error) {
 		pulls = append(pulls, found...)
 	}
 
-	slices.SortStableFunc(pulls, func(a, b Pull) int { return b.Updated.Compare(a.Updated) })
+	latestFirst(pulls)
 
 	return pulls, nil
+}
+
+// latestFirst sorts pulls the latest updated first. Pull requests updated at the same time keep
+// their order.
+func latestFirst(pulls []Pull) {
+	slices.SortStableFunc(pulls, func(a, b Pull) int { return b.Updated.Compare(a.Updated) })
 }
 
 // me returns the user's uuid, which Bitbucket wraps in braces.
@@ -99,20 +106,21 @@ func (c *Client) me(ctx context.Context) (string, error) {
 	return user.UUID, nil
 }
 
-// page is the part of a page of pull requests that the client reads.
-type page struct {
-	Values []pullRequest `json:"values"`
-	Next   string        `json:"next"`
+// page is the part of a page of values, such as pull requests, that the client reads.
+type page[T any] struct {
+	Values []T    `json:"values"`
+	Next   string `json:"next"`
 }
 
-// pages returns the pull requests on the page at target and on the pages that follow it.
-func (c *Client) pages(ctx context.Context, target *url.URL) ([]Pull, error) {
+// pages returns the pull requests on the page at target and on the pages that follow it. Its
+// errors start with action, such as "list my Bitbucket pull requests".
+func (c *Client) pages(ctx context.Context, target *url.URL, action string) ([]Pull, error) {
 	var pulls []Pull
 
 	for range maxPages {
-		var found page
+		var found page[pullRequest]
 
-		err := c.get(ctx, target, listing, &found)
+		err := c.get(ctx, target, action, &found)
 		if err != nil {
 			return nil, err
 		}
@@ -125,22 +133,23 @@ func (c *Client) pages(ctx context.Context, target *url.URL) ([]Pull, error) {
 			return pulls, nil
 		}
 
-		target, err = c.next(found.Next)
+		target, err = c.next(found.Next, action)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return nil, fmt.Errorf("%s: more than %d pages", listing, maxPages)
+	return nil, fmt.Errorf("%s: more than %d pages", action, maxPages)
 }
 
 // next returns the next page's link as Bitbucket gave it, which clients mustn't build, when it
-// stays on the API's scheme and host, so that the token goes nowhere else.
-func (c *Client) next(link string) (*url.URL, error) {
+// stays on the API's scheme and host, so that the token goes nowhere else. Its error starts with
+// action.
+func (c *Client) next(link, action string) (*url.URL, error) {
 	target, err := url.Parse(link)
 	if err != nil || target.Scheme != c.settings.API.Scheme ||
 		target.Host != c.settings.API.Host {
-		return nil, fmt.Errorf("%s: the next page is off %s", listing, c.settings.API.Host)
+		return nil, fmt.Errorf("%s: the next page is off %s", action, c.settings.API.Host)
 	}
 
 	return target, nil

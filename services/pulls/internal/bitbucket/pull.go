@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Pull is one of the user's open pull requests.
+// Pull is an open pull request: one of the user's, or one that waits for the user's review.
 type Pull struct {
 	// ID is the pull request's number, unique only within its repository.
 	ID    int    `json:"id"`
