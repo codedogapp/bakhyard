@@ -1,3 +1,5 @@
+import type { Week } from '../time/week';
+
 /** The apps that have items so far, as home names them. */
 type App = 'github' | 'planner' | 'pulls' | 'time' | 'todos';
 
@@ -19,12 +21,6 @@ export interface Item {
 /** How asking one of home's sources went, with only the field the app reads so far. */
 interface SourceStatus {
   state: 'ok' | 'unavailable';
-}
-
-/** The hours logged this week, against the weekly target. */
-export interface Week {
-  loggedHours: number;
-  targetHours: number;
 }
 
 /** The Home screen's data from GET /api/home, with only the fields the app reads so far. */
