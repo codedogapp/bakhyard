@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/codedogapp/bakhyard/services/nudge/internal/notifier"
+	"github.com/codedogapp/bakhyard/internal/notifier"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/question"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/session"
 )

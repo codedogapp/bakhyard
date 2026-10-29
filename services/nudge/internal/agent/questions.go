@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/codedogapp/bakhyard/services/nudge/internal/notifier"
+	"github.com/codedogapp/bakhyard/internal/notifier"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/question"
 )
 

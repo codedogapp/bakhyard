@@ -14,10 +14,10 @@ import (
 
 	"github.com/codedogapp/bakhyard/internal/database"
 	"github.com/codedogapp/bakhyard/internal/databasetest"
+	"github.com/codedogapp/bakhyard/internal/notifier"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/agent"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/change"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/migrations"
-	"github.com/codedogapp/bakhyard/services/nudge/internal/notifier"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/question"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/session"
 )
