@@ -62,7 +62,7 @@ function answer(url: string): Response {
   if (url === '/api/todos') {
     return Response.json({ todos: [{ id: 1, title: 'Buy milk' }] });
   }
-  if (url === '/api/pulls/mine') {
+  if (url === '/api/pulls/mine' || url === '/api/pulls/reviews') {
     return Response.json({ pulls: [], searched: '2026-10-20T00:41:00Z' });
   }
   return Response.json(home);

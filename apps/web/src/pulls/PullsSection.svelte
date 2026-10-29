@@ -3,12 +3,19 @@ import Section from '../shell/Section.svelte';
 import { searchedLabel } from '../shell/snapshot';
 import { type Pulls, pullsNote } from './pulls';
 
-let { pulls }: { pulls: Pulls } = $props();
+// One of the PRs page's lists, in a section under the head; the texts say when it's empty and when it couldn't load.
+let {
+  pulls,
+  title,
+  accent,
+  empty,
+  failed,
+}: { pulls: Pulls; title: string; accent: string; empty: string; failed: string } = $props();
 </script>
 
 {#if pulls.kind === 'loaded'}
   {@const { pulls: list, searched, failure } = pulls.snapshot}
-  <Section title="Your" accent="PRs" note={list && pullsNote(list.length)}>
+  <Section {title} {accent} note={list && pullsNote(list.length)}>
     {#if failure}
       <p class="muted">
         The last search failed: {failure}.
@@ -40,14 +47,14 @@ let { pulls }: { pulls: Pulls } = $props();
             {/each}
           </ul>
         {:else}
-          <p class="empty">No open pull requests.</p>
+          <p class="empty">{empty}</p>
         {/if}
       </div>
     {/if}
   </Section>
 {:else if pulls.kind === 'failed'}
-  <Section title="Your" accent="PRs">
-    <p class="muted">Couldn't load the pull requests.</p>
+  <Section {title} {accent}>
+    <p class="muted">{failed}</p>
   </Section>
 {/if}
 

@@ -1,26 +1,12 @@
-import type { Page } from '@playwright/test';
-
-import type { Snapshot } from '../src/pulls/pulls';
 import { bounds } from './bounds';
 import { chipLooks } from './chips';
-import { home, pulls } from './demo';
+import { home, pulls, reviewRequests } from './demo';
 import { expect, test } from './fixtures';
-import { group } from './groups';
-
-/** Answers the PRs page's call for my PRs with the snapshot, or with the status. */
-async function answerPulls(page: Page, snapshot: Snapshot | number) {
-  await page.route('/api/pulls/mine', (route) =>
-    typeof snapshot === 'number' ? route.fulfill({ status: snapshot }) : route.fulfill({ json: snapshot })
-  );
-}
-
-/** The PRs page's section of my PRs. */
-function mine(page: Page) {
-  return group(page, 'Your PRs');
-}
+import { answerPulls, answerReviews, mine } from './pulls';
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await answerReviews(page, reviewRequests);
 });
 
 test('the PRs page lists my open pull requests on Bitbucket', async ({ page }) => {
@@ -144,7 +130,9 @@ test('the PRs page says when my PRs could not load', async ({ page }) => {
 });
 
 test("the PRs page says when Bitbucket isn't set up, with no section", async ({ page }) => {
-  await page.route('/api/pulls/mine', (route) => route.fulfill({ status: 404, body: 'Bitbucket is not set up\n' }));
+  for (const url of ['/api/pulls/mine', '/api/pulls/reviews']) {
+    await page.route(url, (route) => route.fulfill({ status: 404, body: 'Bitbucket is not set up\n' }));
+  }
   await page.goto('/pulls');
 
   await expect(page.getByRole('main').getByText("Bitbucket isn't set up.")).toBeVisible();

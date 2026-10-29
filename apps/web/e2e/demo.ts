@@ -92,6 +92,30 @@ export const pulls: Pulls = {
   searched: '2026-10-21T00:38:00Z',
 };
 
+/**
+ * The open PRs that wait for a made-up user's review, the latest updated first, as the pulls service found them
+ * eleven minutes before the tests' time.
+ */
+export const reviewRequests: Pulls = {
+  pulls: [
+    {
+      id: 131,
+      title: 'WEB-14 Cache the product images at the edge',
+      repo: 'acme/web',
+      url: 'https://bitbucket.org/acme/web/pull-requests/131',
+      draft: false,
+    },
+    {
+      id: 87,
+      title: 'Add the monthly invoice export',
+      repo: 'acme/billing',
+      url: 'https://bitbucket.org/acme/billing/pull-requests/87',
+      draft: false,
+    },
+  ],
+  searched: '2026-10-21T00:30:00Z',
+};
+
 /** A made-up user's nudge state at the tests' time: one agent's question with options, one without, and two sessions. */
 export const nudge: State = {
   questions: [

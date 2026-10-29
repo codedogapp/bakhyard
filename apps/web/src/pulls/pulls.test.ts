@@ -1,12 +1,15 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { loadPulls, pullsNote, type Snapshot } from './pulls';
+import { loadPulls, loadReviews, pullsNote, type Snapshot } from './pulls';
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('loads my open pull requests from the pulls service', async () => {
+test.each([
+  { name: 'my open pull requests', load: loadPulls, url: '/api/pulls/mine' },
+  { name: 'the open pull requests that wait for my review', load: loadReviews, url: '/api/pulls/reviews' },
+])('loads $name from the pulls service', async ({ load, url }) => {
   const snapshot: Snapshot = {
     pulls: [{ id: 42, title: 'Show the order history', repo: 'acme/web', draft: false }],
     searched: '2026-10-26T00:41:00Z',
@@ -14,8 +17,8 @@ test('loads my open pull requests from the pulls service', async () => {
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(snapshot));
   vi.stubGlobal('fetch', fetchMock);
 
-  expect(await loadPulls()).toEqual({ kind: 'loaded', snapshot });
-  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/pulls/mine');
+  expect(await load()).toEqual({ kind: 'loaded', snapshot });
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith(url);
 });
 
 test.each([
