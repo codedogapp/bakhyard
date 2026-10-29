@@ -10,7 +10,8 @@ const full = 100;
 // Narrow hours and minutes, as Jira writes them: "31h 30m", "40h". Hours always show, so zero reads "0h" rather than "".
 const duration = new Intl.DurationFormat('en-GB', { style: 'narrow', hoursDisplay: 'always' });
 
-function formatHours(hours: number): string {
+/** Hours rounded to the minute, as Jira writes them: "7h 30m", "8h", "0h". */
+export function formatHours(hours: number): string {
   const minutes = Math.round(hours * minutesPerHour);
   return duration.format({ hours: Math.floor(minutes / minutesPerHour), minutes: minutes % minutesPerHour });
 }
