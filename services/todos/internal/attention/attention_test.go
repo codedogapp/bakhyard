@@ -10,8 +10,9 @@ import (
 	"testing/synctest"
 
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
+	"github.com/codedogapp/bakhyard/internal/jira"
 	"github.com/codedogapp/bakhyard/services/todos/internal/attention"
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/services/todos/internal/tickets"
 	"github.com/codedogapp/bakhyard/services/todos/internal/todo"
 )
 
@@ -48,9 +49,9 @@ const (
 
 func TestListItemsListsTheTodosThatNeedMe(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		tickets := started(t, fakeJira{done: []jira.Ticket{webNine}})
+		poller := started(t, fakeJira{done: []jira.Ticket{webNine}})
 
-		got := list(t, todosOf(someTodos...), unread(t), tickets)
+		got := list(t, todosOf(someTodos...), unread(t), poller)
 
 		want := []string{callTheBank, fixTheLogin, shipTheExport, deployTheFix}
 		if !slices.Equal(got, want) {
@@ -61,9 +62,9 @@ func TestListItemsListsTheTodosThatNeedMe(t *testing.T) {
 
 func TestListItemsListsNoneWithoutTodos(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		tickets := started(t, fakeJira{done: []jira.Ticket{webNine}})
+		poller := started(t, fakeJira{done: []jira.Ticket{webNine}})
 
-		if got := list(t, todosOf(), unread(t), tickets); len(got) != 0 {
+		if got := list(t, todosOf(), unread(t), poller); len(got) != 0 {
 			t.Errorf("got %q, want no items", got)
 		}
 	})
@@ -94,7 +95,7 @@ type call struct{}
 
 func TestListItemsReadsWithinTheCall(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		tickets := started(t, fakeJira{search: searching(payOne)})
+		poller := started(t, fakeJira{search: searching(payOne)})
 		within := func(ctx context.Context, what string) {
 			if ctx.Value(call{}) == nil {
 				t.Errorf("read the %s outside the call's context", what)
@@ -111,7 +112,7 @@ func TestListItemsReadsWithinTheCall(t *testing.T) {
 			return nil, nil
 		}
 
-		res, err := attention.NewLister(todos, dismissed, tickets).ListItems(
+		res, err := attention.NewLister(todos, dismissed, poller).ListItems(
 			context.WithValue(t.Context(), call{}, true), &attentionv1.ListItemsRequest{})
 		if got := lines(res); err != nil || !slices.Equal(got, []string{payTheInvoice}) {
 			t.Errorf("got %q and %v, want PAY-1's item", got, err)
@@ -139,12 +140,12 @@ func (f fakeJira) Fetch(context.Context, []string) ([]jira.Ticket, error) {
 }
 
 // started returns a poller of finder, and runs it until the test ends.
-func started(t *testing.T, finder jira.Finder) *jira.Poller {
+func started(t *testing.T, finder tickets.Finder) *tickets.Poller {
 	t.Helper()
 
 	none := func(context.Context) ([]string, error) { return nil, nil }
 
-	poller := jira.NewPoller(finder, none, slog.New(slog.DiscardHandler))
+	poller := tickets.NewPoller(finder, none, slog.New(slog.DiscardHandler))
 	go poller.Run(t.Context())
 
 	return poller
@@ -156,16 +157,16 @@ func todosOf(todos ...todo.Todo) func(context.Context) ([]todo.Todo, error) {
 }
 
 // list returns the lines of the items that a lister of todos and of the dismissed tickets lists
-// with what tickets has found.
+// with what poller has found.
 func list(
 	t *testing.T,
 	todos func(context.Context) ([]todo.Todo, error),
 	dismissed func(context.Context) ([]string, error),
-	tickets *jira.Poller,
+	poller *tickets.Poller,
 ) []string {
 	t.Helper()
 
-	res, err := attention.NewLister(todos, dismissed, tickets).ListItems(t.Context(),
+	res, err := attention.NewLister(todos, dismissed, poller).ListItems(t.Context(),
 		&attentionv1.ListItemsRequest{})
 	if err != nil {
 		t.Fatal(err)

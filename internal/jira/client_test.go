@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/internal/jira"
 )
 
 func TestSearchAsksForTheOpenTickets(t *testing.T) {

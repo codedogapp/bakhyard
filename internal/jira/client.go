@@ -1,5 +1,6 @@
-// Package jira finds the user's open tickets on a Jira Cloud site, through Jira's REST API v3
-// and a scoped API token (docs/plan.md §2, decisions 103 and 121).
+// Package jira reads the user's tickets on a Jira Cloud site, through Jira's REST API v3 and a
+// scoped API token: it finds the open tickets and fetches tickets by key, for each service that
+// the Jira settings set up (docs/plan.md §2, decisions 103, 121, 133 and 180).
 package jira
 
 import (

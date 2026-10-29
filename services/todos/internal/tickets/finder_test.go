@@ -1,4 +1,4 @@
-package jira_test
+package tickets_test
 
 import (
 	"bytes"
@@ -10,7 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/internal/jira"
+	"github.com/codedogapp/bakhyard/services/todos/internal/tickets"
 )
 
 // reply is how a call of a fake search replies.
@@ -67,10 +68,10 @@ func (f *fakeJira) fetched() []string {
 	return f.asked
 }
 
-// found replies with tickets, which are an empty list when there are none, as a Client's are.
-func found(tickets ...jira.Ticket) reply {
+// found replies with the open tickets, an empty list when there are none, as a Client's are.
+func found(open ...jira.Ticket) reply {
 	return func(context.Context) ([]jira.Ticket, error) {
-		return append([]jira.Ticket{}, tickets...), nil
+		return append([]jira.Ticket{}, open...), nil
 	}
 }
 
@@ -80,7 +81,7 @@ func failing(message string) reply {
 
 // polling starts a poller, which searches as the replies say until ctx ends, and returns it, its
 // fake Jira and its logs. The todos name no tickets.
-func polling(ctx context.Context, replies ...reply) (*jira.Poller, *fakeJira, *bytes.Buffer) {
+func polling(ctx context.Context, replies ...reply) (*tickets.Poller, *fakeJira, *bytes.Buffer) {
 	fake := &fakeJira{replies: replies}
 	poller, logs := pollingWith(ctx, fake)
 
@@ -88,17 +89,17 @@ func polling(ctx context.Context, replies ...reply) (*jira.Poller, *fakeJira, *b
 }
 
 // pollingWith starts a poller on fake until ctx ends, and returns it and its logs.
-func pollingWith(ctx context.Context, fake *fakeJira) (*jira.Poller, *bytes.Buffer) {
+func pollingWith(ctx context.Context, fake *fakeJira) (*tickets.Poller, *bytes.Buffer) {
 	var logs bytes.Buffer
 
-	poller := jira.NewPoller(fake, fake.linked, slog.New(slog.NewTextHandler(&logs, nil)))
+	poller := tickets.NewPoller(fake, fake.linked, slog.New(slog.NewTextHandler(&logs, nil)))
 	go poller.Run(ctx)
 
 	return poller, &logs
 }
 
 // latest returns what poller has found, as JSON.
-func latest(t *testing.T, poller *jira.Poller) string {
+func latest(t *testing.T, poller *tickets.Poller) string {
 	t.Helper()
 
 	snapshot, err := poller.Latest(t.Context())

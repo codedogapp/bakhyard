@@ -10,8 +10,8 @@ import (
 	"time"
 
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
+	"github.com/codedogapp/bakhyard/internal/jira"
 	"github.com/codedogapp/bakhyard/services/todos/internal/attention"
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
 	"github.com/codedogapp/bakhyard/services/todos/internal/todo"
 )
 

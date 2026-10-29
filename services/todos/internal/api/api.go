@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/services/todos/internal/tickets"
 	"github.com/codedogapp/bakhyard/services/todos/internal/todo"
 )
 
@@ -19,14 +19,14 @@ type list struct {
 
 // Register serves the todos in store on router: GET /todos lists them, POST /todos adds one,
 // PATCH /todos/{id} changes one and DELETE /todos/{id} deletes one. GET /todos/tickets answers
-// what tickets has found in Jira, nil when Jira isn't set up. GET /todos/dismissals lists the
+// what poller has found in Jira, nil when Jira isn't set up. GET /todos/dismissals lists the
 // tickets dismissed from the inbox, and PUT /todos/dismissals/{key} dismisses one. Other methods
 // get 405, and logger gets the errors that the database runs into.
-func Register(router chi.Router, store *todo.Store, tickets *jira.Poller, logger *slog.Logger) {
+func Register(router chi.Router, store *todo.Store, poller *tickets.Poller, logger *slog.Logger) {
 	router.Get("/todos", listTodos(store, logger))
 	router.Post("/todos", addTodo(store, logger))
 	// Always there, so that chi doesn't take the path for /todos/{id}, which has no GET.
-	router.Get("/todos/tickets", listTickets(tickets))
+	router.Get("/todos/tickets", listTickets(poller))
 	router.Get("/todos/dismissals", listDismissals(store, logger))
 	router.Put("/todos/dismissals/{key}", dismissTicket(store, logger))
 	router.Patch("/todos/{id}", changeTodo(store, logger))

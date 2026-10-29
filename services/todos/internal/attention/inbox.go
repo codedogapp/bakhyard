@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/internal/jira"
 	"github.com/codedogapp/bakhyard/services/todos/internal/todo"
 )
 

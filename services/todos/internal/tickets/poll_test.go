@@ -1,4 +1,4 @@
-package jira_test
+package tickets_test
 
 import (
 	"strings"

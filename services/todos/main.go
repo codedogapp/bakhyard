@@ -16,6 +16,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/env"
 	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1/attentionv1connect"
 	"github.com/codedogapp/bakhyard/internal/health"
+	"github.com/codedogapp/bakhyard/internal/jira"
 	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
@@ -52,7 +53,7 @@ func routes(
 	getenv func(string) string,
 	readSecret secrets.Reader,
 ) (http.Handler, error) {
-	client, err := jiraClient(getenv, readSecret)
+	client, err := jira.FromEnv(getenv, readSecret)
 	if err != nil {
 		return nil, err
 	}

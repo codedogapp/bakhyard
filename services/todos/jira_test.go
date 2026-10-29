@@ -17,55 +17,6 @@ const (
 	jiraAPI  = "https://api.atlassian.com/ex/jira/cloud-id"
 )
 
-func TestJiraClientSearchesTheJiraInTheSettings(t *testing.T) {
-	client, err := jiraClient(envOf(jiraSettings(jiraServer(t))),
-		secretsWith(map[string]string{"jira-token": "secret"}))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	got, err := client.Search(t.Context())
-	if err != nil || len(got) != 1 || got[0].URL != jiraSite+"/browse/PAY-1" {
-		t.Errorf("got %v, %v, want PAY-1 on %s", got, err, jiraSite)
-	}
-}
-
-func TestJiraClientIsOffWithoutTheSettings(t *testing.T) {
-	client, err := jiraClient(envOf(nil), secretsWith(nil))
-	if client != nil || err != nil {
-		t.Errorf("got %v, %v, want no client and no error", client, err)
-	}
-}
-
-func TestJiraClientRejects(t *testing.T) {
-	for _, test := range []rejection{
-		{map[string]string{jiraSiteVar: jiraSite}, "BAKHYARD_JIRA_API is not set"},
-		{map[string]string{jiraAPIVar: jiraAPI}, "BAKHYARD_JIRA_SITE is not set"},
-		{map[string]string{jiraEmailVar: "me@example.com"}, "BAKHYARD_JIRA_SITE is not set"},
-		{jiraWith(jiraSiteVar, ""), "BAKHYARD_JIRA_SITE is not set"},
-		{jiraWith(jiraAPIVar, ""), "BAKHYARD_JIRA_API is not set"},
-		{jiraWith(jiraEmailVar, ""), "BAKHYARD_JIRA_EMAIL is not set"},
-		// internal/env tests which URLs pass; these show that both of Jira's URLs must.
-		notHTTPS(jiraSiteVar, "http://acme.atlassian.net"),
-		notHTTPS(jiraAPIVar, "http://example.com"),
-	} {
-		client, err := jiraClient(envOf(test.settings),
-			secretsWith(map[string]string{"jira-token": "secret"}))
-		if client != nil || err == nil || err.Error() != test.want {
-			t.Errorf("got %v, %v, want the error %s", client, err, test.want)
-		}
-	}
-}
-
-func TestJiraClientNeedsTheToken(t *testing.T) {
-	client, err := jiraClient(envOf(jiraSettings(jiraAPI)), secretsWith(nil))
-
-	want := "read the Jira token: no secret jira-token"
-	if client != nil || err == nil || err.Error() != want {
-		t.Errorf("got %v, %v, want the error %s", client, err, want)
-	}
-}
-
 func TestTodosListsTheJiraTickets(t *testing.T) {
 	rec := getTickets(t.Context(), t, jiraServer(t))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"key":"PAY-1"`) ||
@@ -93,7 +44,7 @@ func TestTodosStopsSearchingJiraWhenItStops(t *testing.T) {
 }
 
 func TestTodosStopsOnABadJiraSetting(t *testing.T) {
-	_, err := routes(t.Context(), envOf(jiraWith(jiraEmailVar, "")), secretsWith(nil))
+	_, err := routes(t.Context(), envOf(jiraWith("BAKHYARD_JIRA_EMAIL", "")), secretsWith(nil))
 	if err == nil || err.Error() != "BAKHYARD_JIRA_EMAIL is not set" {
 		t.Errorf("got %v, want the error BAKHYARD_JIRA_EMAIL is not set", err)
 	}
@@ -192,7 +143,8 @@ func addTodo(t *testing.T, getenv func(string) string, readSecret secrets.Reader
 // jiraSettings returns the Jira settings, with the REST API at address.
 func jiraSettings(address string) map[string]string {
 	return map[string]string{
-		jiraSiteVar: jiraSite, jiraAPIVar: address, jiraEmailVar: "me@example.com",
+		"BAKHYARD_JIRA_SITE": jiraSite, "BAKHYARD_JIRA_API": address,
+		"BAKHYARD_JIRA_EMAIL": "me@example.com",
 	}
 }
 
@@ -202,17 +154,6 @@ func jiraWith(name, value string) map[string]string {
 	settings[name] = value
 
 	return settings
-}
-
-// rejection is a row of TestJiraClientRejects: the settings, and the error they give.
-type rejection struct {
-	settings map[string]string
-	want     string
-}
-
-// notHTTPS returns the rejection of value in the setting name as not an https URL.
-func notHTTPS(name, value string) rejection {
-	return rejection{jiraWith(name, value), name + `: "` + value + `" is not an https URL`}
 }
 
 // envOf returns an environment that holds only settings.

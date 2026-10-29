@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
+	"github.com/codedogapp/bakhyard/internal/jira"
 )
 
 func TestFetchAsksForTheTickets(t *testing.T) {

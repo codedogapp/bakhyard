@@ -8,8 +8,8 @@ import (
 	"testing/synctest"
 
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
+	"github.com/codedogapp/bakhyard/internal/jira"
 	"github.com/codedogapp/bakhyard/services/todos/internal/attention"
-	"github.com/codedogapp/bakhyard/services/todos/internal/jira"
 )
 
 // Open tickets of the user's: PAY-1 and DOC-5, which no todo names, WEB-7, which a todo left to do

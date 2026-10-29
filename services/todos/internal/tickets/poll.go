@@ -1,4 +1,6 @@
-package jira
+// Package tickets polls Jira for the user's open tickets and for the done tickets that the todos
+// left to do name (decisions 122 and 133).
+package tickets
 
 import (
 	"context"
@@ -6,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/codedogapp/bakhyard/internal/jira"
 	"github.com/codedogapp/bakhyard/internal/poll"
 )
 
@@ -15,19 +18,19 @@ const pollInterval = 5 * time.Minute
 // Finder finds tickets on Jira, as a Client does.
 type Finder interface {
 	// Search returns the user's open tickets.
-	Search(ctx context.Context) ([]Ticket, error)
+	Search(ctx context.Context) ([]jira.Ticket, error)
 	// Fetch returns the tickets that keys name, whatever their status.
-	Fetch(ctx context.Context, keys []string) ([]Ticket, error)
+	Fetch(ctx context.Context, keys []string) ([]jira.Ticket, error)
 }
 
 // Found is what a poll of Jira finds.
 type Found struct {
 	// Tickets are the user's open tickets. They're nil, and left out of the JSON, until a poll has
 	// succeeded; omitempty would leave out an empty list too.
-	Tickets []Ticket `json:"tickets,omitzero"`
+	Tickets []jira.Ticket `json:"tickets,omitzero"`
 	// Done are the tickets that the todos left to do name and that are done (decision 133), left
 	// out of the JSON when there are none.
-	Done []Ticket `json:"done,omitempty"`
+	Done []jira.Ticket `json:"done,omitempty"`
 }
 
 // Poller polls Jira in the background and keeps the latest of what it finds (decisions 122 and
@@ -62,7 +65,7 @@ func lookUp(
 	}
 
 	keys = slices.DeleteFunc(keys, func(key string) bool {
-		return slices.ContainsFunc(open, func(ticket Ticket) bool { return ticket.Key == key })
+		return slices.ContainsFunc(open, func(ticket jira.Ticket) bool { return ticket.Key == key })
 	})
 
 	fetched, err := finder.Fetch(ctx, keys)
@@ -70,7 +73,10 @@ func lookUp(
 		return Found{}, err
 	}
 
-	done := slices.DeleteFunc(fetched, func(ticket Ticket) bool { return ticket.Category != Done })
+	done := slices.DeleteFunc(
+		fetched,
+		func(ticket jira.Ticket) bool { return ticket.Category != jira.Done },
+	)
 
 	return Found{Tickets: open, Done: done}, nil
 }
