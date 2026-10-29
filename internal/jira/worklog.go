@@ -53,7 +53,9 @@ type span struct {
 }
 
 // Worklogs returns the user's worklogs that start from start up to, but not including, end, the
-// earliest first, and those that start together in the order Jira gave them.
+// earliest first; those that start together keep the order in which the client reads their
+// tickets. It reads the tickets that Jira's search finds, in Jira's order, then those that the
+// search didn't find but to which the client added worklogs (decision 191).
 func (c *Client) Worklogs(ctx context.Context, start, end time.Time) ([]Worklog, error) {
 	account, err := c.account(ctx)
 	if err != nil {
@@ -65,10 +67,11 @@ func (c *Client) Worklogs(ctx context.Context, start, end time.Time) ([]Worklog,
 		return nil, err
 	}
 
+	mine := span{account: account, start: start, end: end}
 	worklogs := []Worklog{}
 
 	for _, issue := range issues {
-		found, err := c.worklogs(ctx, issue.ID, span{account: account, start: start, end: end})
+		found, err := c.worklogs(ctx, issue.ID, mine)
 		if err != nil {
 			return nil, err
 		}
@@ -76,6 +79,12 @@ func (c *Client) Worklogs(ctx context.Context, start, end time.Time) ([]Worklog,
 		worklogs = append(worklogs, found...)
 	}
 
+	own, err := c.ownWorklogs(ctx, issues, mine)
+	if err != nil {
+		return nil, err
+	}
+
+	worklogs = append(worklogs, own...)
 	slices.SortStableFunc(worklogs, func(a, b Worklog) int { return a.Started.Compare(b.Started) })
 
 	return worklogs, nil
