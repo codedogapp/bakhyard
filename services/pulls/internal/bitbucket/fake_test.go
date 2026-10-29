@@ -121,10 +121,10 @@ func meAnswer(t *testing.T) reply {
 }
 
 // mineIn returns the URI at which the client asks for the user's open pull requests in
-// workspace.
+// workspace, with each one's participants.
 func mineIn(workspace string) string {
 	return "/2.0/workspaces/" + workspace + "/pullrequests/" + url.PathEscape(myUUID) +
-		"?pagelen=50&state=OPEN"
+		"?fields=%2Bvalues.participants&pagelen=50&state=OPEN"
 }
 
 // pageOf returns a page of pull requests, whose next page is at next, if next isn't empty.

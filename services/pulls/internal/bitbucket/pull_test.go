@@ -3,10 +3,12 @@ package bitbucket_test
 import (
 	"encoding/json/v2"
 	"testing"
+
+	"github.com/codedogapp/bakhyard/services/pulls/internal/bitbucket"
 )
 
-// mineOnly returns the pull requests that Mine lists when Bitbucket has request alone.
-func mineOnly(t *testing.T, request map[string]any) string {
+// pullsOnly returns the pull requests that Mine lists when Bitbucket has request alone.
+func pullsOnly(t *testing.T, request map[string]any) []bitbucket.Pull {
 	t.Helper()
 
 	fake := &fakeBitbucket{user: meAnswer(t), pages: map[string]reply{
@@ -18,7 +20,14 @@ func mineOnly(t *testing.T, request map[string]any) string {
 		t.Fatal(err)
 	}
 
-	encoded, err := json.Marshal(got)
+	return got
+}
+
+// mineOnly returns, as JSON, the pull requests that Mine lists when Bitbucket has request alone.
+func mineOnly(t *testing.T, request map[string]any) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(pullsOnly(t, request))
 	if err != nil {
 		t.Fatal(err)
 	}

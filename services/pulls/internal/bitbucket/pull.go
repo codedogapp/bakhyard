@@ -18,17 +18,22 @@ type Pull struct {
 	Draft   bool      `json:"draft"`
 	Created time.Time `json:"created"`
 	Updated time.Time `json:"updated"`
+	// Reviewers are those who review the pull request, in Bitbucket's order. Only the user's own
+	// pull requests have them, since Bitbucket's lists leave them out unless asked.
+	Reviewers []Reviewer `json:"reviewers,omitempty"`
 }
 
 // pullRequest is the part of a pull request in Bitbucket's answer that the client reads.
 type pullRequest struct {
-	ID          int         `json:"id"`
-	Title       string      `json:"title"`
-	Draft       bool        `json:"draft"`
-	CreatedOn   time.Time   `json:"created_on"`
-	UpdatedOn   time.Time   `json:"updated_on"`
-	Destination destination `json:"destination"`
-	Links       links       `json:"links"`
+	ID           int           `json:"id"`
+	Title        string        `json:"title"`
+	Draft        bool          `json:"draft"`
+	CreatedOn    time.Time     `json:"created_on"`
+	UpdatedOn    time.Time     `json:"updated_on"`
+	Destination  destination   `json:"destination"`
+	Links        links         `json:"links"`
+	Author       account       `json:"author"`
+	Participants []participant `json:"participants"`
 }
 
 // destination is the branch that a pull request merges into, in Bitbucket's answer.
@@ -52,13 +57,14 @@ type link struct {
 // pull returns the Pull of a pull request in Bitbucket's answer.
 func (found pullRequest) pull() Pull {
 	return Pull{
-		ID:      found.ID,
-		Title:   found.Title,
-		Repo:    found.Destination.Repository.FullName,
-		URL:     webPage(found.Links.HTML.Href),
-		Draft:   found.Draft,
-		Created: found.CreatedOn.UTC(),
-		Updated: found.UpdatedOn.UTC(),
+		ID:        found.ID,
+		Title:     found.Title,
+		Repo:      found.Destination.Repository.FullName,
+		URL:       webPage(found.Links.HTML.Href),
+		Draft:     found.Draft,
+		Created:   found.CreatedOn.UTC(),
+		Updated:   found.UpdatedOn.UTC(),
+		Reviewers: reviewers(found.Participants, found.Author.UUID),
 	}
 }
 

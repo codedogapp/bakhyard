@@ -1,6 +1,6 @@
-// Package bitbucket lists the user's open pull requests on Bitbucket Cloud, and those that wait for
-// the user's review, through its REST API 2.0 and a scoped API token (docs/plan.md §2, decisions
-// 135 and 171).
+// Package bitbucket lists the user's open pull requests on Bitbucket Cloud, with who reviews each,
+// and those that wait for the user's review, through its REST API 2.0 and a scoped API token
+// (docs/plan.md §2, decisions 135, 171 and 173).
 package bitbucket
 
 import (
@@ -52,7 +52,8 @@ func New(settings Settings) *Client {
 	return &Client{settings: settings, client: &http.Client{Timeout: requestTimeout}}
 }
 
-// Mine returns the user's open pull requests in the workspaces, the latest updated first.
+// Mine returns the user's open pull requests in the workspaces, each with its reviewers, the latest
+// updated first.
 func (c *Client) Mine(ctx context.Context) ([]Pull, error) {
 	uuid, err := c.me(ctx)
 	if err != nil {
@@ -65,8 +66,11 @@ func (c *Client) Mine(ctx context.Context) ([]Pull, error) {
 		target := c.settings.API.JoinPath(
 			"workspaces", url.PathEscape(workspace), "pullrequests", url.PathEscape(uuid),
 		)
+		// Bitbucket's lists leave each pull request's participants out unless fields asks for
+		// them, with a + that keeps every other field.
 		target.RawQuery = url.Values{
 			"state": {"OPEN"}, "pagelen": {strconv.Itoa(pageSize)},
+			"fields": {"+values.participants"},
 		}.Encode()
 
 		found, err := c.pages(ctx, target, listing)
