@@ -38,13 +38,18 @@ type Item struct {
 	Late   bool      `json:"late"`
 }
 
-// Home is everything the Home screen shows. Sources says how asking each of home's peers went,
-// so that a Home without some of its items doesn't look whole. It has no week until the time
-// service logs hours (docs/plan.md decision 161).
+// Home is everything the Home screen shows. Sources says how asking each of home's peers for its
+// items went, so that a Home without some of its items doesn't look whole. WeekState says how
+// asking the time service for the week went, so that the app can tell a week missing because
+// time failed from one that time doesn't have (docs/plan.md decision 186).
 type Home struct {
 	Name    string         `json:"name"`
 	Items   []Item         `json:"items"`
 	Sources []SourceStatus `json:"sources"`
+	// Week is nil when time has no week, when asking it failed, and when home has no time service.
+	Week *Week `json:"week,omitzero"`
+	// WeekState is empty when home has no time service to ask.
+	WeekState State `json:"weekState,omitempty"`
 }
 
 // New builds the Home at now for the user called name (see cleanName), with the items and the

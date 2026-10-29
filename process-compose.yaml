@@ -21,7 +21,7 @@ processes:
     command: bin/home
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8081
-      - BAKHYARD_PEERS=pulls=tcp://127.0.0.1:8085,todos=tcp://127.0.0.1:8084
+      - BAKHYARD_PEERS=pulls=tcp://127.0.0.1:8085,time=tcp://127.0.0.1:8088,todos=tcp://127.0.0.1:8084
     readiness_probe:
       http_get:
         port: 8081
