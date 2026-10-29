@@ -73,6 +73,10 @@ export const pulls: Pulls = {
       repo: 'acme/web',
       url: 'https://bitbucket.org/acme/web/pull-requests/128',
       draft: false,
+      reviewers: [
+        { name: 'Mia Chen', verdict: 'approved' },
+        { name: 'Leo Hart', verdict: 'pending' },
+      ],
     },
     {
       id: 41,
@@ -87,6 +91,12 @@ export const pulls: Pulls = {
       repo: 'acme/web',
       url: 'https://bitbucket.org/acme/web/pull-requests/126',
       draft: false,
+      reviewers: [
+        { name: 'Tom Berg', verdict: 'pending' },
+        { name: 'Noor Aziz', verdict: 'changes_requested' },
+        { name: 'Mia Chen', verdict: 'approved' },
+        { name: 'Leo Hart', verdict: 'pending' },
+      ],
     },
   ],
   searched: '2026-10-21T00:38:00Z',

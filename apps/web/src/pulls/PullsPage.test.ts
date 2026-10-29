@@ -61,6 +61,15 @@ test('loads my open PRs and the PRs that wait for my review as it shows, mine fi
   expect(fetchMock.mock.calls).toEqual([['/api/pulls/mine'], ['/api/pulls/reviews']]);
 });
 
+test('says where each of my PRs stands with its reviewers, but not the review requests', async () => {
+  answer([loaded(history), loaded(certificates)]);
+  render(PullsPage);
+
+  expect(await screen.findByRole('link', { name: /^#42 .* acme\/web No reviewers$/ })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /^#7 .* acme\/ops$/ })).toBeInTheDocument();
+  expect(screen.getAllByText('No reviewers')).toHaveLength(1);
+});
+
 test('shows nothing under its head while the lists load', () => {
   answer([loading, loading]);
   render(PullsPage);

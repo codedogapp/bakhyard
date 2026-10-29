@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { loadPulls, loadReviews, pullsNote, type Snapshot } from './pulls';
+import { loadPulls, loadReviews, pullsNote, type Reviewer, reviewLine, type Snapshot } from './pulls';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -28,4 +28,40 @@ test.each([
   { count: 120, want: '120 PRs' },
 ])('counts $count pull requests as $want', ({ count, want }) => {
   expect(pullsNote(count)).toBe(want);
+});
+
+test.each<{ reviewers?: Reviewer[]; want: string }>([
+  { reviewers: undefined, want: 'No reviewers' },
+  { reviewers: [], want: 'No reviewers' },
+  { reviewers: [{ name: 'Ana', verdict: 'approved' }], want: 'Approved by Ana' },
+  { reviewers: [{ name: 'Ben', verdict: 'pending' }], want: 'Waiting for Ben' },
+  { reviewers: [{ name: 'Cy', verdict: 'changes_requested' }], want: 'Changes requested by Cy' },
+  {
+    reviewers: [
+      { name: 'Ana', verdict: 'approved' },
+      { name: 'Dee', verdict: 'pending' },
+      { name: 'Cy', verdict: 'changes_requested' },
+      { name: 'Ben', verdict: 'pending' },
+    ],
+    want: 'Changes requested by Cy · Waiting for Dee and Ben · Approved by Ana',
+  },
+  {
+    reviewers: [
+      { name: 'Dee', verdict: 'approved' },
+      { name: 'Ben', verdict: 'changes_requested' },
+      { name: 'Ana', verdict: 'approved' },
+      { name: 'Cy', verdict: 'changes_requested' },
+    ],
+    want: 'Changes requested by Ben and Cy · Approved by Dee and Ana',
+  },
+  {
+    reviewers: [
+      { name: 'Cy', verdict: 'pending' },
+      { name: 'Ana', verdict: 'pending' },
+      { name: 'Ben', verdict: 'pending' },
+    ],
+    want: 'Waiting for Cy, Ana and Ben',
+  },
+])('says "$want" for where a PR stands with its reviewers', ({ reviewers, want }) => {
+  expect(reviewLine(reviewers)).toBe(want);
 });

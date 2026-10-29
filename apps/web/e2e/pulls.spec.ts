@@ -1,3 +1,4 @@
+import type { Pull } from '../src/pulls/pulls';
 import { bounds } from './bounds';
 import { chipLooks } from './chips';
 import { home, pulls, reviewRequests } from './demo';
@@ -19,9 +20,9 @@ test('the PRs page lists my open pull requests on Bitbucket', async ({ page }) =
   await expect(mine(page).getByText('3 PRs')).toBeVisible();
   const rows = mine(page).getByRole('link');
   await expect(rows).toHaveText([
-    '#128 WEB-12 Show the order history on the account page acme/web',
-    '#41 Retry the payment webhook after a timeout acme/payments Draft',
-    '#126 WEB-9 Fix the date picker in Safari acme/web',
+    '#128 WEB-12 Show the order history on the account page acme/web Waiting for Leo Hart · Approved by Mia Chen',
+    '#41 Retry the payment webhook after a timeout acme/payments No reviewers Draft',
+    '#126 WEB-9 Fix the date picker in Safari acme/web Changes requested by Noor Aziz · Waiting for Tom Berg and Leo Hart · Approved by Mia Chen',
   ]);
   for (const [index, pull] of (pulls.pulls ?? []).entries()) {
     await expect(rows.nth(index)).toHaveAttribute('href', pull.url ?? '');
@@ -51,7 +52,7 @@ test("a PR without a link to Bitbucket shows, but isn't a link", async ({ page }
 
   await expect(mine(page).getByRole('listitem')).toHaveCount(3);
   await expect(mine(page).getByRole('listitem').first()).toHaveText(
-    '#128 WEB-12 Show the order history on the account page acme/web'
+    '#128 WEB-12 Show the order history on the account page acme/web Waiting for Leo Hart · Approved by Mia Chen'
   );
   await expect(mine(page).getByRole('link')).toHaveCount(2);
 });
@@ -139,20 +140,24 @@ test("the PRs page says when Bitbucket isn't set up, with no section", async ({ 
   await expect(page.getByRole('main').getByRole('heading', { level: 2 })).toHaveCount(0);
 });
 
-test('a long title, repo or failure wraps on a narrow screen', async ({ page }) => {
+test("a long title, repo, reviewer's name or failure wraps on a narrow screen", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
-  const pull = {
+  const reviewer = `Ana ${'v'.repeat(120)}`;
+  const pull: Pull = {
     id: 1234567,
     title: `Read ${'x'.repeat(200)}`,
     repo: `acme/${'y'.repeat(60)}`,
     url: 'https://bitbucket.org/acme/web/pull-requests/1234567',
     draft: true,
+    reviewers: [{ name: reviewer, verdict: 'approved' }],
   };
   const failure = `list my pull requests: Get "https://api.bitbucket.org/2.0/pullrequests/${'z'.repeat(200)}": EOF`;
   await answerPulls(page, { pulls: [pull], searched: '2026-10-21T00:38:00Z', failure });
   await page.goto('/pulls');
 
-  await expect(mine(page).getByRole('link')).toHaveText(`#${pull.id} ${pull.title} ${pull.repo} Draft`);
+  await expect(mine(page).getByRole('link')).toHaveText(
+    `#${pull.id} ${pull.title} ${pull.repo} Approved by ${reviewer} Draft`
+  );
   const scroll = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(scroll).toBe(0);
   // On a phone the number and the chip share the row's first line.
