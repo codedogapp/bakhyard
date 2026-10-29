@@ -18,9 +18,12 @@ export interface Item {
   late: boolean;
 }
 
+/** How home's asking went: the peer answered, or it failed or didn't answer in time. */
+type State = 'ok' | 'unavailable';
+
 /** How asking one of home's sources went, with only the field the app reads so far. */
 interface SourceStatus {
-  state: 'ok' | 'unavailable';
+  state: State;
 }
 
 /** The Home screen's data from GET /api/home, with only the fields the app reads so far. */
@@ -29,8 +32,10 @@ export interface Home {
   items: Item[];
   /** One per source home asks; absent from the answer of a home older than the field. */
   sources?: SourceStatus[];
-  /** Absent when home has no week, such as before the time service logs hours. */
+  /** Absent when home has no week: the time service has none, as without Jira, couldn't give one, or isn't there. */
   week?: Week;
+  /** How asking the time service for the week went; absent without one to ask, or from a home older than the field. */
+  weekState?: State;
 }
 
 /** The error fetchHome fails with when the gateway answers 401: the user has no session. */

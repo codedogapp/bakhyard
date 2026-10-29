@@ -14,6 +14,9 @@ const withoutWeek: Home = {
 
 const withWeek: Home = { ...withoutWeek, week: { loggedHours: 31.5, targetHours: 40 } };
 
+// home asked the time service for the week, and couldn't get it.
+const unavailable: Home = { ...withoutWeek, weekState: 'unavailable' };
+
 // The week's head, its link and its hours; null for each that doesn't show.
 function weekParts(): (HTMLElement | null)[] {
   return [
@@ -73,4 +76,53 @@ test('shows no week before the Home first loads', () => {
 
   expect(weekParts()).toEqual([null, null, null]);
   expect(screen.getByRole('heading', { level: 2, name: 'Your apps' })).toBeInTheDocument();
+});
+
+test("says the hours are unavailable when home couldn't get the week, under its head and link, after the apps", () => {
+  render(HomePage, { props: { now, home: unavailable } });
+
+  const [head, link, hours] = weekParts();
+  expect(head).toBeInTheDocument();
+  expect(link).toHaveAttribute('href', '/time');
+  expect(hours).toBeNull();
+  expect(screen.getByText('Hours unavailable')).toBeInTheDocument();
+  const heads = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
+  expect(heads).toEqual(['Needs you today', 'Your apps', 'This week']);
+});
+
+test('shows the week when the Home has one, whatever its state says', () => {
+  render(HomePage, { props: { now, home: { ...withWeek, weekState: 'unavailable' } } });
+
+  expect(weekParts()).not.toContain(null);
+  expect(screen.queryByText('Hours unavailable')).not.toBeInTheDocument();
+});
+
+test('leaves out the week when the time service had none to give, as without Jira', () => {
+  render(HomePage, { props: { now, home: { ...withoutWeek, weekState: 'ok' } } });
+
+  expect(weekParts()).toEqual([null, null, null]);
+  expect(screen.queryByText('Hours unavailable')).not.toBeInTheDocument();
+});
+
+test('follows each later Home: from the hours to unavailable, to no week, and back', async () => {
+  const { rerender } = render(HomePage, { props: { now, home: withWeek } });
+
+  await rerender({ home: unavailable });
+
+  expect(screen.getByText('Hours unavailable')).toBeInTheDocument();
+  expect(screen.queryByText('31h 30m / 40h')).not.toBeInTheDocument();
+
+  await rerender({ home: withoutWeek });
+
+  expect(weekParts()).toEqual([null, null, null]);
+  expect(screen.queryByText('Hours unavailable')).not.toBeInTheDocument();
+
+  await rerender({ home: unavailable });
+
+  expect(screen.getByText('Hours unavailable')).toBeInTheDocument();
+
+  await rerender({ home: withWeek });
+
+  expect(weekParts()).not.toContain(null);
+  expect(screen.queryByText('Hours unavailable')).not.toBeInTheDocument();
 });

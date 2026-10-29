@@ -1,18 +1,24 @@
 <script lang="ts">
 import { hoursLabel, type Week, weekPercent } from './week';
 
-let { week }: { week: Week } = $props();
+// Without a week, the card says the hours are unavailable in their place, with no label or bar: an empty bar
+// would read as nothing logged (decision 187).
+let { week }: { week?: Week } = $props();
 </script>
 
 <div class="card">
-  <p class="hours">
-    <span class="value">{hoursLabel(week)}</span>
-    <span class="unit">Logged on Jira</span>
-  </p>
-  <!-- The hours above say the same in words. The % sits inside the braces, so Svelte adds no `?? ''` fallback. -->
-  <div class="track" aria-hidden="true">
-    <div class="fill" style:width={`${weekPercent(week)}%`}></div>
-  </div>
+  {#if week}
+    <p class="hours">
+      <span class="value">{hoursLabel(week)}</span>
+      <span class="unit">Logged on Jira</span>
+    </p>
+    <!-- The hours above say the same in words. The % sits inside the braces, so Svelte adds no `?? ''` fallback. -->
+    <div class="track" aria-hidden="true">
+      <div class="fill" style:width={`${weekPercent(week)}%`}></div>
+    </div>
+  {:else}
+    <p class="hours"><span class="value unavailable">Hours unavailable</span></p>
+  {/if}
 </div>
 
 <style>
@@ -36,6 +42,10 @@ let { week }: { week: Week } = $props();
   font-weight: 500;
   letter-spacing: -0.03em;
   line-height: 1.2;
+}
+
+.unavailable {
+  color: var(--ink-muted);
 }
 
 .unit {
