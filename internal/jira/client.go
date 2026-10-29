@@ -1,6 +1,7 @@
-// Package jira reads the user's tickets on a Jira Cloud site, through Jira's REST API v3 and a
-// scoped API token: it finds the open tickets and fetches tickets by key, for each service that
-// the Jira settings set up (docs/plan.md §2, decisions 103, 121, 133 and 180).
+// Package jira reads the user's tickets and worklogs on a Jira Cloud site, through Jira's REST
+// API v3 and a scoped API token: it finds the open tickets, fetches tickets by key and reads the
+// user's worklogs, for each service that the Jira settings set up (docs/plan.md §2, decisions
+// 103, 121, 133 and 180).
 package jira
 
 import (
@@ -41,35 +42,49 @@ type Settings struct {
 	Token string
 }
 
-// Client finds tickets on a Jira site.
+// Client reads tickets and worklogs on a Jira site.
 type Client struct {
 	settings Settings
 	client   *http.Client
 }
 
-// New returns the client of the site in settings. It reaches Jira only when it searches or
-// fetches.
+// New returns the client of the site in settings. It reaches Jira only when it's asked for
+// something.
 func New(settings Settings) *Client {
 	return &Client{settings: settings, client: &http.Client{Timeout: requestTimeout}}
 }
 
 // Search returns the user's open tickets, the latest updated first.
 func (c *Client) Search(ctx context.Context) ([]Ticket, error) {
-	tickets := []Ticket{}
+	issues, err := c.search(ctx, openTickets, "summary,status")
+	if err != nil {
+		return nil, err
+	}
+
+	tickets := make([]Ticket, 0, len(issues))
+	for _, issue := range issues {
+		tickets = append(tickets, c.ticket(issue))
+	}
+
+	return tickets, nil
+}
+
+// search returns the tickets that jql finds, with the fields that fields lists, page after page.
+func (c *Client) search(ctx context.Context, jql, fields string) ([]issue, error) {
+	var issues []issue
+
 	token := ""
 
 	for range maxPages {
-		found, err := c.page(ctx, token)
+		found, err := c.page(ctx, jql, fields, token)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, issue := range found.Issues {
-			tickets = append(tickets, c.ticket(issue))
-		}
+		issues = append(issues, found.Issues...)
 
 		if found.IsLast || found.NextPageToken == "" {
-			return tickets, nil
+			return issues, nil
 		}
 
 		token = found.NextPageToken
@@ -87,6 +102,7 @@ type page struct {
 
 // issue is the part of a ticket in Jira's answer that the client reads.
 type issue struct {
+	ID     string `json:"id"`
 	Key    string `json:"key"`
 	Fields fields `json:"fields"`
 }
@@ -109,11 +125,11 @@ type statusCategory struct {
 	Key string `json:"key"`
 }
 
-// page returns the page of the search that token names, or the first page without a token.
-func (c *Client) page(ctx context.Context, token string) (page, error) {
+// page returns the page of jql's search that token names, or the first page without a token.
+func (c *Client) page(ctx context.Context, jql, fields, token string) (page, error) {
 	query := url.Values{
-		"jql":        {openTickets},
-		"fields":     {"summary,status"},
+		"jql":        {jql},
+		"fields":     {fields},
 		"maxResults": {strconv.Itoa(pageSize)},
 	}
 	if token != "" {
@@ -123,19 +139,24 @@ func (c *Client) page(ctx context.Context, token string) (page, error) {
 	target := c.settings.API.JoinPath("rest/api/3/search/jql")
 	target.RawQuery = query.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
-	if err != nil {
-		return page{}, fmt.Errorf("search Jira: %w", err)
-	}
-
 	var found page
 
-	err = c.do(req, "search Jira", &found)
+	err := c.get(ctx, target, "search Jira", &found)
 	if err != nil {
 		return page{}, err
 	}
 
 	return found, nil
+}
+
+// get asks Jira for target and reads Jira's answer into answer, as do does.
+func (c *Client) get(ctx context.Context, target *url.URL, action string, answer any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+	if err != nil {
+		return fmt.Errorf("%s: %w", action, err)
+	}
+
+	return c.do(req, action, answer)
 }
 
 // do sends req to Jira as the user and reads Jira's answer into answer. Its errors start with
