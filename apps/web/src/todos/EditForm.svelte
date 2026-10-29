@@ -1,10 +1,10 @@
 <script lang="ts">
+import type { Ticket } from '../jira/tickets';
 import type { Editor } from './editor.svelte';
 import { focusField } from './focus';
 import { editLabel } from './labels';
 import PriorityPicker from './PriorityPicker.svelte';
 import TicketPicker from './TicketPicker.svelte';
-import type { Ticket } from './tickets';
 
 // `open` holds my open tickets by key, which the ticket picker offers.
 let { editor, open }: { editor: Editor; open: ReadonlyMap<string, Ticket> } = $props();

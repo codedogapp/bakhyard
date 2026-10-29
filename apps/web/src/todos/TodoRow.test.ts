@@ -2,13 +2,13 @@ import { flushSync } from 'svelte';
 import { render, within } from '@testing-library/svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
+import type { Ticket } from '../jira/tickets';
 import type { Todo } from './api';
 import { Drag } from './drag.svelte';
 import { Editor } from './editor.svelte';
 import { Focus } from './focus';
 import { TodosState } from './state.svelte';
 import TodoRow from './TodoRow.svelte';
-import type { Ticket } from './tickets';
 
 afterEach(() => {
   document.body.replaceChildren();

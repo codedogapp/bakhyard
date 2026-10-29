@@ -1,4 +1,4 @@
-import type { Ticket } from './tickets';
+import type { Ticket } from '../jira/tickets';
 
 /** One of the ticket picker's options: the key it links, empty for none, and its text. */
 export interface Choice {

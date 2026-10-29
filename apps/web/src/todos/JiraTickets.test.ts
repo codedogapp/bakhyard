@@ -1,8 +1,8 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { expect, test } from 'vitest';
 
+import type { Ticket, Tickets } from '../jira/tickets';
 import JiraTickets from './JiraTickets.svelte';
-import type { Ticket, Tickets } from './tickets';
 
 const review: Ticket = {
   key: 'WEB-12',

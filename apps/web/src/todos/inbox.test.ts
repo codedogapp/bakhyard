@@ -1,10 +1,10 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
+import type { Ticket } from '../jira/tickets';
 import type { Todo } from './api';
 import { Focus } from './focus';
 import { Inbox } from './inbox.svelte';
 import { TodosState } from './state.svelte';
-import type { Ticket } from './tickets';
 
 afterEach(() => {
   vi.unstubAllGlobals();

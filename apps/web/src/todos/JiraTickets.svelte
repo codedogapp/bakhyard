@@ -1,9 +1,9 @@
 <script lang="ts">
+import type { Tickets } from '../jira/tickets';
 import Section from '../shell/Section.svelte';
 import { searchedLabel } from '../shell/snapshot';
 import { ticketsNote } from './labels';
 import TicketStatus from './TicketStatus.svelte';
-import type { Tickets } from './tickets';
 
 let { tickets }: { tickets: Tickets } = $props();
 </script>

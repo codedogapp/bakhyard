@@ -2,12 +2,12 @@ import { flushSync, tick } from 'svelte';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
+import type { Ticket } from '../jira/tickets';
 import type { Todo } from './api';
 import { Editor } from './editor.svelte';
 import { Focus } from './focus';
 import { TodosState } from './state.svelte';
 import TicketPicker from './TicketPicker.svelte';
-import type { Ticket } from './tickets';
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 
+import type { Ticket } from '../jira/tickets';
 import { ticketChoices } from './choices';
-import type { Ticket } from './tickets';
 
 function ticket(key: string, summary: string): Ticket {
   return { key, summary, status: 'To Do', category: 'to-do', url: `https://jira.example.com/browse/${key}` };

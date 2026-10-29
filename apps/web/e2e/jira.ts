@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import type { Snapshot } from '../src/todos/tickets';
+import type { Snapshot } from '../src/jira/tickets';
 
 /** A todo's URL. The glob `/api/todos/*` matches the tickets' URL too, so a route for the todos must use this. */
 export const aTodo = /\/api\/todos\/\d+$/;

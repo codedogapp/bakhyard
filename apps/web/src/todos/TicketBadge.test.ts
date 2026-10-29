@@ -1,8 +1,8 @@
 import { render } from '@testing-library/svelte';
 import { expect, test } from 'vitest';
 
+import type { Ticket } from '../jira/tickets';
 import TicketBadge from './TicketBadge.svelte';
-import type { Ticket } from './tickets';
 
 const picker: Ticket = {
   key: 'WEB-9',

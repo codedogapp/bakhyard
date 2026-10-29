@@ -1,11 +1,8 @@
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test } from 'vitest';
 
+import type { Tickets } from '../jira/tickets';
 import type { Todo } from './api';
-import { doneTickets, inboxTickets, loadTickets, openTickets, type Snapshot, type Tickets } from './tickets';
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+import { doneTickets, inboxTickets, openTickets } from './tickets';
 
 const ticket = {
   key: 'WEB-12',
@@ -15,15 +12,6 @@ const ticket = {
   url: 'https://jira.example.com/browse/WEB-12',
 } as const;
 const shipped = { ...ticket, key: 'WEB-3', status: 'Closed', category: 'done' } as const;
-
-test('loads the tickets from the todos service', async () => {
-  const snapshot: Snapshot = { tickets: [ticket], done: [shipped], searched: '2026-10-26T00:41:00Z' };
-  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(snapshot));
-  vi.stubGlobal('fetch', fetchMock);
-
-  expect(await loadTickets()).toEqual({ kind: 'loaded', snapshot });
-  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/todos/tickets');
-});
 
 const certificates = { ...ticket, key: 'OPS-31', status: 'To Do', category: 'to-do' } as const;
 
