@@ -1,6 +1,7 @@
 // Package bitbucket lists the user's open pull requests on Bitbucket Cloud, with who reviews each,
-// and those that wait for the user's review, through its REST API 2.0 and a scoped API token
-// (docs/plan.md §2, decisions 135, 171 and 173).
+// and those that wait for the user's review, and reads the approvals that a pull request needs
+// from its merge checks, through its REST API 2.0 and a scoped API token (docs/plan.md §2,
+// decisions 135, 171, 173, 175 and 176).
 package bitbucket
 
 import (
