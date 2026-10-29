@@ -27,6 +27,46 @@
   color: var(--ink-muted);
 }
 
+/*
+ * A select with our own chevron in place of the browser's arrow (decision 193): a wrapper around a `.form-field`
+ * select and the chevron's svg, the arrow's head pointing down. Each select sets its own width on the wrapper.
+ */
+.form-select {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+/* Room on the right for the chevron, 14 px in from the edge as the text is from the left. */
+.form-select select {
+  padding-right: 44px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.form-select svg {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  translate: 0 -50%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+/* Muted while it waits, as a waiting button is. */
+.form-select:has(:disabled) {
+  color: var(--ink-muted);
+}
+
+/* Chrome also fades a disabled select; the muted ink alone says it waits, as for the buttons. */
+.form-select select:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 .form-button {
   flex: none;
   min-height: 44px;
@@ -43,6 +83,17 @@
 
 .form-button:hover {
   background: var(--fill);
+}
+
+/* The button that does what a dialog asks: paper on ink, swapped under the pointer. */
+.form-button-primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.form-button-primary:hover {
+  background: var(--paper);
+  color: var(--ink);
 }
 
 .form-button[aria-disabled="true"] {

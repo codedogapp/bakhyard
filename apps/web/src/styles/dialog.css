@@ -1,0 +1,46 @@
+/*
+ * The modal dialog the pages share (decision 193): a card over a veil of the page, with a title, a line of text under
+ * it, then its buttons side by side.
+ */
+.dialog {
+  width: min(400px, 100% - 2 * var(--gutter));
+  padding: 20px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--offset) var(--offset) 0 var(--shadow);
+}
+
+/* Only while open: a display of its own would show the closed dialog too. */
+.dialog[open] {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 12px;
+}
+
+/* A veil of the page's own colour over the page. */
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--paper) 75%, transparent);
+}
+
+.dialog-title {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+
+/* A long word breaks rather than widen the dialog. */
+.dialog-text {
+  flex-basis: 100%;
+  margin: 8px 0 20px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .dialog-title {
+    font-size: 16px;
+  }
+}
