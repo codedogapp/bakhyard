@@ -48,7 +48,7 @@ func (c *Client) Reviews(ctx context.Context) ([]Pull, error) {
 	pulls := []Pull{}
 
 	for _, repo := range repos {
-		target, err := c.pullRequestsOf(repo)
+		target, err := c.pullRequestsOf(repo.FullName, listingRepositories)
 		if err != nil {
 			return nil, err
 		}
@@ -97,13 +97,13 @@ func (c *Client) latestRepositories(ctx context.Context) ([]workspaceRepository,
 	return repos[:min(len(repos), maxRepositories)], nil
 }
 
-// pullRequestsOf returns the address of repo's pull requests, from its full name, whose workspace
-// and slug the address mustn't lose.
-func (c *Client) pullRequestsOf(repo workspaceRepository) (*url.URL, error) {
-	workspace, slug, _ := strings.Cut(repo.FullName, "/")
+// pullRequestsOf returns the address of the pull requests of the repository whose full name is
+// fullName, such as acme/web, whose workspace and slug the address mustn't lose. Its error starts
+// with action.
+func (c *Client) pullRequestsOf(fullName, action string) (*url.URL, error) {
+	workspace, slug, _ := strings.Cut(fullName, "/")
 	if lost(workspace) || lost(slug) {
-		return nil, fmt.Errorf("%s: %q is not a repository's full name", listingRepositories,
-			repo.FullName)
+		return nil, fmt.Errorf("%s: %q is not a repository's full name", action, fullName)
 	}
 
 	return c.settings.API.JoinPath(
