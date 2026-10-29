@@ -47,6 +47,28 @@ func TestTimeReportsMyWorklogsInJira(t *testing.T) {
 	}
 }
 
+func TestTimeReadsTheWorklogsOnceForItsReportWeekAndItems(t *testing.T) {
+	address, reads := countedJira(t)
+
+	router, err := routes(t.Context(), envOf(jiraSettings(address)),
+		secretsWith(map[string]string{"jira-token": "secret"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reportOf(t, router)
+	getWeek(t, router)
+	listItems(t, router)
+
+	// Time reads them every 5 minutes, so only the first read is due yet.
+	if got := reads.Load(); got != 1 {
+		t.Errorf(
+			"read the worklogs %d times, want once for the report, the week and the items",
+			got,
+		)
+	}
+}
+
 func TestTimeStopsReadingWorklogsWhenItStops(t *testing.T) {
 	stopped, stop := context.WithCancel(t.Context())
 	stop()
@@ -68,10 +90,20 @@ func TestTimeStopsOnABadJiraSetting(t *testing.T) {
 	}
 }
 
-// jiraServer returns the URL of a stand-in for Jira's REST API, for the email me@example.com with
-// the token secret, where the user logged an hour and a half on one ticket, starting a minute
-// before each answer, and an hour more with each later read of its worklogs.
+// jiraServer returns the URL of a stand-in for Jira's REST API, as countedJira does.
 func jiraServer(t *testing.T) string {
+	t.Helper()
+
+	address, _ := countedJira(t)
+
+	return address
+}
+
+// countedJira returns the URL of a stand-in for Jira's REST API, for the email me@example.com with
+// the token secret, where the user logged an hour and a half on one ticket, starting a minute
+// before each answer, and an hour more with each later read of its worklogs, and the number of
+// those reads so far.
+func countedJira(t *testing.T) (string, *atomic.Int64) {
 	t.Helper()
 
 	var reads atomic.Int64
@@ -100,7 +132,7 @@ func jiraServer(t *testing.T) string {
 	}))
 	t.Cleanup(server.Close)
 
-	return server.URL
+	return server.URL, &reads
 }
 
 // getReport returns the answer to GET /time/report of time with Jira's REST API at address,
@@ -119,6 +151,24 @@ func getReport(ctx context.Context, t *testing.T, address string) *httptest.Resp
 	router.ServeHTTP(rec, req)
 
 	return rec
+}
+
+// reportOf returns router's answer to GET /time/report, which must be a report.
+func reportOf(t *testing.T, router http.Handler) answer {
+	t.Helper()
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/time/report", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	var got answer
+
+	err := json.Unmarshal(rec.Body.Bytes(), &got)
+	if err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("got %d %s (%v), want 200 and a report", rec.Code, rec.Body, err)
+	}
+
+	return got
 }
 
 // jiraSettings returns the Jira settings, with the REST API at address.

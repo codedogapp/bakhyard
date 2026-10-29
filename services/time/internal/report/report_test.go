@@ -39,7 +39,7 @@ func TestNewSumsTheTimeLoggedOnEachDay(t *testing.T) {
 		{Date: "2026-10-24"},
 		{Date: "2026-10-25", LoggedHours: 1},
 		{Date: "2026-10-26", LoggedHours: 0.3},
-		{Date: "2026-10-27", Missing: true},
+		{Date: "2026-10-27", Missing: true, Unlogged: true},
 		{Date: "2026-10-28", LoggedHours: 4},
 		{Date: "2026-10-29", LoggedHours: 0.25},
 	}
@@ -85,13 +85,13 @@ func TestNewCountsTheDaysInNowsZone(t *testing.T) {
 
 	days := New(worklogs, time.Date(2026, time.October, 29, 12, 0, 0, 0, kiritimati)).Days
 
-	want := []Day{{Date: "2026-10-28", LoggedHours: 1}, {Date: "2026-10-29"}}
+	want := []Day{{Date: "2026-10-28", LoggedHours: 1}, {Date: "2026-10-29", Unlogged: true}}
 	if got := days[len(days)-2:]; !slices.Equal(got, want) {
 		t.Errorf("got the last two days %+v, want %+v", got, want)
 	}
 }
 
-func TestNewMarksTheWeekdaysWithNothingLoggedAsMissing(t *testing.T) {
+func TestNewMarksTheWeekdaysWithNothingLogged(t *testing.T) {
 	noonOn := func(month time.Month, day int) time.Time {
 		return time.Date(2026, month, day, 12, 0, 0, 0, time.UTC)
 	}
@@ -102,16 +102,20 @@ func TestNewMarksTheWeekdaysWithNothingLoggedAsMissing(t *testing.T) {
 
 	report := New(worklogs, noonOn(time.November, 2))
 
-	// From Tuesday 27 October to today, Monday 2 November.
-	want := []bool{true, true, false, true, false, false, false}
+	// From Tuesday 27 October to today, Monday 2 November, which isn't missing until it's over.
+	wantMissing := []bool{true, true, false, true, false, false, false}
+	wantUnlogged := []bool{true, true, false, true, false, false, true}
 
-	got := make([]bool, 0, len(report.Days))
+	var gotMissing, gotUnlogged []bool
+
 	for _, day := range report.Days {
-		got = append(got, day.Missing)
+		gotMissing = append(gotMissing, day.Missing)
+		gotUnlogged = append(gotUnlogged, day.Unlogged)
 	}
 
-	if !slices.Equal(got, want) {
-		t.Errorf("got missing %v, want %v", got, want)
+	if !slices.Equal(gotMissing, wantMissing) || !slices.Equal(gotUnlogged, wantUnlogged) {
+		t.Errorf("got missing %v and unlogged %v, want %v and %v",
+			gotMissing, gotUnlogged, wantMissing, wantUnlogged)
 	}
 }
 

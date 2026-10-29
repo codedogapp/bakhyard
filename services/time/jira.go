@@ -10,14 +10,19 @@ import (
 )
 
 // poll starts polling Jira with client for the user's worklogs, until ctx ends, and returns the
-// poller that keeps the time report that they make, or nil when Jira is off and client is nil.
-// The report's days follow the local zone: the Mac's, or the one that the container's TZ names.
-func poll(ctx context.Context, client *jira.Client, logger *slog.Logger) *worklogs.Poller {
+// poller that keeps the time report that they make, whose days follow loc, or nil when Jira is off
+// and client is nil.
+func poll(
+	ctx context.Context,
+	client *jira.Client,
+	loc *time.Location,
+	logger *slog.Logger,
+) *worklogs.Poller {
 	if client == nil {
 		return nil
 	}
 
-	poller := worklogs.NewPoller(client.Worklogs, time.Local, logger)
+	poller := worklogs.NewPoller(client.Worklogs, loc, logger)
 	go poller.Run(ctx)
 
 	return poller

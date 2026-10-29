@@ -33,6 +33,9 @@ type Day struct {
 	LoggedHours float64 `json:"loggedHours"`
 	// Missing says that the day is a weekday before today with nothing logged.
 	Missing bool `json:"missing"`
+	// Unlogged says that the day is a weekday with nothing logged, today included: a missing day,
+	// or today until something is logged.
+	Unlogged bool `json:"-"`
 }
 
 // Week is the time logged this week against the week's target, in hours.
@@ -69,11 +72,13 @@ func New(worklogs []jira.Worklog, now time.Time) Report {
 	for i := range days {
 		date := first.AddDate(0, 0, i)
 		spent := logged[date.Format(time.DateOnly)]
+		unlogged := weekday(date) && spent == 0
 
 		report.Days = append(report.Days, Day{
 			Date:        date.Format(time.DateOnly),
 			LoggedHours: spent.Hours(),
-			Missing:     date.Before(today) && weekday(date) && spent == 0,
+			Missing:     unlogged && date.Before(today),
+			Unlogged:    unlogged,
 		})
 
 		if !date.Before(monday) {
