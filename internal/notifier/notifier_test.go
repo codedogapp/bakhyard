@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/codedogapp/bakhyard/services/nudge/internal/notifier"
+	"github.com/codedogapp/bakhyard/internal/notifier"
 )
 
 func TestSendPostsTheMessageToNotify(t *testing.T) {
