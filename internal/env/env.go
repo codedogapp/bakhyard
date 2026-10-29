@@ -60,18 +60,29 @@ func Peers(getenv func(string) string) ([]Peer, error) {
 
 // PeerAddress returns the host and port that the peer name listens on, from BAKHYARD_PEERS.
 func PeerAddress(getenv func(string) string, name string) (string, error) {
+	addr, found, err := LookupPeer(getenv, name)
+	if err == nil && !found {
+		err = fmt.Errorf("%s has no peer %q", peersVar, name)
+	}
+
+	return addr, err
+}
+
+// LookupPeer returns the host and port that the peer name listens on, from BAKHYARD_PEERS, and
+// whether it lists name, for a service that can run without that peer. An unset BAKHYARD_PEERS
+// lists no peer.
+func LookupPeer(getenv func(string) string, name string) (string, bool, error) {
 	peers, err := parsePeers(getenv(peersVar))
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
-	for _, peer := range peers {
-		if peer.Name == name {
-			return peer.Address, nil
-		}
+	i := slices.IndexFunc(peers, func(peer Peer) bool { return peer.Name == name })
+	if i < 0 {
+		return "", false, nil
 	}
 
-	return "", fmt.Errorf("%s has no peer %q", peersVar, name)
+	return peers[i].Address, true, nil
 }
 
 // parsePeers reads every entry of BAKHYARD_PEERS's value, name=tcp://host:port,…, so that a

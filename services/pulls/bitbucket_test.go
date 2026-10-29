@@ -87,17 +87,19 @@ func TestPullsStopsOnABadBitbucketSetting(t *testing.T) {
 // me@example.com with the token secret, and a function that returns the paths it was asked so
 // far. It finds me as {me}, and in each of the workspaces acme and labs one open pull request of
 // mine, into its repo web, and one that waits for my review, in its only other repo, api or app.
+// My pull request into acme/web has no merge check.
 func bitbucketServer(t *testing.T) (string, func() []string) {
 	t.Helper()
 
 	answers := map[string]string{
-		"/2.0/user":                               `{"uuid":"{me}"}`,
-		"/2.0/workspaces/acme/pullrequests/{me}":  pageInto("acme/web"),
-		"/2.0/workspaces/labs/pullrequests/{me}":  pageInto("labs/web"),
-		"/2.0/repositories/acme":                  `{"values":[{"full_name":"acme/api"}]}`,
-		"/2.0/repositories/labs":                  `{"values":[{"full_name":"labs/app"}]}`,
-		"/2.0/repositories/acme/api/pullrequests": pageInto("acme/api"),
-		"/2.0/repositories/labs/app/pullrequests": pageInto("labs/app"),
+		"/2.0/user":                                                     `{"uuid":"{me}"}`,
+		"/2.0/workspaces/acme/pullrequests/{me}":                        pageInto("acme/web"),
+		"/2.0/workspaces/labs/pullrequests/{me}":                        pageInto("labs/web"),
+		"/2.0/repositories/acme":                                        `{"values":[{"full_name":"acme/api"}]}`,
+		"/2.0/repositories/labs":                                        `{"values":[{"full_name":"labs/app"}]}`,
+		"/2.0/repositories/acme/api/pullrequests":                       pageInto("acme/api"),
+		"/2.0/repositories/labs/app/pullrequests":                       pageInto("labs/app"),
+		"/2.0/repositories/acme/web/pullrequests/1/mergeability/checks": `{"values":[]}`,
 	}
 
 	var (

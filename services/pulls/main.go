@@ -34,12 +34,18 @@ func main() {
 }
 
 // routes returns the handler of pulls, which serves its API and its side of the attention
-// contract. With Bitbucket set up, it polls Bitbucket in the background until ctx ends.
+// contract. With Bitbucket set up, it polls Bitbucket in the background until ctx ends, and with
+// notify too, it reminds the user of their pull requests that wait for approvals.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
 	readSecret secrets.Reader,
 ) (http.Handler, error) {
+	notify, err := notifyClient(getenv)
+	if err != nil {
+		return nil, err
+	}
+
 	client, err := bitbucketClient(getenv, readSecret)
 	if err != nil {
 		return nil, err
@@ -52,6 +58,10 @@ func routes(
 
 	mine, reviews := poll(ctx, client, slog.Default())
 	api.Register(router, mine, reviews)
+
+	if reminder := newReminder(client, mine, notify); reminder != nil {
+		go reminder.Run(ctx)
+	}
 
 	attentionServer := connect.NewServer()
 	attentionv1connect.RegisterAttentionServiceHandler(attentionServer, attention.NewLister(mine))
