@@ -6,15 +6,19 @@ import (
 	"net/http"
 	"os"
 
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/time/v1/timev1connect"
 	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/jira"
 	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/time/internal/api"
+	"github.com/codedogapp/bakhyard/services/time/internal/week"
 )
 
 func main() {
@@ -30,8 +34,8 @@ func main() {
 	}
 }
 
-// routes returns time's handler, which serves its API. With Jira set up, it polls Jira for the
-// user's worklogs in the background until ctx ends.
+// routes returns time's handler, which serves its API and its side of the time contract. With
+// Jira set up, it polls Jira for the user's worklogs in the background until ctx ends.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
@@ -46,7 +50,13 @@ func routes(
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, poll(ctx, client, slog.Default()))
+
+	reports := poll(ctx, client, slog.Default())
+	api.Register(router, reports)
+
+	timeServer := connect.NewServer()
+	timev1connect.RegisterTimeServiceHandler(timeServer, week.NewServer(reports))
+	connecthttp.Mount(router, timeServer)
 
 	return router, nil
 }

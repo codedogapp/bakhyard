@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -68,9 +70,11 @@ func TestTimeStopsOnABadJiraSetting(t *testing.T) {
 
 // jiraServer returns the URL of a stand-in for Jira's REST API, for the email me@example.com with
 // the token secret, where the user logged an hour and a half on one ticket, starting a minute
-// before each answer.
+// before each answer, and an hour more with each later read of its worklogs.
 func jiraServer(t *testing.T) string {
 	t.Helper()
+
+	var reads atomic.Int64
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		email, token, ok := r.BasicAuth()
@@ -87,8 +91,9 @@ func jiraServer(t *testing.T) string {
 			_, _ = w.Write([]byte(`{"isLast":true,"issues":[{"id":"10001"}]}`))
 		case "/rest/api/3/issue/10001/worklog":
 			started := time.Now().Add(-time.Minute).Format(startedLayout)
-			_, _ = w.Write([]byte(`{"total":1,"worklogs":[{"author":{"accountId":"me"},` +
-				`"started":"` + started + `","timeSpentSeconds":5400}]}`))
+			spent := 1800 + 3600*reads.Add(1)
+			_, _ = fmt.Fprintf(w, `{"total":1,"worklogs":[{"author":{"accountId":"me"},`+
+				`"started":"%s","timeSpentSeconds":%d}]}`, started, spent)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
