@@ -1267,7 +1267,7 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 4: GitHub**
 
-- `github-widgets` [github]. Needs `frontend-shell`. Nine steps (decisions 200 to 206):
+- `github-widgets` [github]. Needs `frontend-shell`. Nine steps (decisions 200 to 207):
   - `shared-web-link`: the Bitbucket client's check that a PR's page is an https URL moves to the root `internal/weblink`, for the GitHub client; nothing changes in behaviour (decision 201). Done (#171).
   - `github-client`: a client of GitHub's search finds my open PRs, the PRs that wait for my review or my teams', and the open issues assigned to me, across every owner, through a classic PAT with `repo` and `read:org` (decisions 202 and 203). Done (#173).
   - `github-service`: the `github` service polls the three searches every 5 minutes, within search's 30 requests a minute, and answers them at `GET /github/mine`, `/github/reviews` and `/github/issues`, or 404 without its setting (decision 204). Done (#176).
