@@ -246,7 +246,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-open` | Each row of the Planner page's list links to its plan's page, and a new plan's start opens the new plan's page (decisions 418, 703 and 704) | Done (#219) |
 | `planner-gateway` | The gateway forwards `/api/planner` to `planner`, behind both of its locks, once the laptop runs it (decision 403) | Pending |
 | `planner-reply` | A plan's page sends follow-up messages from a field under its conversation (decisions 701 and 705) | Done (#221) |
-| `planner-ask` | The agent's questions that wait show at the end of a plan's conversation, with their choices, and with a field for another answer when the agent takes one, and the answers go back; while one waits, the reply hides (decisions 403 and 706) | Pending |
+| `planner-ask` | The agent's questions that wait show at the end of a plan's conversation, with their choices, and with a field for another answer when the agent takes one, and the answers go back; while one waits, the reply hides (decisions 403 and 706) | Done (#223) |
 | `planner-preview` | A plan's page shows the plan, rendered from its Markdown (decision 403) | Pending |
 | `planner-save` | "Save to Obsidian" writes the plan to `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, written by the service, once `vault-edit-sync`'s `note-store` and `note-new` are in (§3, decision 403) | Pending |
 
@@ -1380,7 +1380,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-chat`: a plan's page shows its conversation as it streams, and whether the agent is working (decisions 701 and 703). Done (#217).
   - `planner-open`: each row of the list, and a new plan's start, lead to a plan's page (decisions 703 and 704). Done (#219).
   - `planner-reply`: a plan's page sends follow-up messages (decisions 701 and 705). Done (#221).
-  - `planner-ask`: the agent's questions show in the chat with their choices, and the answers go back (decisions 403 and 706).
+  - `planner-ask`: the agent's questions show in the chat with their choices, and the answers go back (decisions 403 and 706). Done (#223).
   - `planner-preview`: the plan shows, rendered.
   - `planner-save`: "Save to Obsidian" writes `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, written by the service, once `vault-edit-sync`'s store and new notes' unique names are in.
   - No credit cap (decision 75). Each plan's credits could show from `Usage.GetMetrics`, which is experimental (§10).
