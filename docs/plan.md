@@ -183,7 +183,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `parallel-sessions` | Several sessions work at once, each on its own feature in a worktree of its own, with this session as the orchestrator: AGENTS.md says who works where, plan §0 and §9 give each session places of its own, the end-to-end tests take their ports from `BAKHYARD_E2E_PORT`, golangci-lint runs wait for each other, and the tests' time limits allow for the other sessions' load (decision 195) | Done (#166) |
 | `github-widgets` | The GitHub widgets (§8.2 Phase 4), by a session of their own in `../bakhyard-github/`, which adds its steps' rows under this one (decision 195) | In progress |
 | `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | In progress |
-| `games-plan` | `games-exophase` splits in eleven steps: the Exophase client, the cache, the service, the Twitch token, the IGDB search, the covers, the laptop, the gateway, the page and its covers; the games list, the covers' matches and the Twitch token stay in memory. The first of `games-exophase`'s eleven steps (decision 300) | In review |
+| `games-plan` | `games-exophase` splits in eleven steps: the Exophase client, the cache, the service, the Twitch token, the IGDB search, the covers, the laptop, the gateway, the page and its covers; the games list, the covers' matches and the Twitch token stay in memory. The first of `games-exophase`'s eleven steps (decision 300) | Done (#168) |
 | `vault-edit-sync` | Editing the vault from Bakhyard (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one and then does `copilot-planner` (decision 195) | In progress |
 
 After these: the product phases (§8.2), each split into steps.
@@ -1246,7 +1246,7 @@ Every item is pending unless it says done. The service an item lands in is in br
 **Phase 5: games**
 
 - `games-exophase` [games]. Needs `frontend-shell`, `spike-games-access`. The games I played in the last 14 days, with playtime, trophies and the percentage (Nintendo: playtime only), from Exophase's games list on request (decision 67), with IGDB's covers (decision 68). Eleven steps (decision 300):
-  - `games-plan`: the split, and the choices that span the steps (decision 300).
+  - `games-plan`: the split, and the choices that span the steps (decision 300). Done (#168).
   - `exophase-client`: the `games` service's Exophase client reads the games I last played since a given time from the games list's JSON, with an honest user agent; it never fetches or stores a profile's HTML. `tls-client` only if challenges start.
   - `games-cache`: the service fetches on request: the first request waits for the first fetch, later ones get the latest list at once and start a fetch in the background once it's an hour old; after a failure, the last good list stays and the next fetch backs off.
   - `games-service`: a new `games` service answers the games I played in the last 14 days at `GET /games/recent`.
