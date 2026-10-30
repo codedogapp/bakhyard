@@ -5,6 +5,7 @@ import { type Chat, followPlan } from './follow';
 import { authorLabel, workLabel } from './labels';
 import QuestionRow from './QuestionRow.svelte';
 import ReplyForm from './ReplyForm.svelte';
+import SavePlan from './SavePlan.svelte';
 
 // The plan's conversation, followed on its stream while the page shows.
 let { id }: { id: string } = $props();
@@ -26,10 +27,13 @@ $effect(() => {
 <PageHead>Plan</PageHead>
 {#if plan}
   {#await import('./render') then { renderPlan }}
-    <article class="plan">
-      <!-- Sanitized HTML, with no raw HTML from the plan (render.ts). -->
-      <div class="markdown">{@html renderPlan(plan)}</div>
-    </article>
+    <div class="plan">
+      <SavePlan {id} />
+      <article>
+        <!-- Sanitized HTML, with no raw HTML from the plan (render.ts). -->
+        <div class="markdown">{@html renderPlan(plan)}</div>
+      </article>
+    </div>
   {:catch}
     <p class="page-status">Couldn't show the plan.</p>
   {/await}

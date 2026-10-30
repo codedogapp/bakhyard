@@ -68,6 +68,37 @@ export async function startPlan(prompt: string): Promise<Start> {
   }
 }
 
+// What a failed save means, by its status, where the service's own text would say less. A 404 has three meanings,
+// which the service's text tells apart: no such plan, no Copilot, or no saving to the vault.
+const saveFailures = new Map([
+  [409, "Copilot hasn't written the plan yet."],
+  [502, "Couldn't save the plan in the vault."],
+]);
+
+/** How a save went: saved, with the note's path in the vault, or failed, with the reason to show the user. */
+export type Save = { kind: 'saved'; path: string } | { kind: 'failed'; reason: string };
+
+/**
+ * Saves the plan of the plan with the ID, as its page's path holds it, in the vault as a new note (decision 709). A
+ * failed save's reason is, for a 409 or a 502, what it means; for any other answer, the service's reason or its status.
+ */
+export async function savePlan(id: string): Promise<Save> {
+  try {
+    const response = await fetch(`${url}/${id}/note`, { method: 'POST' });
+    if (response.status === 201) {
+      const body: { path: string } = await response.json();
+      return { kind: 'saved', path: body.path };
+    }
+    const reason = saveFailures.get(response.status);
+    return {
+      kind: 'failed',
+      reason: reason ?? ((await response.text()).trim() || `The plan wasn't saved (${response.status}).`),
+    };
+  } catch {
+    return { kind: 'failed', reason: "The plan wasn't saved: the planner isn't reachable." };
+  }
+}
+
 // What a failed post of a text means: the reasons for the statuses whose own text would say less, and what the text
 // is, for the others.
 interface Failures {
