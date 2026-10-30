@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import type { Plan } from './api';
@@ -55,6 +55,41 @@ test('lists the plans as it shows, in the order they come, a row each, none a li
   expect(within(rows()[0]).getByText('Today')).toHaveAttribute('datetime', '2026-10-31T00:20:00.123456789Z');
   expect(screen.queryByRole('link')).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans');
+  expect(screen.getByRole('textbox', { name: 'Prompt' })).toBeInTheDocument();
+});
+
+test('lists a plan once it has started', async () => {
+  const [first, ...others] = plans;
+  const fetchMock = answer(async () => Response.json({ plans: others }));
+  render(PlannerPage, { props: { now } });
+  await fireEvent.input(await screen.findByRole('textbox', { name: 'Prompt' }), { target: { value: 'Back up' } });
+  fetchMock.mockResolvedValueOnce(Response.json({ id: first?.id }, { status: 201 }));
+  fetchMock.mockResolvedValueOnce(Response.json({ plans }));
+
+  await fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+
+  await vi.waitFor(() => expect(rows()).toHaveLength(3));
+  expect(rows()[0]).toHaveTextContent('Back up the home lab');
+  expect(screen.getByRole('status')).toHaveTextContent('Started');
+  expect(fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? 'GET'} ${url}`)).toEqual([
+    'GET /api/planner/plans',
+    'POST /api/planner/plans',
+    'GET /api/planner/plans',
+  ]);
+});
+
+test('keeps the form and its status when the list fails to load after a start', async () => {
+  const fetchMock = answer(loaded(plans));
+  render(PlannerPage, { props: { now } });
+  await fireEvent.input(await screen.findByRole('textbox', { name: 'Prompt' }), { target: { value: 'Back up' } });
+  fetchMock.mockResolvedValueOnce(Response.json({ id: plans[0]?.id }, { status: 201 }));
+  fetchMock.mockResolvedValueOnce(new Response('Bad Gateway\n', { status: 502 }));
+
+  await fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+
+  expect(await screen.findByText("Couldn't load the plans.")).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Started');
+  expect(screen.getByRole('textbox', { name: 'Prompt' })).toHaveValue('');
 });
 
 test('says when there is no plan yet, with no count', async () => {
@@ -71,6 +106,7 @@ test("says when Copilot isn't set up, with no section", async () => {
 
   expect(await screen.findByText("Copilot isn't set up.")).toHaveClass('page-status');
   expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 });
 
 test("says when the plans couldn't load, in their section", async () => {
@@ -79,6 +115,7 @@ test("says when the plans couldn't load, in their section", async () => {
 
   expect(await screen.findByText("Couldn't load the plans.")).toBeInTheDocument();
   expect(screen.getByRole('heading', { level: 2, name: 'Your plans' })).toBeInTheDocument();
+  expect(screen.getByRole('textbox', { name: 'Prompt' })).toBeInTheDocument();
 });
 
 test('shows the head alone while the plans load', () => {

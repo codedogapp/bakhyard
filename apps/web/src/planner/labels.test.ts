@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { titleLabel } from './labels';
+import { startLabel, titleLabel } from './labels';
 
 const words = (count: number) => Array.from({ length: count }, (_, index) => `word${index}`).join(' ');
 
@@ -24,4 +24,13 @@ test.each([
   { name: 'a long one counted in characters', title: '🙂'.repeat(81), want: `${'🙂'.repeat(80)}…` },
 ])('shows $name', ({ title, want }) => {
   expect(titleLabel(title)).toBe(want);
+});
+
+test.each([
+  { status: { kind: 'idle' }, want: '' },
+  { status: { kind: 'starting' }, want: 'Starting…' },
+  { status: { kind: 'started' }, want: 'Started' },
+  { status: { kind: 'failed', reason: "Copilot isn't set up." }, want: "Copilot isn't set up." },
+] as const)('says $want for a start $status.kind', ({ status, want }) => {
+  expect(startLabel(status)).toBe(want);
 });

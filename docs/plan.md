@@ -223,6 +223,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-resume` | The planner's client brings back a plan of an earlier run as a route asks for it: it looks the plan up in the CLI, resumes its session with a new plan's settings, one plan at a time, and holds it until the service stops, so that it reads, streams, and takes answers and follow-ups, with its plan from the plan file in its session's workspace; a plan that the CLI doesn't keep gets a 404, and an error from Copilot a 502, on the answer route too (decision 415) | Done (#203) |
 | `planner-image` | The planner's image: the service with the Copilot CLI that the Copilot SDK names, from the CLI's release, checked against a pinned SHA-256, on distroless's `cc`, for linux/amd64 alone; its package is unpacked at build time, so it runs on a read-only root file system. The images workflow builds it, and `copilot:check` fails until its version is the SDK's and its checksum the release's (decision 416) | Done (#204) |
 | `planner-page` | The Planner page at `/planner` lists the plans, the last updated first, each with the day it last changed and its title on one line, cut to 80 characters, or "Untitled plan"; with Copilot off, and while the gateway doesn't forward to the planner, it says "Copilot isn't set up.". Decision 403's `planner-page` splits in two, so `copilot-planner` has twenty-two steps (decision 417) | Done (#205) |
+| `planner-prompt` | The Planner page starts a plan from a prompt: a field over the list, with Start under it, sends the prompt as typed, then empties it and lists the new plan; a failed start keeps the prompt and says why, in plain words for a 404, a 413 or a 502 (decision 418) | Done (#206) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1319,7 +1320,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `note-page-state`: a note's page keeps its state in a class, `ShownNote`, with no change in behaviour (decision 402). Done (#177).
   - `note-save`: the editor's Save, a `PUT` with `If-Match`, which keeps the user's text on a 412 (decisions 400 to 402). Done (#180).
   - After the answer: the store behind the save, with the §3 conflict rules; new notes get unique names; history and rollback; and the way edits get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151, §12).
-- `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`; its last step needs `vault-edit-sync`'s store. In twenty-two steps (decisions 403, 405, 407, 410, 413 and 417), which start before `vault-edit-sync` ends:
+- `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`; its last step needs `vault-edit-sync`'s store. In twenty-two steps (decisions 403, 405, 407, 410, 413, 417 and 418), which start before `vault-edit-sync` ends:
   - `planner-plan`: this split. Done (#182).
   - `copilot-client`: the planner's client of the Copilot SDK starts a plan in plan mode on claude-opus-5.5, with the tool allowlist and a deny-by-default permission handler (§3), and keeps the plan that `exit_plan_mode` brings. `copilot` is pinned in mise.toml at the CLI version the SDK names, and `mise run copilot:check` fails when they differ (decisions 74 and 404). Done (#185).
   - `planner-api`: the client keeps the plans it starts and reads a plan's conversation from the CLI; `POST /planner/plans` starts a plan from a prompt, and `GET /planner/plans/{id}` answers its conversation and its plan so far (decision 405). Done (#189).
@@ -1337,7 +1338,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it.
   - `planner-gateway`: the gateway forwards `/api/planner` to `planner`.
   - `planner-page`: the Planner page lists the plans (decision 417). Done (#205).
-  - `planner-prompt`: the Planner page starts a new plan from a prompt.
+  - `planner-prompt`: the Planner page starts a new plan from a prompt (decision 418). Done (#206).
   - `planner-chat`: a plan's page shows its conversation as it streams, and sends follow-up messages.
   - `planner-ask`: the agent's questions show in the chat with their choices, and the answers go back.
   - `planner-preview`: the plan shows, rendered.
@@ -2008,6 +2009,12 @@ Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-p
      - **No links** until `planner-chat` gives a plan its page.
      - **Loading**: the page loads the list each time it shows, with no polling, since the plans change only as the user works on them.
      - **Rejected**: cutting the title in CSS, since the standard `line-clamp` is in no stable browser yet and the `-webkit-line-clamp` workaround is deprecated; `PolledSection`, which is made for a poller's snapshot and its age; and one step for both.
+418. **The Planner page's prompt** (`planner-prompt`): the lead's choices (2026-10-30), for the user to review.
+     - **The form**: over the list, as the Todos page's form is over its first section, with the shared form controls (decision 112): a field for the prompt, three lines high and as wide as the page, with Start under it and the status line. A multi-line field, since a prompt can run to paragraphs: Enter adds a line, and Start starts. The form shows once the list has loaded or failed to, not while it loads, nor with Copilot off.
+     - **A start** sends the prompt as typed (decision 405), and nothing for a blank prompt or while a start runs. While it runs, the prompt is read-only, Start is `aria-disabled` and the status says "Starting…"; then the prompt empties, the status says "Started", and the page loads the list again, keeping the old one until the new one comes. No `maxlength`: the service refuses a prompt over 64 KiB, and the refused prompt stays in the field to shorten.
+     - **A failed start** keeps the prompt and says why, by status, where the service's own text would say less: a 404 "Copilot isn't set up.", a 413 "The prompt is too long." and a 502 "Copilot couldn't start the plan."; any other answer, the service's text, or "The plan didn't start (500)." without one; and no answer, "The plan didn't start: the planner isn't reachable."
+     - **After a start** the page stays on the list; going to the new plan waits for `planner-chat`, which gives a plan its page.
+     - **Rejected**: the logic in the component, which SonarQube Cloud can't read (AGENTS.md); the service's "Bad Gateway" or "Request Entity Too Large" as the reason; a one-line field, which hides most of a long prompt.
 
 Decisions 500 on are the orchestrator's, after 199.
 
