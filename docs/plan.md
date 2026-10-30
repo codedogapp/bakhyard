@@ -221,7 +221,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-list` | `GET /planner/plans` lists the plans that the CLI keeps, those of the service's earlier runs among them, the last updated first, as `{"plans":[…]}`: each with its `id`, the CLI's `title` for it, `started_at` and `updated_at`. `planner-resume` splits in three, so `copilot-planner` has twenty-one steps (decision 413) | Done (#201) |
 | `planner-send` | `POST /planner/plans/{id}/messages`, with a body such as `{"text":"Make it a week"}`, sends a follow-up message to a plan, in plan mode like the prompt, so that the agent works the plan out further: 204, or 404 for a plan that the client hasn't started, and 400 for a blank text (decision 414) | Done (#202) |
 | `planner-resume` | The planner's client brings back a plan of an earlier run as a route asks for it: it looks the plan up in the CLI, resumes its session with a new plan's settings, one plan at a time, and holds it until the service stops, so that it reads, streams, and takes answers and follow-ups, with its plan from the plan file in its session's workspace; a plan that the CLI doesn't keep gets a 404, and an error from Copilot a 502, on the answer route too (decision 415) | Done (#203) |
-| `planner-image` | The planner's image: the service with the Copilot CLI that the Copilot SDK names, from the CLI's release, checked against a pinned SHA-256, on distroless's `cc`, for linux/amd64 alone; its package is unpacked at build time, so it runs on a read-only root file system. The images workflow builds it, and `copilot:check` fails until its version is the SDK's and its checksum the release's (decision 416) | In progress |
+| `planner-image` | The planner's image: the service with the Copilot CLI that the Copilot SDK names, from the CLI's release, checked against a pinned SHA-256, on distroless's `cc`, for linux/amd64 alone; its package is unpacked at build time, so it runs on a read-only root file system. The images workflow builds it, and `copilot:check` fails until its version is the SDK's and its checksum the release's (decision 416) | Done (#204) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1331,7 +1331,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-list`: `GET /planner/plans` lists the plans that the CLI keeps, those of earlier runs among them (decision 413). Done (#201).
   - `planner-send`: `POST /planner/plans/{id}/messages` sends a follow-up message to a plan (decision 414). Done (#202).
   - `planner-resume`: the client brings back a plan of an earlier run as it's asked for, so that it reads, streams, and takes answers and follow-ups, with its plan (decision 415). Done (#203).
-  - `planner-image`: the service's image, with the CLI in it (decision 416).
+  - `planner-image`: the service's image, with the CLI in it (decision 416). Done (#204).
   - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it.
   - `planner-gateway`: the gateway forwards `/api/planner` to `planner`.
   - `planner-page`: the Planner page lists the plans and starts a new one from a prompt.
