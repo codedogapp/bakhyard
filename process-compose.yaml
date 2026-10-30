@@ -128,6 +128,19 @@ processes:
       initial_delay_seconds: 1
       period_seconds: 2
 
+  github:
+    <<: *service
+    description: Searches GitHub for my open PRs, review requests and issues
+    command: bin/github
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8089
+    readiness_probe:
+      http_get:
+        port: 8089
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
   gateway:
     <<: *service
     description: "The only way in: /api to the services, everything else to web"

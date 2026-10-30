@@ -51,7 +51,7 @@ jobs:
       - name: Build and push
         run: |
           # One tag, main: Flux follows its digest (decision 156).
-          for service in gateway home notes notify nudge pulls time todos web; do
+          for service in gateway github home notes notify nudge pulls time todos web; do
             buildctl build --frontend dockerfile.v0 \
               --local context=. --local "dockerfile=services/$service" \
               --opt platform=linux/amd64 \
