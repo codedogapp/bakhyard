@@ -1,4 +1,6 @@
+import type { Author, Status } from './conversation';
 import type { StartStatus } from './prompt.svelte';
+import type { SendStatus } from './reply.svelte';
 
 /** The most characters of a plan's title that its row shows. */
 const titleLength = 80;
@@ -35,4 +37,31 @@ export function startLabel(status: StartStatus): string {
     default:
       return '';
   }
+}
+
+/** The reply's status line: "Sending…", "Sent", why the send failed, or nothing before the first. */
+export function sendLabel(status: SendStatus): string {
+  switch (status.kind) {
+    case 'sending':
+      return 'Sending…';
+    case 'sent':
+      return 'Sent';
+    case 'failed':
+      return status.reason;
+    default:
+      return '';
+  }
+}
+
+/** Who wrote a message, as its row says: "You" or "Copilot". */
+export function authorLabel(from: Author): string {
+  return from === 'user' ? 'You' : 'Copilot';
+}
+
+/** A plan's status line: "Copilot is working…", why the agent stopped, or nothing once it stopped without an error. */
+export function workLabel(status: Status): string {
+  if (status.working) {
+    return 'Copilot is working…';
+  }
+  return status.failure === '' ? '' : `Copilot stopped: ${status.failure}`;
 }

@@ -13,6 +13,7 @@ export type Page =
   | { kind: 'github' }
   | { kind: 'games' }
   | { kind: 'planner' }
+  | { kind: 'plan'; id: string }
   | { kind: 'nudge' }
   | { kind: 'app'; app: App }
   | { kind: 'more' }
@@ -30,8 +31,8 @@ const nudgeHref = appHref('nudge');
 /**
  * The page at path. The Notes app's path shows the notes, and the paths under it their notes; the Todos app's paths
  * show the todos, the PRs app's my PRs, the Time app's the time report, the GitHub app's my PRs and issues on GitHub,
- * the Games app's the games I played lately, the Planner app's the plans, and the Nudge app's the agents' questions;
- * another app's paths show its page, as the nav marks it.
+ * the Games app's the games I played lately, the Planner app's path the plans, and the paths under it their plans, and
+ * the Nudge app's the agents' questions; another app's paths show its page, as the nav marks it.
  */
 export function pageAt(path: string): Page {
   if (path === '/') {
@@ -59,7 +60,7 @@ export function pageAt(path: string): Page {
     return { kind: 'games' };
   }
   if (isCurrent(plannerHref, path)) {
-    return { kind: 'planner' };
+    return plannerPage(path);
   }
   if (isCurrent(nudgeHref, path)) {
     return { kind: 'nudge' };
@@ -75,6 +76,24 @@ export function pageAt(path: string): Page {
 function notePage(path: string): Page {
   const note = noteAt(path);
   return note ? { kind: 'note', note } : { kind: 'missing' };
+}
+
+// The page of the Planner's path, with or without its slash, which shows the plans, or of a segment under it, which
+// shows the plan with that ID; missing for a deeper path.
+function plannerPage(path: string): Page {
+  const id = path.slice(plannerHref.length + 1);
+  if (id === '') {
+    return { kind: 'planner' };
+  }
+  return id.includes('/') ? { kind: 'missing' } : { kind: 'plan', id };
+}
+
+/**
+ * The path of the plan's page: the Planner's and the ID, escaped. The page keeps the segment as it is, so the paths it
+ * builds from it carry the ID escaped too.
+ */
+export function planHref(id: string): string {
+  return `${plannerHref}/${encodeURIComponent(id)}`;
 }
 
 const siteName = 'Bakhyard';
@@ -103,6 +122,8 @@ export function pageTitle(page: Page): string {
       return `Games · ${siteName}`;
     case 'planner':
       return `Planner · ${siteName}`;
+    case 'plan':
+      return `Plan · ${siteName}`;
     case 'nudge':
       return `Nudge · ${siteName}`;
     case 'app':

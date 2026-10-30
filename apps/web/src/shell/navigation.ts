@@ -20,6 +20,14 @@ export function followNavigation(onPath: (path: string) => Promise<void>): () =>
   return () => listening.abort();
 }
 
+/**
+ * Opens the page at path as a link to it would. The browser fires a navigate event for it, so followNavigation shows
+ * the page in place where the browser has the Navigation API; elsewhere it loads in full.
+ */
+export function openPage(path: string): void {
+  location.assign(path);
+}
+
 // The gateway serves the paths under /auth/ itself: signing in starts there.
 const authPrefix = '/auth/';
 

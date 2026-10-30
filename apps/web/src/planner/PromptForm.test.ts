@@ -15,9 +15,9 @@ function renderForm() {
   return { started, prompt, button };
 }
 
-test('starts a plan from the prompt, empties it, and tells the page', async () => {
-  const started = Response.json({ id: '0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21' }, { status: 201 });
-  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(started));
+test("starts a plan from the prompt, empties it, and gives the page the new plan's ID", async () => {
+  const id = '0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21';
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json({ id }, { status: 201 })));
   const form = renderForm();
   expect(form.prompt).toHaveAttribute('placeholder', 'What should Copilot plan?');
   expect(screen.getByRole('status')).toHaveTextContent('');
@@ -27,7 +27,7 @@ test('starts a plan from the prompt, empties it, and tells the page', async () =
 
   expect(await screen.findByText('Started')).toHaveRole('status');
   expect(form.prompt).toHaveValue('');
-  expect(form.started).toHaveBeenCalledOnce();
+  expect(form.started).toHaveBeenCalledExactlyOnceWith(id);
 });
 
 test('is read-only while it starts, and keeps the prompt when the start fails', async () => {

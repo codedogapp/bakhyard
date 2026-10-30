@@ -13,21 +13,21 @@ export class PromptState {
   }
 
   /**
-   * Starts a plan from the prompt, then empties it and calls started; a failed start keeps it. Starts nothing for a
-   * blank prompt, or while a start runs.
+   * Starts a plan from the prompt, then empties it and calls started with the new plan's ID; a failed start keeps it.
+   * Starts nothing for a blank prompt, or while a start runs.
    */
-  async start(started: () => void): Promise<void> {
+  async start(started: (id: string) => void): Promise<void> {
     if (this.busy || this.text.trim() === '') {
       return;
     }
     this.status = { kind: 'starting' };
-    const failure = await startPlan(this.text);
-    if (failure !== undefined) {
-      this.status = { kind: 'failed', reason: failure };
+    const result = await startPlan(this.text);
+    if (result.kind === 'failed') {
+      this.status = result;
       return;
     }
     this.text = '';
     this.status = { kind: 'started' };
-    started();
+    started(result.id);
   }
 }

@@ -71,3 +71,27 @@ test.each([
   expect(await screen.findByText(loaded)).toBeInTheDocument();
   expect(document.title).toBe(title);
 });
+
+test("shows a plan's page at its path, following the plan's stream", async () => {
+  const opened: string[] = [];
+  vi.stubGlobal(
+    'EventSource',
+    class {
+      constructor(url: string) {
+        opened.push(url);
+      }
+      addEventListener() {
+        // The test only checks which stream the page opens.
+      }
+      close() {
+        // Nothing to close.
+      }
+    }
+  );
+  history.replaceState(null, '', '/planner/p1');
+  render(App);
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'Plan' })).toBeInTheDocument();
+  expect(document.title).toBe('Plan · Bakhyard');
+  expect(opened).toEqual(['/api/planner/plans/p1/events']);
+});

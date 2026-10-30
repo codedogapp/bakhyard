@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { startLabel, titleLabel } from './labels';
+import { authorLabel, sendLabel, startLabel, titleLabel, workLabel } from './labels';
 
 const words = (count: number) => Array.from({ length: count }, (_, index) => `word${index}`).join(' ');
 
@@ -33,4 +33,37 @@ test.each([
   { status: { kind: 'failed', reason: "Copilot isn't set up." }, want: "Copilot isn't set up." },
 ] as const)('says $want for a start $status.kind', ({ status, want }) => {
   expect(startLabel(status)).toBe(want);
+});
+
+test.each([
+  { status: { kind: 'idle' }, want: '' },
+  { status: { kind: 'sending' }, want: 'Sending…' },
+  { status: { kind: 'sent' }, want: 'Sent' },
+  { status: { kind: 'failed', reason: 'The message is too long.' }, want: 'The message is too long.' },
+] as const)('says $want for a send $status.kind', ({ status, want }) => {
+  expect(sendLabel(status)).toBe(want);
+});
+
+test.each([
+  { from: 'user', want: 'You' },
+  { from: 'assistant', want: 'Copilot' },
+] as const)("labels the $from's messages $want", ({ from, want }) => {
+  expect(authorLabel(from)).toBe(want);
+});
+
+test.each([
+  { about: 'an agent at work', status: { working: true, failure: '' }, want: 'Copilot is working…' },
+  {
+    about: 'one at work after an error',
+    status: { working: true, failure: 'Rate limited' },
+    want: 'Copilot is working…',
+  },
+  {
+    about: 'one that stopped on an error',
+    status: { working: false, failure: 'Rate limited' },
+    want: 'Copilot stopped: Rate limited',
+  },
+  { about: 'one that stopped without one', status: { working: false, failure: '' }, want: '' },
+])('says "$want" for $about', ({ status, want }) => {
+  expect(workLabel(status)).toBe(want);
 });

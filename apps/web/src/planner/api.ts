@@ -40,11 +40,14 @@ const startFailures = new Map([
   [502, "Copilot couldn't start the plan."],
 ]);
 
+// How a start went: started, with the new plan's ID, or failed, with the reason to show the user.
+type Start = { kind: 'started'; id: string } | { kind: 'failed'; reason: string };
+
 /**
- * Starts a plan from the prompt, as typed (decision 405). The failure is the reason to show the user, or none once the
- * plan has started: for a 404, a 413 or a 502, what it means; for any other answer, the service's reason or its status.
+ * Starts a plan from the prompt, as typed (decision 405). A failed start's reason is, for a 404, a 413 or a 502, what
+ * it means; for any other answer, the service's reason or its status.
  */
-export async function startPlan(prompt: string): Promise<string | undefined> {
+export async function startPlan(prompt: string): Promise<Start> {
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -52,11 +55,44 @@ export async function startPlan(prompt: string): Promise<string | undefined> {
       body: JSON.stringify({ prompt }),
     });
     if (response.status === 201) {
+      const body: { id: string } = await response.json();
+      return { kind: 'started', id: body.id };
+    }
+    const reason = startFailures.get(response.status);
+    return {
+      kind: 'failed',
+      reason: reason ?? ((await response.text()).trim() || `The plan didn't start (${response.status}).`),
+    };
+  } catch {
+    return { kind: 'failed', reason: "The plan didn't start: the planner isn't reachable." };
+  }
+}
+
+// What a failed send means, by its status, where the service's own text would say less.
+const sendFailures = new Map([
+  [404, 'Copilot no longer has this plan.'],
+  [413, 'The message is too long.'],
+  [502, "Copilot couldn't take the message."],
+]);
+
+/**
+ * Sends the text, as typed, to the plan with the ID, as its page's path holds it, as the user's next message (decision
+ * 414). The failure is the reason to show the user, or none once the planner has the message: for a 404, a 413 or a
+ * 502, what it means; for any other answer, the service's reason or its status.
+ */
+export async function sendMessage(id: string, text: string): Promise<string | undefined> {
+  try {
+    const response = await fetch(`${url}/${id}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (response.status === 204) {
       return undefined;
     }
-    const failure = startFailures.get(response.status);
-    return failure ?? ((await response.text()).trim() || `The plan didn't start (${response.status}).`);
+    const failure = sendFailures.get(response.status);
+    return failure ?? ((await response.text()).trim() || `The message wasn't sent (${response.status}).`);
   } catch {
-    return "The plan didn't start: the planner isn't reachable.";
+    return "The message wasn't sent: the planner isn't reachable.";
   }
 }

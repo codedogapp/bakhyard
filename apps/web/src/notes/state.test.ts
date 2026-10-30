@@ -72,21 +72,23 @@ test('keeps the list when a sync fails', async () => {
   expect(notes.status).toEqual({ kind: 'sync-failed' });
 });
 
-test('takes whether notes save from each list that loads, and keeps it when a sync fails', async () => {
-  fetchMock.mockResolvedValueOnce(Response.json({ files: listed, editable: true }));
+test('takes whether notes save, and the vault’s history, from each list that loads, and keeps them when a sync fails', async () => {
+  const history = 'https://git.example.com/me/vault/commits/branch/main';
+  fetchMock.mockResolvedValueOnce(Response.json({ files: listed, editable: true, history }));
   fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
   fetchMock.mockResolvedValueOnce(Response.json({ files: synced }));
   const notes = new NotesState();
-  expect(notes.editable).toBe(false);
+  const taken = () => ({ editable: notes.editable, history: notes.history });
+  expect(taken()).toStrictEqual({ editable: false, history: undefined });
 
   await notes.load();
-  expect(notes.editable).toBe(true);
+  expect(taken()).toStrictEqual({ editable: true, history });
 
   await notes.sync();
-  expect(notes.editable).toBe(true);
+  expect(taken()).toStrictEqual({ editable: true, history });
 
   await notes.sync();
-  expect(notes.editable).toBe(false);
+  expect(taken()).toStrictEqual({ editable: false, history: undefined });
 });
 
 test('lists the vault on a sync after a failed load, and loads nothing more', async () => {

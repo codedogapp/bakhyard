@@ -1,7 +1,7 @@
 import { untrack } from 'svelte';
 import type { Attachment } from 'svelte/attachments';
 
-import { fetchNote, saveNote } from './api';
+import { createNote, fetchNote, historyUrl, saveNote } from './api';
 import type { RenderedNote } from './render';
 import type { NotesState } from './state.svelte';
 import type { Note } from './tree';
@@ -11,8 +11,11 @@ type Body =
   | { kind: 'loading' | 'missing' | 'failed' }
   | { kind: 'loaded'; markdown: string; version: string; note: RenderedNote };
 
-/** The editor's last save: running, or how it ended; changed when the note had changed since it loaded. */
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'changed' | 'failed';
+/**
+ * The editor's last save: running, or how it ended; changed when the note had changed since it loaded, and kept when
+ * the editor's text went to a new note instead, at path.
+ */
+export type SaveStatus = { kind: 'idle' | 'saving' | 'saved' | 'changed' | 'failed' } | { kind: 'kept'; path: string };
 
 /**
  * The note that a note's page shows: the note once it loads, whether the editor shows in its place, and the editor's
@@ -23,7 +26,12 @@ export class ShownNote {
   body = $state.raw<Body>({ kind: 'loading' });
   /** Whether the note shows in the editor, in place of its rendered text. A note's page opens with the text. */
   editing = $state(false);
-  status = $state<SaveStatus>('idle');
+  status = $state.raw<SaveStatus>({ kind: 'idle' });
+  /**
+   * Whether a save found that the note has changed since it loaded, so the editor offers to keep its text as a new note
+   * until it closes (decision 424).
+   */
+  stale = $state(false);
   readonly #note: Note;
   readonly #notes: NotesState;
   /** The editor's text since its last change; undefined while it has none. */
@@ -37,9 +45,26 @@ export class ShownNote {
     this.#notes = notes;
   }
 
-  /** Whether a save runs; until it ends, the editor takes no change, and Save and Cancel wait. */
+  /** Whether a save, or a new note, runs; until it ends, the editor takes no change, and its buttons wait. */
   get busy(): boolean {
-    return this.status === 'saving';
+    return this.status.kind === 'saving';
+  }
+
+  /**
+   * Whether the page has the editor's buttons: while notes saves notes, and while the editor is open, even if a sync
+   * says that notes no longer saves.
+   */
+  get editable(): boolean {
+    return this.#notes.editable || this.editing;
+  }
+
+  /**
+   * The web address of the note's history in Gitea (decision 425); undefined when notes has none, and while the editor
+   * is open, since leaving the page would drop its text.
+   */
+  get history(): string | undefined {
+    const history = this.#notes.history;
+    return history === undefined || this.editing ? undefined : historyUrl(history, this.#note.path);
   }
 
   /** An attachment for the Edit button, which turns into Cancel. */
@@ -62,7 +87,8 @@ export class ShownNote {
     }
     this.#button?.focus();
     this.#text = undefined;
-    this.status = 'idle';
+    this.status = { kind: 'idle' };
+    this.stale = false;
     this.editing = !this.editing;
   }
 
@@ -83,29 +109,54 @@ export class ShownNote {
       return;
     }
     if (text === undefined || text === body.markdown) {
-      this.#close('idle');
+      this.#close({ kind: 'idle' });
       return;
     }
-    this.status = 'saving';
+    this.status = { kind: 'saving' };
     try {
       // Rendered first, so that a save that went through is never said to have failed.
       const { renderNote } = await import('./render');
       const note = renderNote(text, this.#note, this.#notes.files ?? []);
       const version = await saveNote(this.#note.path, text, body.version);
       if (version === undefined) {
-        this.status = 'changed';
+        this.stale = true;
+        this.status = { kind: 'changed' };
         return;
       }
       this.body = { kind: 'loaded', markdown: text, version, note };
-      this.#close('saved');
+      this.#close({ kind: 'saved' });
     } catch {
-      this.status = 'failed';
+      this.status = { kind: 'failed' };
+    }
+  }
+
+  /**
+   * Keeps the editor's text as a new note beside the one that changed since it loaded, at the note's name or, as that's
+   * taken, the first free one after it (decision 424). Then it shows the note as it is now, or as it was if it fails to
+   * load again, and gives the focus to Edit. A failure keeps the editor open with the text and the offer.
+   */
+  async keep(): Promise<void> {
+    const text = this.#text;
+    if (this.busy || !this.stale || text === undefined) {
+      return;
+    }
+    this.status = { kind: 'saving' };
+    try {
+      const path = await createNote(this.#note.path, text);
+      const body = await this.#fetch();
+      if (body.kind === 'loaded') {
+        this.body = body;
+      }
+      this.#close({ kind: 'kept', path });
+    } catch {
+      this.status = { kind: 'failed' };
     }
   }
 
   #close(status: SaveStatus): void {
     this.#button?.focus();
     this.status = status;
+    this.stale = false;
     this.editing = false;
   }
 

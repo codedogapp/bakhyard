@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { loadPlans, type Plan, startPlan } from './api';
+import { loadPlans, type Plan, sendMessage, startPlan } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -52,10 +52,10 @@ test.each([
   expect(await loadPlans()).toEqual({ kind: 'failed' });
 });
 
-test('starts a plan from the prompt as typed', async () => {
+test("starts a plan from the prompt as typed, and returns the new plan's ID", async () => {
   const fetchMock = answer(Response.json({ id: plans[0]?.id }, { status: 201 }));
 
-  expect(await startPlan(' Plan a trip\n')).toBeUndefined();
+  expect(await startPlan(' Plan a trip\n')).toEqual({ kind: 'started', id: plans[0]?.id });
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -86,8 +86,57 @@ test.each([
     response: new Error('offline'),
     want: "The plan didn't start: the planner isn't reachable.",
   },
+  {
+    name: 'a start whose answer breaks off',
+    response: new Response('{"id":', { status: 201 }),
+    want: "The plan didn't start: the planner isn't reachable.",
+  },
 ])('says why a start failed on $name', async ({ response, want }) => {
   answer(response);
 
-  expect(await startPlan('Plan a trip')).toBe(want);
+  expect(await startPlan('Plan a trip')).toEqual({ kind: 'failed', reason: want });
+});
+
+test('sends the text as typed to the plan as its next message', async () => {
+  const fetchMock = answer(new Response(null, { status: 204 }));
+
+  expect(await sendMessage('a%2Fb', ' Make it a week\n')).toBeUndefined();
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans/a%2Fb/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"text":" Make it a week\\n"}',
+  });
+});
+
+test.each([
+  {
+    name: 'a plan that Copilot no longer keeps',
+    response: new Response('no such plan\n', { status: 404 }),
+    want: 'Copilot no longer has this plan.',
+  },
+  {
+    name: 'a message over 64 KiB',
+    response: new Response('Request Entity Too Large\n', { status: 413 }),
+    want: 'The message is too long.',
+  },
+  {
+    name: 'an error from Copilot',
+    response: new Response('Bad Gateway\n', { status: 502 }),
+    want: "Copilot couldn't take the message.",
+  },
+  {
+    name: 'a refusal',
+    response: new Response('the message is blank\n', { status: 400 }),
+    want: 'the message is blank',
+  },
+  { name: 'another answer', response: new Response('', { status: 500 }), want: "The message wasn't sent (500)." },
+  {
+    name: 'a broken connection',
+    response: new Error('offline'),
+    want: "The message wasn't sent: the planner isn't reachable.",
+  },
+])('says why a send failed on $name', async ({ response, want }) => {
+  answer(response);
+
+  expect(await sendMessage('p1', 'Make it a week')).toBe(want);
 });

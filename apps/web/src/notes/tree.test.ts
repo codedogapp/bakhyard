@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { type Folder, matches, noteAt, noteHref, noteTree, withoutExtension } from './tree';
+import { type Folder, matches, noteAt, noteHref, noteTree, titleOf, withoutExtension } from './tree';
 
 const files = [
   'Work/Plans/Q3.md',
@@ -112,6 +112,14 @@ test.each([
 
 test('gives the path without ".md"', () => {
   expect(withoutExtension('Work/Plans/Q3.md')).toBe('Work/Plans/Q3');
+});
+
+test.each([
+  { path: 'Work/Plans/Q3.md', title: 'Q3' },
+  { path: 'Inbox.md', title: 'Inbox' },
+  { path: 'Songs/v1.2/Riff 1.md', title: 'Riff 1' },
+])('gives $path the title $title', ({ path, title }) => {
+  expect(titleOf(path)).toBe(title);
 });
 
 // The titles of the notes that match the filter.

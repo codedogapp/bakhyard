@@ -1,8 +1,9 @@
 import { expect, test } from 'vitest';
 
-import { type Page, pageAt, pageTitle } from './page';
+import { type Page, pageAt, pageTitle, planHref } from './page';
 
-// The page at a path: its kind, with the app's id for an app's page and the note's path for a note's.
+// The page at a path: its kind, with the app's id for an app's page, the note's path for a note's and the plan's ID for
+// a plan's.
 function pageId(path: string): string {
   const page = pageAt(path);
   switch (page.kind) {
@@ -10,6 +11,8 @@ function pageId(path: string): string {
       return `app ${page.app.id}`;
     case 'note':
       return `note ${page.note.path}`;
+    case 'plan':
+      return `plan ${page.id}`;
     default:
       return page.kind;
   }
@@ -47,7 +50,10 @@ test.each([
   { path: '/games-archive', want: 'missing' },
   { path: '/planner', want: 'planner' },
   { path: '/planner/', want: 'planner' },
-  { path: '/planner/0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21', want: 'planner' },
+  { path: '/planner/0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21', want: 'plan 0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21' },
+  { path: '/planner/0b6c1f9e/', want: 'missing' },
+  { path: '/planner/0b6c1f9e/messages', want: 'missing' },
+  { path: '/planner//', want: 'missing' },
   { path: '/planner-archive', want: 'missing' },
   { path: '/nudge', want: 'nudge' },
   { path: '/nudge/', want: 'nudge' },
@@ -63,6 +69,14 @@ test.each([
 });
 
 test.each([
+  { id: '0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21', want: '/planner/0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21' },
+  { id: 'a/b c?d#e', want: '/planner/a%2Fb%20c%3Fd%23e' },
+])('gives the plan $id the page at $want, which shows it', ({ id, want }) => {
+  expect(planHref(id)).toBe(want);
+  expect(pageAt(want)).toEqual({ kind: 'plan', id: want.slice('/planner/'.length) });
+});
+
+test.each([
   { page: pageAt('/'), want: 'Bakhyard' },
   { page: pageAt('/notes'), want: 'Notes · Bakhyard' },
   { page: pageAt('/notes/Daily/To%20do'), want: 'To do · Bakhyard' },
@@ -71,6 +85,7 @@ test.each([
   { page: pageAt('/github'), want: 'GitHub · Bakhyard' },
   { page: pageAt('/games'), want: 'Games · Bakhyard' },
   { page: pageAt('/planner'), want: 'Planner · Bakhyard' },
+  { page: pageAt('/planner/0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21'), want: 'Plan · Bakhyard' },
   { page: pageAt('/pulls/42'), want: 'Pull requests · Bakhyard' },
   { page: pageAt('/nudge'), want: 'Nudge · Bakhyard' },
   { page: pageAt('/more'), want: 'More · Bakhyard' },
