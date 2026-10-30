@@ -202,6 +202,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `note-editor` | A note's page shows an Edit button once `GET /api/notes` says saving is set up; Edit shows the note's Markdown in a CodeMirror 6 editor, and Cancel shows the note again and drops the edits, which nothing saves yet (decisions 400, 401) | Done (#174) |
 | `note-page-state` | A note's page keeps the note it shows, its loading and whether the editor shows in a class of its own, `ShownNote`, in a `.ts` file where the gates can read it, ready for the save's logic; no change in behaviour (decision 402) | Done (#177) |
 | `note-save` | The editor's Save sends the note with `PUT /api/notes/files/<path>` and `If-Match`, the version from the note's `ETag`; a saved note shows at once, and a note changed since gets a 412, which keeps the user's text and says so (decisions 400 to 402) | Done (#180) |
+| `copilot-planner` | The Copilot planner (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one; it starts before `vault-edit-sync` ends, since the rest of that waits on the user's answer (decisions 195 and 403) | In progress |
+| `planner-plan` | `copilot-planner` splits in fourteen steps: the Copilot client, the service, the stream, the agent's questions, resuming, the image, the laptop, the gateway, the page, the chat, the agent's questions in the chat, the plan's preview, and "Save to Obsidian", last, once the vault's store is in; the CLI keeps the plans, with no table of their own, and the conversation streams as server-sent events. The first of `copilot-planner`'s fourteen steps (decision 403) | Done (#182) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -338,7 +340,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host lap
 | pulls | `pr_state` (PR id, snooze, nudged at), with the snoozes (decision 175) |
 | github | none: the lists stay in memory (decision 204) |
 | notify | `push_subscriptions` |
-| planner | `copilot_sessions` (id, title, status, note_path) |
+| planner | none at first: the CLI keeps each plan's session in the service's own folder (decision 403) |
 | games | none: the games list, the covers' matches and the Twitch token stay in memory (decision 300) |
 | gateway | `sessions` (sign-in) |
 | every integration service | `integration_cache` (source, key, json, fetched_at), `settings` |
@@ -1290,13 +1292,22 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `note-page-state`: a note's page keeps its state in a class, `ShownNote`, with no change in behaviour (decision 402). Done (#177).
   - `note-save`: the editor's Save, a `PUT` with `If-Match`, which keeps the user's text on a 412 (decisions 400 to 402). Done (#180).
   - After the answer: the store behind the save, with the §3 conflict rules; new notes get unique names; history and rollback; and the way edits get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151, §12).
-- `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`, `vault-edit-sync`.
-  - Chat UI with streaming, plan-mode sessions, resume, and plan preview.
-  - The agent's questions shown in the chat, with their choices, and the answers sent back (§3).
-  - "Save to Obsidian" writes `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, written by the service.
-  - The tool allowlist and a deny-by-default permission handler (§3). No credit cap (decision 75).
-  - `copilot` pinned in mise.toml at the CLI version the SDK names; Renovate must update the two together (decision 74). The work host's name as a local setting, and the token from the Keychain, or a Kubernetes Secret on the laptop (decisions 72, 73 and 85).
-  - Each plan's credits could show from `Usage.GetMetrics`, which is experimental (§10).
+- `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`; its last step needs `vault-edit-sync`'s store. In fourteen steps (decision 403), which start before `vault-edit-sync` ends:
+  - `planner-plan`: this split. Done (#182).
+  - `copilot-client`: the planner's client of the Copilot SDK starts a plan in plan mode on claude-opus-5.5, with the tool allowlist and a deny-by-default permission handler (§3), and keeps the plan that `exit_plan_mode` brings. `copilot` is pinned in mise.toml at the CLI version the SDK names; Renovate must update the two together (decision 74).
+  - `planner-service`: a new `planner` service starts a plan from a prompt and answers its messages and its plan so far. The work host's name is a local setting, and the token comes from the Keychain, or a Kubernetes Secret on the laptop (decisions 72, 73 and 85).
+  - `planner-stream`: the assistant's text as it comes, and the plan, as server-sent events.
+  - `planner-questions`: the agent's questions, with their choices, wait for the user's answer (§3).
+  - `planner-resume`: the list of plans, and a follow-up message that resumes a plan, after a restart too.
+  - `planner-image`: the service's image, with the CLI in it.
+  - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it.
+  - `planner-gateway`: the gateway forwards `/api/planner` to `planner`.
+  - `planner-page`: the Planner page lists the plans and starts a new one from a prompt.
+  - `planner-chat`: a plan's page shows its conversation as it streams, and sends follow-up messages.
+  - `planner-ask`: the agent's questions show in the chat with their choices, and the answers go back.
+  - `planner-preview`: the plan shows, rendered.
+  - `planner-save`: "Save to Obsidian" writes `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, written by the service, once `vault-edit-sync`'s store and new notes' unique names are in.
+  - No credit cap (decision 75). Each plan's credits could show from `Usage.GetMetrics`, which is experimental (§10).
 
 **Phase 7: hardening**
 
@@ -1815,6 +1826,15 @@ Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-p
      - **While it runs**: Save and Cancel wait, `aria-disabled` rather than disabled so the focus stays on them, as in the todos' editor, and the editor takes no typing, so the text saved is the text shown.
      - **When it fails**: a 412, from a note that has changed since it loaded, keeps the editor open with the user's text and says so; any other failure keeps it too and says the save failed. What the user can then do about the change comes with the store's step and its §3 conflict rules. The buttons stay while the editor is open, even if a sync says that notes no longer saves.
      - **Rejected**: asking before Cancel or going to another note drops the edits, for now (decision 401); a Save in the editor's chunk, which a chunk that fails to load would take with it; a read of the note after the save, which would show the old text until git-sync has the new one.
+403. **The planner in fourteen steps** (`planner-plan`): the lead's choices (2026-10-30), for the user to review. `copilot-planner` is far more than one step's 150 hand-written lines, so it splits in fourteen (§0, §8.2), each piece landing with its first user (decision 76), the service's steps before the page's that show them, as `time-tracking`'s did.
+     - **Early**: the rest of `vault-edit-sync` waits on the user's answer to §12's question on how edits get back to the Mac, so the planner starts now rather than after it (decision 195). Only "Save to Obsidian" needs the vault's store, so `planner-save` comes last and waits for it. `vault-edit-sync` stays in progress until its own last step.
+     - **The steps**: `copilot-client`, the planner's client of the Copilot SDK, which starts a plan in plan mode with §3's tool allowlist and a permission handler that denies everything; `planner-service`, the new `planner` service, which starts a plan from a prompt and answers its messages and its plan so far; `planner-stream`, the assistant's text as it comes, as server-sent events; `planner-questions`, the agent's questions, which wait for the user's answer; `planner-resume`, the list of plans and a follow-up message, which resumes a plan, after a restart too; `planner-image`, the service's image, with the CLI in it; `homelab-planner`, the homelab repo's PR that runs it on the laptop; `planner-gateway`, the gateway's forward of `/api/planner`; `planner-page`, the plans and a new plan's prompt at `/planner`; `planner-chat`, a plan's conversation as it streams; `planner-ask`, the agent's questions with their choices; `planner-preview`, the plan, rendered; `planner-save`, "Save to Obsidian".
+     - **The SDK and the CLI, re-checked**: the Go SDK's newest release, v1.0.28 (2026-10-28), names the CLI 1.0.105, the CLI's newest (checked 2026-10-30 on the Go module proxy and in the SDK's `nodejs/package.json`), so `copilot-client` pins those two, as decision 74 has it.
+     - **No database at first**: the CLI keeps each session, with its messages and its plan, in the service's `BaseDirectory`, where `ListSessions`, `GetEvents` and `ResumeSession` find them, so the list of plans and their resumption need no table. This amends §3's `copilot_sessions`, which waits until a step needs what the CLI doesn't keep. On the laptop the `BaseDirectory` is a volume of its own, so the plans outlive a restart.
+     - **Streaming**: server-sent events, which the browser reads with `EventSource`, rather than polling (decision 49), since a plan's text comes a few words at a time. `tailscale serve` and the gateway both proxy with Go's `httputil.ReverseProxy`, which flushes a `text/event-stream` answer at once, and no server of ours sets a write timeout, so a stream lasts as long as its turn.
+     - **The laptop first**: the gateway doesn't start without a peer it requires, so `homelab-planner` merges before `planner-gateway`, as decision 200 has it. The homelab PR needs the user's OK and the PAT (decision 73); until then the page's steps go first, and the page says that Copilot isn't set up.
+     - **Credits**: `check` spends none, since its tests use stand-ins. The few live checks with the real CLI, about 8.8 credits each (decision 75), wait for the PAT, and each PR says what it spent.
+     - **Rejected**: the planner after `vault-edit-sync`, as decision 195 had it, which would leave this session idle on the user's answer; a table of plans, which would copy what the CLI keeps; polling the conversation, which would show a plan's text in jumps; the Home's "Needs you" for a plan whose agent waits for an answer, which §8.2 doesn't ask for, though §4.13's demo shows one; it can come later.
 
 Decisions 500 on are the orchestrator's, after 199.
 
