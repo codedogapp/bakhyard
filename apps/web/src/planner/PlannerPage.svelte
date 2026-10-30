@@ -3,32 +3,46 @@ import { onMount } from 'svelte';
 
 import { countLabel } from '../shell/count';
 import { dayLabel } from '../shell/day';
+import { openPage } from '../shell/navigation';
 import PageHead from '../shell/PageHead.svelte';
+import { planHref } from '../shell/page';
 import Section from '../shell/Section.svelte';
 import { loadPlans, type Plans } from './api';
 import { titleLabel } from './labels';
 import PromptForm from './PromptForm.svelte';
 
-// The plans, loaded each time the page shows and after each start; now tells which day is today.
+// The plans, loaded each time the page shows; now tells which day is today.
 let { now }: { now: Date } = $props();
 
 let list = $state.raw<Plans>({ kind: 'loading' });
+// A start that ends after the user has left the page opens nothing, so it doesn't take them from where they went.
+let shown = true;
 
-// The list stays as it is until the new one comes.
 function load(): void {
   void loadPlans().then((loaded) => {
     list = loaded;
   });
 }
 
-onMount(load);
+function open(id: string): void {
+  if (shown) {
+    openPage(planHref(id));
+  }
+}
+
+onMount(() => {
+  load();
+  return () => {
+    shown = false;
+  };
+});
 </script>
 
 <PageHead summary="Plans that Copilot works out with you.">Planner</PageHead>
 {#if list.kind === 'off'}
   <p class="page-status">Copilot isn't set up.</p>
 {:else if list.kind !== 'loading'}
-  <PromptForm started={load} />
+  <PromptForm started={open} />
 {/if}
 {#if list.kind === 'failed'}
   <Section title="Your" accent="plans">
@@ -41,12 +55,12 @@ onMount(load);
         <ul class="list">
           {#each list.plans as plan (plan.id)}
             <li>
-              <div class="list-row">
+              <a class="list-row" href={planHref(plan.id)}>
                 <time class="list-label" datetime={plan.updated_at}>{dayLabel(plan.updated_at, now)}</time>
                 <span class="list-text">
                   <span class="list-title">{titleLabel(plan.title)}</span>
                 </span>
-              </div>
+              </a>
             </li>
           {/each}
         </ul>

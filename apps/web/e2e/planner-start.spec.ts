@@ -4,6 +4,7 @@ import type { Plan } from '../src/planner/api';
 import { home, plans } from './demo';
 import { expect, test } from './fixtures';
 import { group } from './groups';
+import { conversation, serveConversation } from './plan';
 
 const [newest, ...older] = plans as [Plan, ...Plan[]];
 
@@ -32,25 +33,46 @@ function startStatus(page: Page) {
   return page.getByRole('main').locator('form').getByRole('status');
 }
 
+/** The URLs of the documents the page loads from now on, which a page the app shows in place doesn't add to. */
+function documentLoads(page: Page): string[] {
+  const loads: string[] = [];
+  page.on('request', (request) => {
+    if (request.resourceType() === 'document') {
+      loads.push(request.url());
+    }
+  });
+  return loads;
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
 });
 
-test('a prompt starts a plan, which the list then shows first', async ({ page }) => {
+test("a prompt starts a plan and opens the plan's page in place, and Back lists the plan first", async ({ page }) => {
   const starts = await servePlans(page, { status: 201 });
+  await serveConversation(page, newest.id);
   await page.goto('/planner');
-  const yours = group(page, 'Your plans');
-  await expect(yours.getByText('3 plans')).toBeVisible();
-  const prompt = page.getByRole('textbox', { name: 'Prompt' });
+  await expect(group(page, 'Your plans').getByText('3 plans')).toBeVisible();
+  const loads = documentLoads(page);
 
-  await prompt.fill('Add a dark theme to the docs site.\nKeep the light one as it is.');
+  await page
+    .getByRole('textbox', { name: 'Prompt' })
+    .fill('Add a dark theme to the docs site.\nKeep the light one as it is.');
   await page.getByRole('button', { name: 'Start' }).click();
 
-  await expect(startStatus(page)).toHaveText('Started');
-  await expect(prompt).toHaveValue('');
+  await expect(page).toHaveURL(`/planner/${newest.id}`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Plan');
+  await expect(group(page, 'The conversation').getByRole('listitem')).toHaveCount(conversation.messages.length);
+  expect(starts).toEqual([{ prompt: 'Add a dark theme to the docs site.\nKeep the light one as it is.' }]);
+
+  await page.goBack();
+
+  const yours = group(page, 'Your plans');
   await expect(yours.getByText('4 plans')).toBeVisible();
   await expect(yours.getByRole('listitem').first()).toHaveText('Today Add a dark theme to the docs site');
-  expect(starts).toEqual([{ prompt: 'Add a dark theme to the docs site.\nKeep the light one as it is.' }]);
+  await expect(page.getByRole('textbox', { name: 'Prompt' })).toHaveValue('');
+  await expect(startStatus(page)).toHaveText('');
+  expect(loads).toEqual([]);
 });
 
 test('a failed start keeps the prompt and says why', async ({ page }) => {
@@ -64,5 +86,6 @@ test('a failed start keeps the prompt and says why', async ({ page }) => {
   await expect(startStatus(page)).toHaveText("Copilot couldn't start the plan.");
   await expect(prompt).toHaveValue('Plan a trip');
   await expect(group(page, 'Your plans').getByText('3 plans')).toBeVisible();
+  await expect(page).toHaveURL('/planner');
   expect(starts).toHaveLength(1);
 });

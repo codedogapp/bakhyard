@@ -52,10 +52,10 @@ test.each([
   expect(await loadPlans()).toEqual({ kind: 'failed' });
 });
 
-test('starts a plan from the prompt as typed', async () => {
+test("starts a plan from the prompt as typed, and returns the new plan's ID", async () => {
   const fetchMock = answer(Response.json({ id: plans[0]?.id }, { status: 201 }));
 
-  expect(await startPlan(' Plan a trip\n')).toBeUndefined();
+  expect(await startPlan(' Plan a trip\n')).toEqual({ kind: 'started', id: plans[0]?.id });
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -86,8 +86,13 @@ test.each([
     response: new Error('offline'),
     want: "The plan didn't start: the planner isn't reachable.",
   },
+  {
+    name: 'a start whose answer breaks off',
+    response: new Response('{"id":', { status: 201 }),
+    want: "The plan didn't start: the planner isn't reachable.",
+  },
 ])('says why a start failed on $name', async ({ response, want }) => {
   answer(response);
 
-  expect(await startPlan('Plan a trip')).toBe(want);
+  expect(await startPlan('Plan a trip')).toEqual({ kind: 'failed', reason: want });
 });

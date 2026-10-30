@@ -1,3 +1,5 @@
+import type { Page } from '@playwright/test';
+
 import type { Conversation } from '../src/planner/conversation';
 
 /** A made-up conversation of the demo's newest plan, as its stream first sends it while the agent works. */
@@ -21,4 +23,14 @@ export const conversation: Conversation = {
 export function stream(retryMs: number, ...events: [name: string, data: unknown][]): string {
   const sent = events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`);
   return [`retry: ${retryMs}\n\n`, ...sent].join('');
+}
+
+/**
+ * Answers the stream of the plan with the ID with the conversation, and a wait long enough that the browser doesn't open
+ * it again while a test runs.
+ */
+export async function serveConversation(page: Page, id: string): Promise<void> {
+  await page.route(`/api/planner/plans/${id}/events`, (route) =>
+    route.fulfill({ contentType: 'text/event-stream', body: stream(600_000, ['conversation', conversation]) })
+  );
 }

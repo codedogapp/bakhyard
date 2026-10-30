@@ -2,8 +2,8 @@
 import { startLabel } from './labels';
 import { PromptState } from './prompt.svelte';
 
-// started tells the page that a plan has started, so that it lists it.
-let { started }: { started: () => void } = $props();
+// started tells the page the ID of a plan that has started, so that it opens the plan's page.
+let { started }: { started: (id: string) => void } = $props();
 
 const prompt = new PromptState();
 
