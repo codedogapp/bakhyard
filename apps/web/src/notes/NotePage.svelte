@@ -12,14 +12,24 @@ import { type Note, withoutExtension } from './tree';
 // links need the vault's list, which App keeps.
 let { note, notes }: { note: Note; notes: NotesState } = $props();
 
-type Body = { kind: 'loading' | 'missing' | 'failed' } | { kind: 'loaded'; note: RenderedNote };
+type Body = { kind: 'loading' | 'missing' | 'failed' } | { kind: 'loaded'; markdown: string; note: RenderedNote };
 
 let body = $state.raw<Body>({ kind: 'loading' });
+// Whether the note shows in the editor, in place of its rendered text. A note's page opens with the text.
+let editing = $state(false);
+
+// Edit turns into Cancel and back: one button, which keeps the focus. It takes the focus itself, which WebKit doesn't
+// give a button on a click (plan §6.8), so the focus doesn't go with the editor.
+function toggle(event: MouseEvent & { currentTarget: HTMLButtonElement }): void {
+  event.currentTarget.focus();
+  editing = !editing;
+}
 
 $effect(() => {
   // Going straight to another note's page drops this one's answer, should it come after.
   let current = true;
   body = { kind: 'loading' };
+  editing = false;
   void load(note).then((loaded) => {
     if (current) {
       body = loaded;
@@ -41,7 +51,7 @@ async function load(shown: Note): Promise<Body> {
     }
     return notes.files === undefined
       ? { kind: 'failed' }
-      : { kind: 'loaded', note: renderNote(markdown, shown, notes.files) };
+      : { kind: 'loaded', markdown, note: renderNote(markdown, shown, notes.files) };
   } catch {
     return { kind: 'failed' };
   }
@@ -52,7 +62,22 @@ async function load(shown: Note): Promise<Body> {
   <PageHead eyebrow={note.folder}>{note.title}</PageHead>
   <div class="content">
     {#if body.kind === 'loaded'}
-      <NoteBody note={body.note} />
+      {#if notes.editable}
+        <div class="tools form-row">
+          <button class="form-button" type="button" onclick={toggle}>
+            {editing ? 'Cancel' : 'Edit'}
+          </button>
+        </div>
+      {/if}
+      {#if editing}
+        {#await import('./NoteEditor.svelte') then { default: NoteEditor }}
+          <NoteEditor markdown={body.markdown} />
+        {:catch}
+          <p class="failed">Couldn't load the editor.</p>
+        {/await}
+      {:else}
+        <NoteBody note={body.note} />
+      {/if}
     {:else if body.kind === 'missing'}
       <p class="failed">There's no note at {withoutExtension(note.path)}.</p>
     {:else if body.kind === 'failed'}
@@ -73,6 +98,10 @@ async function load(shown: Note): Promise<Body> {
   padding: 0 var(--page-padding) 64px;
 }
 
+.tools {
+  margin-bottom: 30px;
+}
+
 .failed {
   margin: 0;
   color: var(--ink-muted);
@@ -81,6 +110,10 @@ async function load(shown: Note): Promise<Body> {
 @media (max-width: 700px) {
   .content {
     padding-bottom: 48px;
+  }
+
+  .tools {
+    margin-bottom: 24px;
   }
 }
 </style>
