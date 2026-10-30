@@ -88,6 +88,14 @@ function plannerPage(path: string): Page {
   return id.includes('/') ? { kind: 'missing' } : { kind: 'plan', id };
 }
 
+/**
+ * The path of the plan's page: the Planner's and the ID, escaped. The page keeps the segment as it is, so the paths it
+ * builds from it carry the ID escaped too.
+ */
+export function planHref(id: string): string {
+  return `${plannerHref}/${encodeURIComponent(id)}`;
+}
+
 const siteName = 'Bakhyard';
 
 /** The document's title on every path while the user is signed out. */

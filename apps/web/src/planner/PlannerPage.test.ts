@@ -1,11 +1,17 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { Plan } from './api';
+import { openPage } from '../shell/navigation';
+import { type Plan, startPlan } from './api';
 import PlannerPage from './PlannerPage.svelte';
+
+vi.mock('../shell/navigation', () => ({ openPage: vi.fn() }));
+// A spy that calls through, so a test can wait for a start to end.
+vi.mock('./api', { spy: true });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 function answer(response: () => Promise<Response>) {
@@ -40,7 +46,7 @@ const plans: Plan[] = [
 const loaded = (list: Plan[]) => async () => Response.json({ plans: list });
 const rows = () => within(screen.getByRole('list')).getAllByRole('listitem');
 
-test('lists the plans as it shows, in the order they come, a row each, none a link', async () => {
+test("lists the plans as it shows, in the order they come, each a link to the plan's page", async () => {
   const fetchMock = answer(loaded(plans));
   render(PlannerPage, { props: { now } });
 
@@ -53,43 +59,44 @@ test('lists the plans as it shows, in the order they come, a row each, none a li
     '19 Oct Move the blog to a static site',
   ]);
   expect(within(rows()[0]).getByText('Today')).toHaveAttribute('datetime', '2026-10-31T00:20:00.123456789Z');
-  expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  expect(rows().map((row) => within(row).getByRole('link').getAttribute('href'))).toEqual([
+    '/planner/0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21',
+    '/planner/7e5d4c3b-2a19-4f8e-8d7c-6b5a49382716',
+    '/planner/c3b2a190-8f7e-4d6c-9b5a-493827160f5e',
+  ]);
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans');
   expect(screen.getByRole('textbox', { name: 'Prompt' })).toBeInTheDocument();
 });
 
-test('lists a plan once it has started', async () => {
-  const [first, ...others] = plans;
-  const fetchMock = answer(async () => Response.json({ plans: others }));
-  render(PlannerPage, { props: { now } });
-  await fireEvent.input(await screen.findByRole('textbox', { name: 'Prompt' }), { target: { value: 'Back up' } });
-  fetchMock.mockResolvedValueOnce(Response.json({ id: first?.id }, { status: 201 }));
-  fetchMock.mockResolvedValueOnce(Response.json({ plans }));
-
-  await fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-
-  await vi.waitFor(() => expect(rows()).toHaveLength(3));
-  expect(rows()[0]).toHaveTextContent('Back up the home lab');
-  expect(screen.getByRole('status')).toHaveTextContent('Started');
-  expect(fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? 'GET'} ${url}`)).toEqual([
-    'GET /api/planner/plans',
-    'POST /api/planner/plans',
-    'GET /api/planner/plans',
-  ]);
-});
-
-test('keeps the form and its status when the list fails to load after a start', async () => {
+test("opens the new plan's page once it has started", async () => {
   const fetchMock = answer(loaded(plans));
   render(PlannerPage, { props: { now } });
   await fireEvent.input(await screen.findByRole('textbox', { name: 'Prompt' }), { target: { value: 'Back up' } });
   fetchMock.mockResolvedValueOnce(Response.json({ id: plans[0]?.id }, { status: 201 }));
-  fetchMock.mockResolvedValueOnce(new Response('Bad Gateway\n', { status: 502 }));
 
   await fireEvent.click(screen.getByRole('button', { name: 'Start' }));
 
-  expect(await screen.findByText("Couldn't load the plans.")).toBeInTheDocument();
+  await vi.waitFor(() => expect(openPage).toHaveBeenCalledExactlyOnceWith(`/planner/${plans[0]?.id}`));
   expect(screen.getByRole('status')).toHaveTextContent('Started');
-  expect(screen.getByRole('textbox', { name: 'Prompt' })).toHaveValue('');
+  expect(fetchMock.mock.calls.map(([url, init]) => `${init?.method ?? 'GET'} ${url}`)).toEqual([
+    'GET /api/planner/plans',
+    'POST /api/planner/plans',
+  ]);
+});
+
+test('opens nothing when the start ends after the page has gone', async () => {
+  const fetchMock = answer(loaded(plans));
+  const { unmount } = render(PlannerPage, { props: { now } });
+  await fireEvent.input(await screen.findByRole('textbox', { name: 'Prompt' }), { target: { value: 'Back up' } });
+  const started = Promise.withResolvers<Response>();
+  fetchMock.mockReturnValueOnce(started.promise);
+  await fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+
+  unmount();
+  started.resolve(Response.json({ id: plans[0]?.id }, { status: 201 }));
+
+  await vi.waitFor(() => expect(startPlan).toHaveResolvedWith({ kind: 'started', id: plans[0]?.id }));
+  expect(openPage).not.toHaveBeenCalled();
 });
 
 test('says when there is no plan yet, with no count', async () => {
