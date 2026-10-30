@@ -20,7 +20,7 @@ type saved struct {
 // vault as a new note and answers 201 with the note's path. Without a vault it answers 404, as it
 // does for a plan that the planner doesn't keep, and a plan that Copilot hasn't written yet gets a
 // 409. An error from Copilot or the vault gets a 502, whose cause logger gets.
-func note(planner Planner, vault Vault, logger *slog.Logger) http.HandlerFunc {
+func note(planner Planner, vault Saver, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if planner == nil {
 			http.Error(w, notSetUp, http.StatusNotFound)

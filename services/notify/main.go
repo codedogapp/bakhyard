@@ -8,16 +8,20 @@ import (
 	"os"
 	"time"
 
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/codedogapp/bakhyard/internal/database"
 	"github.com/codedogapp/bakhyard/internal/env"
+	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1/attentionv1connect"
 	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/notify/internal/api"
+	"github.com/codedogapp/bakhyard/services/notify/internal/attention"
 	"github.com/codedogapp/bakhyard/services/notify/internal/history"
 	"github.com/codedogapp/bakhyard/services/notify/internal/migrations"
 	"github.com/codedogapp/bakhyard/services/notify/internal/push"
@@ -51,7 +55,7 @@ func main() {
 	}
 }
 
-// routes returns notify's handler.
+// routes returns notify's handler, which serves its API and its side of the attention contract.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
@@ -87,13 +91,19 @@ func routes(
 	sender := &push.Sender{
 		Key: key, Devices: devices, Client: &http.Client{Timeout: pushTimeout}, Logger: logger,
 	}
+	alerts := history.NewStore(pool)
 
 	router := chi.NewRouter()
 	router.Use(middleware.GetHead)
 	health.Register(router)
 	api.Register(router, key.Public, api.Backends{
-		Devices: devices, Sender: sender, Alerts: history.NewStore(pool),
+		Devices: devices, Sender: sender, Alerts: alerts,
 	}, logger)
+
+	attentionServer := connect.NewServer()
+	attentionv1connect.RegisterAttentionServiceHandler(attentionServer,
+		attention.NewLister(alerts.List))
+	connecthttp.Mount(router, attentionServer)
 
 	return router, nil
 }
