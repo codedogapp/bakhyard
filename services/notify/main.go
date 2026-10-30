@@ -18,6 +18,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/notify/internal/api"
+	"github.com/codedogapp/bakhyard/services/notify/internal/history"
 	"github.com/codedogapp/bakhyard/services/notify/internal/migrations"
 	"github.com/codedogapp/bakhyard/services/notify/internal/push"
 	"github.com/codedogapp/bakhyard/services/notify/internal/subscription"
@@ -90,7 +91,9 @@ func routes(
 	router := chi.NewRouter()
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, key.Public, api.Backends{Devices: devices, Sender: sender}, logger)
+	api.Register(router, key.Public, api.Backends{
+		Devices: devices, Sender: sender, Alerts: history.NewStore(pool),
+	}, logger)
 
 	return router, nil
 }

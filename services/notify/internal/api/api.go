@@ -27,19 +27,25 @@ type Sender interface {
 	Send(ctx context.Context, message push.Message) error
 }
 
+// Keeper keeps the alerts that Alertmanager posts.
+type Keeper interface {
+	Keep(ctx context.Context, alerts []alert.Alert) error
+}
+
 // Backends are what notify's endpoints run on.
 type Backends struct {
 	Devices Adder
 	Sender  Sender
+	Alerts  Keeper
 }
 
 // Register serves notify on router. GET /notify/key answers the public key that a browser
 // subscribes with, and POST /notify/subscriptions stores a browser's subscription. POST
 // /internal/send, outside /notify so that the gateway never forwards to it, pushes a message to
 // every device; only other services in the cluster reach it. POST /internal/alerts, outside
-// /notify too, takes the webhook of the cluster's Alertmanager, which alone reaches it, and pushes
-// the group of alerts to every device. Other methods get 405, and logger gets the errors that the
-// database and the push run into.
+// /notify too, takes the webhook of the cluster's Alertmanager, which alone reaches it, keeps its
+// alerts and then pushes the group to every device. Other methods get 405, and logger gets the
+// errors that the database and the push run into.
 func Register(router chi.Router, publicKey string, backends Backends, logger *slog.Logger) {
 	router.Get("/notify/key", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -64,15 +70,23 @@ func Register(router chi.Router, publicKey string, backends Backends, logger *sl
 		what:    "send the alerts",
 		invalid: alert.ErrInvalid,
 		lenient: true,
-		do: func(ctx context.Context, group alert.Group) error {
-			message, err := group.Message()
-			if err != nil {
-				return err
-			}
-
-			return backends.Sender.Send(ctx, message)
-		},
+		do:      backends.alerts,
 	}.handler(logger))
+}
+
+// alerts keeps group's alerts and then pushes the group. A group that isn't one of alerts that
+// fire or resolved is neither kept nor pushed, nor is one that can't be kept.
+func (b Backends) alerts(ctx context.Context, group alert.Group) error {
+	message, err := group.Message()
+	if err != nil {
+		return err
+	}
+
+	if err := b.Alerts.Keep(ctx, group.Alerts); err != nil {
+		return err
+	}
+
+	return b.Sender.Send(ctx, message)
 }
 
 // route is a POST endpoint that reads a T from the body and hands it to do: 204 when do
