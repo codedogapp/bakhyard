@@ -26,7 +26,7 @@ test('gives Home, Notes, Todos and PRs a tab, then More', () => {
 });
 
 test('lists the other apps under More', () => {
-  expect(moreApps.map((app) => app.id)).toEqual(['time', 'github', 'games', 'planner', 'nudge']);
+  expect(moreApps.map((app) => app.id)).toEqual(['time', 'github', 'games', 'planner', 'nudge', 'alerts']);
 });
 
 test.each([

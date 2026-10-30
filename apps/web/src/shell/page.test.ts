@@ -58,6 +58,9 @@ test.each([
   { path: '/nudge', want: 'nudge' },
   { path: '/nudge/', want: 'nudge' },
   { path: '/nudge-archive', want: 'missing' },
+  { path: '/alerts', want: 'alerts' },
+  { path: '/alerts/', want: 'alerts' },
+  { path: '/alerts-archive', want: 'missing' },
   { path: '/more', want: 'more' },
   { path: '/more/', want: 'more' },
   { path: '/elsewhere', want: 'missing' },
@@ -88,6 +91,7 @@ test.each([
   { page: pageAt('/planner/0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21'), want: 'Plan · Bakhyard' },
   { page: pageAt('/pulls/42'), want: 'Pull requests · Bakhyard' },
   { page: pageAt('/nudge'), want: 'Nudge · Bakhyard' },
+  { page: pageAt('/alerts'), want: 'Alerts · Bakhyard' },
   { page: pageAt('/more'), want: 'More · Bakhyard' },
   { page: { kind: 'missing' } satisfies Page, want: 'Page not found · Bakhyard' },
 ])('titles the $page.kind page "$want"', ({ page, want }) => {
