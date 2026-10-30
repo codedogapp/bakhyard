@@ -33,12 +33,18 @@ func main() {
 	}
 }
 
-// routes returns the handler of notes, which serves the vault in its folder and, once the vault's
-// repository is set, whose token readSecret reads, saves its notes there.
+// routes returns the handler of notes, which serves the vault in its folder, saves its notes once
+// the vault's repository is set, with the token that readSecret reads, and links to their history
+// once the vault's history is set.
 func routes(
 	ctx context.Context, getenv func(string) string, readSecret secrets.Reader,
 ) (http.Handler, error) {
 	folder, err := env.Required(getenv, vaultVar)
+	if err != nil {
+		return nil, err
+	}
+
+	history, err := vaultHistory(getenv)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +59,9 @@ func routes(
 	router.Use(middleware.GetHead)
 	health.Register(router)
 
-	err = api.Register(router, folder, store, slog.Default())
+	vault := api.Vault{Folder: folder, Store: store, History: history}
+
+	err = api.Register(router, vault, slog.Default())
 	if err != nil {
 		return nil, err
 	}
