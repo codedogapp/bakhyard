@@ -219,7 +219,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-answers` | `POST /planner/plans/{id}/questions/{question}/answer`, with a body such as `{"text":"Rome"}`, brings the user's answer to a question that waits, as nudge's `POST /nudge/questions/{id}/answer` does: 204, or 404 for a plan or a question that isn't there, and 400 for a blank text or one that isn't one of the choices of a question that takes no other (decision 411) | Done (#199) |
 | `planner-asked` | The agent's questions and the user's answers show among a plan's messages, read from the CLI's record of `ask_user`'s calls: once a call has ended, its question as the assistant's message and its answer as the user's, in `GET /planner/plans/{id}` and as the stream's `message` (decision 412) | Done (#200) |
 | `planner-list` | `GET /planner/plans` lists the plans that the CLI keeps, those of the service's earlier runs among them, the last updated first, as `{"plans":[…]}`: each with its `id`, the CLI's `title` for it, `started_at` and `updated_at`. `planner-resume` splits in three, so `copilot-planner` has twenty-one steps (decision 413) | Done (#201) |
-| `planner-send` | `POST /planner/plans/{id}/messages`, with a body such as `{"text":"Make it a week"}`, sends a follow-up message to a plan, in plan mode like the prompt, so that the agent works the plan out further: 204, or 404 for a plan that the client hasn't started, and 400 for a blank text (decision 414) | In progress |
+| `planner-send` | `POST /planner/plans/{id}/messages`, with a body such as `{"text":"Make it a week"}`, sends a follow-up message to a plan, in plan mode like the prompt, so that the agent works the plan out further: 204, or 404 for a plan that the client hasn't started, and 400 for a blank text (decision 414) | Done (#202) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1327,7 +1327,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-answers`: `POST /planner/plans/{id}/questions/{question}/answer` brings the user's answer to a question that waits, as nudge's page answers its questions (decision 411). Done (#199).
   - `planner-asked`: the questions asked and their answers show among a plan's messages, from the CLI's record of `ask_user`'s calls (decision 412). Done (#200).
   - `planner-list`: `GET /planner/plans` lists the plans that the CLI keeps, those of earlier runs among them (decision 413). Done (#201).
-  - `planner-send`: `POST /planner/plans/{id}/messages` sends a follow-up message to a plan (decision 414).
+  - `planner-send`: `POST /planner/plans/{id}/messages` sends a follow-up message to a plan (decision 414). Done (#202).
   - `planner-resume`: the client brings back a plan of an earlier run as it's asked for, so that it reads, streams, and takes answers and follow-ups, with its plan.
   - `planner-image`: the service's image, with the CLI in it.
   - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it.
