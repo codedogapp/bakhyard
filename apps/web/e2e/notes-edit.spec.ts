@@ -1,3 +1,5 @@
+import type { Page, Request } from '@playwright/test';
+
 import { home } from './demo';
 import { expect, test } from './fixtures';
 
@@ -7,7 +9,7 @@ const riff = '---\ntags: [guitar]\n---\n# Riff\n\nPlay it **slow**.\n';
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
   await page.route('/api/notes/files/Songs/Riff.md', (route) =>
-    route.fulfill({ body: riff, contentType: 'text/markdown; charset=utf-8' })
+    route.fulfill({ body: riff, contentType: 'text/markdown; charset=utf-8', headers: { ETag: '"1"' } })
   );
 });
 
@@ -44,4 +46,65 @@ test('a note offers no Edit while the notes service saves no note', async ({ pag
 
   await expect(page.getByRole('article')).toContainText('Play it slow.');
   await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0);
+});
+
+// Answers the note's saves with status, and keeps their requests.
+async function saves(page: Page, status: number): Promise<Request[]> {
+  const requests: Request[] = [];
+  await page.route('/api/notes/files/Songs/Riff.md', (route) => {
+    if (route.request().method() !== 'PUT') {
+      return route.fallback();
+    }
+    requests.push(route.request());
+    return route.fulfill({ status, headers: status === 204 ? { ETag: '"2"' } : {} });
+  });
+  return requests;
+}
+
+// The note's page from a notes service that saves notes, with the note in the editor and " Then fast." typed in it.
+async function typed(page: Page) {
+  await page.route('/api/notes', (route) => route.fulfill({ json: { files, editable: true } }));
+  await page.goto('/notes/Songs/Riff');
+  await page.getByRole('button', { name: 'Edit' }).click();
+  const line = page.getByRole('textbox', { name: 'Markdown' }).locator('.cm-line').nth(5);
+  await line.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' Then fast.');
+  return line;
+}
+
+test('Save sends the note with the version it loaded, then shows the note and says it saved', async ({ page }) => {
+  const requests = await saves(page, 204);
+  await typed(page);
+
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  await expect(page.getByRole('article')).toContainText('Play it slow. Then fast.');
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
+  expect(requests).toHaveLength(1);
+  expect(requests[0]?.headers()).toMatchObject({ 'if-match': '"1"', 'content-type': 'text/markdown; charset=utf-8' });
+  expect(requests[0]?.postData()).toBe(riff.replace('**slow**.', '**slow**. Then fast.'));
+});
+
+test('a note changed since it loaded keeps the editor and the text, and says so', async ({ page }) => {
+  await saves(page, 412);
+  const line = await typed(page);
+
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  await expect(page.getByText('Not saved: the note has changed since it loaded')).toBeVisible();
+  await expect(line).toHaveText('Play it **slow**. Then fast.');
+  await expect(page.getByRole('article')).toHaveCount(0);
+});
+
+test('⌘S, or Ctrl+S, in the editor saves', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'phone', 'a phone has no ⌘ or Ctrl key without a keyboard');
+  const requests = await saves(page, 204);
+  await typed(page);
+
+  await page.keyboard.press('ControlOrMeta+s');
+
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  expect(requests).toHaveLength(1);
 });

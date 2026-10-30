@@ -30,5 +30,16 @@ BAKHYARD_VAULT = "/Users/you/Documents/Vault"
 # wait for your review and the open issues assigned to you; the token goes into the Keychain.
 # Leave it out to run without GitHub.
 # BAKHYARD_GITHUB_API = "https://api.github.com"
+# The id of the Exophase profile whose games the games service lists, digits only: the
+# playerProfileId in the profile page's source. Leave it out to run without Exophase.
+# BAKHYARD_EXOPHASE_PLAYER = "1234567"
+# The client ID of the Twitch app with which the games service asks IGDB for the games' covers;
+# its client secret goes into the Keychain. Leave it out to run without covers.
+# BAKHYARD_TWITCH_CLIENT_ID = "0123456789abcdefghijklmnopqrst"
+# The GitHub host of the work account whose Copilot the planner service works out plans with,
+# without https://, and the Copilot CLI's own folder, as an absolute path; the token goes into the
+# Keychain. Leave the host out to run without Copilot.
+# BAKHYARD_COPILOT_HOST = "example.ghe.com"
+# BAKHYARD_COPILOT_HOME = "/Users/you/Library/Application Support/Bakhyard/Copilot"
 # The Go tests' own database. Put its role's password in place of <password>.
 BAKHYARD_TEST_DATABASE = "postgres://bakhyard_test:<password>@127.0.0.1:5433/bakhyard_test"

@@ -1,7 +1,8 @@
 <script lang="ts">
+import { countLabel } from '../shell/count';
 import Section from '../shell/Section.svelte';
 import type { Inbox } from './inbox.svelte';
-import { inboxLabel, ticketsNote } from './labels';
+import { inboxLabel } from './labels';
 import TicketStatus from './TicketStatus.svelte';
 
 let { inbox }: { inbox: Inbox } = $props();
@@ -9,7 +10,7 @@ let { inbox }: { inbox: Inbox } = $props();
 
 <!-- No section without a ticket: there's nothing to decide. -->
 {#if inbox.tickets.length > 0}
-  <Section title="Jira" accent="inbox" note={ticketsNote(inbox.tickets.length)}>
+  <Section title="Jira" accent="inbox" note={countLabel(inbox.tickets.length, 'ticket')}>
     <ul class="list card">
       {#each inbox.tickets as ticket (ticket.key)}
         <li class="list-row">
