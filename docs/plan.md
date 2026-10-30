@@ -217,7 +217,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-stream` | `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events: the conversation so far, then each piece of the assistant's text, each whole message and the plan, with a heartbeat every 25 s, until the page leaves or the service stops (decision 409) | Done (#197) |
 | `planner-questions` | The planner's client relays the agent's questions: each waits, with its choices, until `Answer` brings the user's answer or the service stops; `GET /planner/plans/{id}` answers those that wait as `questions`, and the stream sends `question` and `answered`. `planner-questions` splits in three, so `copilot-planner` has nineteen steps (decision 410) | Done (#198) |
 | `planner-answers` | `POST /planner/plans/{id}/questions/{question}/answer`, with a body such as `{"text":"Rome"}`, brings the user's answer to a question that waits, as nudge's `POST /nudge/questions/{id}/answer` does: 204, or 404 for a plan or a question that isn't there, and 400 for a blank text or one that isn't one of the choices of a question that takes no other (decision 411) | Done (#199) |
-| `planner-asked` | The agent's questions and the user's answers show among a plan's messages, read from the CLI's record of `ask_user`'s calls: once a call has ended, its question as the assistant's message and its answer as the user's, in `GET /planner/plans/{id}` and as the stream's `message` (decision 412) | In progress |
+| `planner-asked` | The agent's questions and the user's answers show among a plan's messages, read from the CLI's record of `ask_user`'s calls: once a call has ended, its question as the assistant's message and its answer as the user's, in `GET /planner/plans/{id}` and as the stream's `message` (decision 412) | Done (#200) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1323,7 +1323,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-stream`: `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events, from the conversation so far, with heartbeats, for as long as the page is open (decision 409). Done (#197).
   - `planner-questions`: the planner's client relays the agent's questions, each of which waits, with its choices, for the user's answer; the conversation and its stream show those that wait (§3, decision 410). Done (#198).
   - `planner-answers`: `POST /planner/plans/{id}/questions/{question}/answer` brings the user's answer to a question that waits, as nudge's page answers its questions (decision 411). Done (#199).
-  - `planner-asked`: the questions asked and their answers show among a plan's messages, from the CLI's record of `ask_user`'s calls (decision 412).
+  - `planner-asked`: the questions asked and their answers show among a plan's messages, from the CLI's record of `ask_user`'s calls (decision 412). Done (#200).
   - `planner-resume`: the list of plans, and a follow-up message that resumes a plan, after a restart too.
   - `planner-image`: the service's image, with the CLI in it.
   - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it.
