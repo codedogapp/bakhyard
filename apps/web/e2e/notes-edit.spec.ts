@@ -98,6 +98,31 @@ test('a note changed since it loaded keeps the editor and the text, and says so'
   await expect(page.getByRole('article')).toHaveCount(0);
 });
 
+test('a changed note offers to save the text as a new note, then shows the note as it is now', async ({ page }) => {
+  await saves(page, 412);
+  await typed(page);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Not saved: the note has changed since it loaded')).toBeVisible();
+  const posts: Request[] = [];
+  await page.route('/api/notes/files/Songs/Riff.md', (route) => {
+    if (route.request().method() === 'POST') {
+      posts.push(route.request());
+      return route.fulfill({ status: 201, json: { path: 'Songs/Riff 1.md' } });
+    }
+    return route.fulfill({ body: riff.replace('slow', 'fast'), headers: { ETag: '"3"' } });
+  });
+
+  await page.getByRole('button', { name: 'Save as new note' }).click();
+
+  await expect(page.getByText('Saved as “Riff 1”')).toBeVisible();
+  await expect(page.getByRole('article')).toContainText('Play it fast.');
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Save as new note' })).toHaveCount(0);
+  expect(posts).toHaveLength(1);
+  expect(posts[0]?.headers()).toMatchObject({ 'content-type': 'text/markdown; charset=utf-8' });
+  expect(posts[0]?.postData()).toBe(riff.replace('**slow**.', '**slow**. Then fast.'));
+});
+
 test('⌘S, or Ctrl+S, in the editor saves', async ({ page }, testInfo) => {
   // A phone has no ⌘ or Ctrl key without a keyboard.
   test.skip(testInfo.project.name === 'phone');

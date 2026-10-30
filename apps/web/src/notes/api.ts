@@ -73,3 +73,22 @@ export async function saveNote(path: string, markdown: string, version: string):
   }
   return response.headers.get('ETag') ?? '';
 }
+
+/**
+ * Makes a new note with markdown at path in the vault or, when that's taken, at the first free name after it, such as
+ * "Riff 1.md" for "Riff.md" (decision 423): the path the note got. Fails when the gateway can't be reached or answers
+ * with an error, a 409 for no free name among them.
+ */
+export async function createNote(path: string, markdown: string): Promise<string> {
+  const url = fileUrl(path);
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+    body: markdown,
+  });
+  if (!response.ok) {
+    throw new Error(`POST ${url}: ${response.status}`);
+  }
+  const made: { path: string } = await response.json();
+  return made.path;
+}
