@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { createNote, fetchNote, fetchNotes, fileUrl, saveNote, syncNotes } from './api';
+import { createNote, fetchNote, fetchNotes, fileUrl, historyUrl, saveNote, syncNotes } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -47,6 +47,18 @@ test('fails when the gateway can not be reached', async () => {
 
 test('gives a file’s URL, each name in its path escaped', () => {
   expect(fileUrl('My art/a b%?.png')).toBe('/api/notes/files/My%20art/a%20b%25%3F.png');
+});
+
+const history = 'https://git.example.com/me/vault/commits/branch/main';
+
+test('takes the vault’s history from the list, when notes has one', async () => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json({ files, history })));
+
+  await expect(syncNotes()).resolves.toStrictEqual({ files, editable: false, history });
+});
+
+test('gives a note’s history under the vault’s, each name in its path escaped', () => {
+  expect(historyUrl(history, 'Daily/To do #1?%é.md')).toBe(`${history}/Daily/To%20do%20%231%3F%25%C3%A9.md`);
 });
 
 const version = '"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"';

@@ -16,6 +16,8 @@ export class NotesState {
   files = $state.raw<readonly string[]>();
   /** Whether the notes service saves notes, from the last list that loaded (decision 400). */
   editable = $state(false);
+  /** The web address of the vault's history in Gitea, from the last list that loaded (decision 425). */
+  history = $state<string>();
   status = $state.raw<Status>({ kind: 'idle' });
   filter = $state('');
   /** The paths of the open folders. */
@@ -71,5 +73,6 @@ export class NotesState {
   #take(listing: Listing): void {
     this.files = listing.files;
     this.editable = listing.editable;
+    this.history = listing.history;
   }
 }
