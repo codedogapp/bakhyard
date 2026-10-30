@@ -14,7 +14,7 @@ import (
 )
 
 // maxTries is the most names that a new note tries in the store before it gives up: the list has
-// all but the names that git-sync hasn't pulled yet, so a name that the list leaves free is
+// all but the files that have come since its last scan, so a name that the list leaves free is
 // rarely taken (decision 423).
 const maxTries = 10
 
