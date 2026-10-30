@@ -182,6 +182,13 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `nudge-merge` | Nudge, the user's phone-questions tool for agents (`codedogapp/nudge`), moves into Bakhyard: one app, not two (decision 157). The nudge session does the work, one small PR per step, from its plan, [`bakhyard-merge.md`](https://github.com/codedogapp/nudge/blob/main/docs/bakhyard-merge.md); this session doesn't stop its own steps for it | In review |
 | `parallel-sessions` | Several sessions work at once, each on its own feature in a worktree of its own, with this session as the orchestrator: AGENTS.md says who works where, plan §0 and §9 give each session places of its own, the end-to-end tests take their ports from `BAKHYARD_E2E_PORT`, golangci-lint runs wait for each other, and the tests' time limits allow for the other sessions' load (decision 195) | Done (#166) |
 | `github-widgets` | The GitHub widgets (§8.2 Phase 4), by a session of their own in `../bakhyard-github/`, which adds its steps' rows under this one (decision 195) | In progress |
+| `shared-web-link` | The Bitbucket client's check that a PR's page is an https URL moves to a package of its own, `internal/weblink`, for the GitHub client, its second user; nothing changes in behaviour. The first of `github-widgets`' seven steps (decisions 200 and 201) | In review |
+| `github-client` | A client of GitHub's search, in the new `github` service's folder, finds my open PRs, the PRs that wait for my review or one of my teams', and the open issues assigned to me, across every owner, in repositories that aren't archived, the latest updated first. It reads up to ten pages of 100, lists each item once, and fails the whole search on a bad answer or one that GitHub marks incomplete. Nothing calls it yet. The second of `github-widgets`' seven steps (decision 200) | In progress |
+| `github-service` | A new `github` service polls the three searches as it starts and every 5 minutes after, and answers them at `GET /github/mine`, `GET /github/reviews` and `GET /github/issues`; without GitHub's settings it answers 404. `mise run up` runs it on port 8089 and the Gitea workflow builds its image. The third of `github-widgets`' seven steps (decision 200) | Pending |
+| `homelab-github` | The homelab repo runs the `github` service on the laptop, with the token in a Secret, and names it among the gateway's and home's peers, before `github-gateway` makes the gateway require it. The fourth of `github-widgets`' seven steps (decision 200) | Pending |
+| `github-gateway` | The gateway forwards `/api/github` to the `github` service, behind both of its locks. The fifth of `github-widgets`' seven steps (decision 200) | Pending |
+| `github-page` | The app shows the three lists, on a page of their own at `/github` or beside Bitbucket's on the PRs page, as the user chooses. The sixth of `github-widgets`' seven steps (decision 200) | Pending |
+| `github-attention` | The `github` service answers the attention contract, so the Home's "Needs you" lists what the user chooses of the review requests, the issues assigned to me and my PRs. The last of `github-widgets`' seven steps (decision 200) | Pending |
 | `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | In progress |
 | `vault-edit-sync` | Editing the vault from Bakhyard (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one and then does `copilot-planner` (decision 195) | In progress |
 | `vault-plan` | The vault session's first steps: where a save goes waits on the user's answer to §12's question on how edits get back to the Mac, so the version that a save checks and the editor come first; a note's version is the SHA-256 of its bytes, sent as its `ETag`, and a save is a `PUT` that sends it back in `If-Match` (decision 400) | Done (#167) |
@@ -1241,9 +1248,14 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 4: GitHub**
 
-- `github-widgets` [github]. Needs `frontend-shell`.
-  - Search API: my open PRs, review requests and assigned issues across owners.
-  - Poll every 5 min within 30 req/min. Token per decision 9.
+- `github-widgets` [github]. Needs `frontend-shell`. Seven steps (decisions 200 and 201):
+  - `shared-web-link`: the Bitbucket client's check that a PR's page is an https URL moves to the root `internal/weblink`, for the GitHub client; nothing changes in behaviour (decision 201).
+  - `github-client`: a client of GitHub's search finds my open PRs, the PRs that wait for my review or my teams', and the open issues assigned to me, across every owner.
+  - `github-service`: the `github` service polls the three searches every 5 minutes, within search's 30 requests a minute, and answers them at `GET /github/mine`, `/github/reviews` and `/github/issues`.
+  - `homelab-github`: the laptop runs the service, with its token in a Secret, before the gateway requires it.
+  - `github-gateway`: the gateway forwards `/api/github` to the service.
+  - `github-page`: the lists in the app, where the user chooses: a page of their own at `/github`, or beside Bitbucket's on the PRs page.
+  - `github-attention`: what the user chooses of the lists reaches the Home's "Needs you", over the attention contract.
 
 **Phase 5: games**
 
@@ -1688,6 +1700,13 @@ Made on 2026-10-23:
      - **Rejected**: sub-agents (AGENTS.md) and autopilot (the user's call); free ports picked at each run; rebasing before a merge.
 
 Decisions 200 to 299 are the `github-widgets` session's.
+
+200. **The GitHub widgets in seven steps** (`shared-web-link`): the lead's choices (2026-10-30), for the user to review. `github-widgets` is far more than one step's 150 hand-written lines, so it splits in seven (§0, §8.2), each piece landing with its first user (decision 76), as `time-tracking`'s did.
+     - **The steps**: `shared-web-link`, the Bitbucket client's check of a link moving to the root `internal/` (decision 201); `github-client`, the client of GitHub's search; `github-service`, the new `github` service that polls it and answers the lists; `homelab-github`, the homelab repo's PR that runs the service on the laptop; `github-gateway`, the gateway's forward of `/api/github`; `github-page`, the lists in the app; `github-attention`, the Home's "Needs you".
+     - **The order**: the gateway refuses to start without a peer that it requires, and Flux deploys each new gateway image by itself (decision 152), so the laptop must run the `github` service, and name it in the gateway's and home's `BAKHYARD_PEERS`, before `github-gateway` reaches `main`, as codedogapp/homelab#42 went before `time-gateway`. The page loads through the gateway, so it comes after it.
+     - **The user's calls**, asked through nudge with the lead's pick first: where the lists live, on a page of their own at `/github` (the pick, since the app list already has a GitHub app) or beside Bitbucket's on the PRs page; and what reaches the Home's "Needs you", the review requests and the issues assigned to me (the pick, as §7 lists them), with my PRs too, or nothing. `github-page` and `github-attention` follow the answers.
+     - **Rejected**: the client and the service in one step, over the step's size; the gateway's forward before the laptop runs the service.
+201. **The check of a link, shared** (`shared-web-link`): the lead's choices (2026-10-30), for the user to review. The GitHub client of `github-client` keeps an item's page only when it's an https URL, as the Bitbucket client keeps a PR's (decision 143), so the app never links a `javascript:` URL. Code that two services need moves to the root `internal/` (AGENTS.md), so the Bitbucket client's `webPage` moves a step ahead of its second user, as `shared-secure-url` did (decision 144), to a package of its own, `internal/weblink`, as `weblink.HTTPS`: the link when it's an https URL with a host, and nothing otherwise. Nothing changes in behaviour. The checks that refuse a push subscription or a server's address that isn't https, in notify and the nudge tool, stay where they are, since they fail with an error rather than drop a link. Rejected: a copy in the GitHub client; a place in `internal/env`, which reads the settings.
 
 Decisions 300 to 399 are the `games-exophase` session's.
 

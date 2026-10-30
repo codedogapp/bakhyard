@@ -1,8 +1,9 @@
 package bitbucket
 
 import (
-	"net/url"
 	"time"
+
+	"github.com/codedogapp/bakhyard/internal/weblink"
 )
 
 // Pull is an open pull request: one of the user's, or one that waits for the user's review.
@@ -60,21 +61,10 @@ func (found pullRequest) pull() Pull {
 		ID:        found.ID,
 		Title:     found.Title,
 		Repo:      found.Destination.Repository.FullName,
-		URL:       webPage(found.Links.HTML.Href),
+		URL:       weblink.HTTPS(found.Links.HTML.Href),
 		Draft:     found.Draft,
 		Created:   found.CreatedOn.UTC(),
 		Updated:   found.UpdatedOn.UTC(),
 		Reviewers: reviewers(found.Participants, found.Author.UUID),
 	}
-}
-
-// webPage returns href when it's an https URL, and an empty string when it isn't, so that the
-// app never links a javascript: URL or the like.
-func webPage(href string) string {
-	page, err := url.Parse(href)
-	if err != nil || page.Scheme != "https" || page.Host == "" {
-		return ""
-	}
-
-	return href
 }
