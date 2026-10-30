@@ -17,12 +17,15 @@ import (
 	"github.com/codedogapp/bakhyard/services/planner/internal/copilot"
 )
 
-// standIn is a stand-in for Copilot: it starts the plan "plan-1", whose conversation is talk,
-// unless it has a failure, and notes the prompts it gets.
+// standIn is a stand-in for Copilot: it starts the plan "plan-1", whose conversation is talk and
+// whose updates come from updates, unless it has a failure, and notes the prompts it gets and
+// the context that the plan is followed for.
 type standIn struct {
-	talk    copilot.Conversation
-	failure error
-	prompts []string
+	talk     copilot.Conversation
+	updates  chan copilot.Update
+	failure  error
+	prompts  []string
+	followed context.Context
 }
 
 func (s *standIn) Plan(_ context.Context, prompt string) (string, error) {
@@ -43,17 +46,28 @@ func (s *standIn) Conversation(_ context.Context, id string) (copilot.Conversati
 	return s.talk, nil
 }
 
+func (s *standIn) Follow(
+	ctx context.Context,
+	id string,
+) (copilot.Conversation, <-chan copilot.Update, error) {
+	s.followed = ctx
+	talk, err := s.Conversation(ctx, id)
+
+	return talk, s.updates, err
+}
+
 // plannerAPI is the planner's API, with the logs it writes.
 type plannerAPI struct {
 	router http.Handler
 	logs   *bytes.Buffer
 }
 
-// newPlannerAPI returns the API that Register serves from planner.
+// newPlannerAPI returns the API that a Door serves from planner, in a service that never stops.
 func newPlannerAPI(planner api.Planner) plannerAPI {
 	logs := &bytes.Buffer{}
 	router := chi.NewRouter()
-	api.Register(router, planner, slog.New(slog.NewTextHandler(logs, nil)))
+	door := api.Door{Planner: planner, Logger: slog.New(slog.NewTextHandler(logs, nil))}
+	door.Register(context.Background(), router)
 
 	return plannerAPI{router: router, logs: logs}
 }
@@ -185,14 +199,15 @@ func TestReadingAPlanFailsWhenCopilotFails(t *testing.T) {
 func TestEachRouteIsNotFoundWithoutCopilot(t *testing.T) {
 	planner := newPlannerAPI(nil)
 
-	for method, target := range map[string]string{
-		http.MethodPost: "/planner/plans",
-		http.MethodGet:  "/planner/plans/plan-1",
+	for _, route := range []struct{ method, target string }{
+		{http.MethodPost, "/planner/plans"},
+		{http.MethodGet, "/planner/plans/plan-1"},
+		{http.MethodGet, "/planner/plans/plan-1/events"},
 	} {
-		rec := planner.serve(t, method, target, `{"prompt":"Plan a trip"}`)
+		rec := planner.serve(t, route.method, route.target, `{"prompt":"Plan a trip"}`)
 		if rec.Code != http.StatusNotFound || rec.Body.String() != "Copilot is not set up\n" {
-			t.Errorf("%s %s: got %d %q, want 404 Copilot is not set up", method, target,
-				rec.Code, rec.Body)
+			t.Errorf("%s %s: got %d %q, want 404 Copilot is not set up", route.method,
+				route.target, rec.Code, rec.Body)
 		}
 	}
 }
@@ -205,6 +220,7 @@ func TestEachRouteTakesOnlyItsMethod(t *testing.T) {
 		{http.MethodPut, "/planner/plans"},
 		{http.MethodPost, "/planner/plans/plan-1"},
 		{http.MethodDelete, "/planner/plans/plan-1"},
+		{http.MethodPost, "/planner/plans/plan-1/events"},
 	} {
 		rec := planner.serve(t, route.method, route.target, "")
 		if rec.Code != http.StatusMethodNotAllowed {

@@ -24,6 +24,7 @@ func TestPlannerServesWithoutCopilot(t *testing.T) {
 	for _, route := range []struct{ method, target string }{
 		{http.MethodGet, "/planner/plans/x"},
 		{http.MethodHead, "/planner/plans/x"},
+		{http.MethodGet, "/planner/plans/x/events"},
 		{http.MethodPost, "/planner/plans"},
 	} {
 		rec := serve(t, router, route.method, route.target)
