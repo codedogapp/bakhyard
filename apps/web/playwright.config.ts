@@ -50,7 +50,7 @@ export default defineConfig({
       env: {
         BAKHYARD_LISTEN: `tcp://${gateway}`,
         BAKHYARD_PEERS: [
-          ...['github', 'home', 'notes', 'notify', 'nudge', 'pulls', 'time', 'todos'].map(
+          ...['games', 'github', 'home', 'notes', 'notify', 'nudge', 'pulls', 'time', 'todos'].map(
             (name) => `${name}=${nowhere}`
           ),
           `web=tcp://${web}`,

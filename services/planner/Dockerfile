@@ -16,10 +16,10 @@ FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b5265
 ARG COPILOT_VERSION=1.0.105
 ARG COPILOT_SHA256=aba1f06f27bc0447656647f76e0a4cf58b4b2a341c75ff04a750982b6aeb6bd2
 ARG TARGETARCH
+ADD --checksum=sha256:$COPILOT_SHA256 \
+    https://github.com/github/copilot-cli/releases/download/v$COPILOT_VERSION/copilot-linux-x64.tar.gz \
+    /tmp/copilot.tar.gz
 RUN if [ "$TARGETARCH" != amd64 ]; then echo "The planner's image is for linux/amd64 alone." >&2; exit 1; fi \
-    && wget -qO /tmp/copilot.tar.gz \
-      "https://github.com/github/copilot-cli/releases/download/v$COPILOT_VERSION/copilot-linux-x64.tar.gz" \
-    && echo "$COPILOT_SHA256  /tmp/copilot.tar.gz" | sha256sum -c - \
     && mkdir /out && tar -xzf /tmp/copilot.tar.gz -C /out copilot
 
 # The CLI unpacks its package on its first start, into the user's cache folder; unpacking it here,

@@ -76,10 +76,11 @@ func TestTheGatewayLetsTheUserIn(t *testing.T) {
 
 	router, token := gateway(t, web.URL)
 
-	// Nothing listens where the test gateway's github, home, notes, pulls and todos are, so a 503
-	// means the request reached their forwarder. An /api path that no service claims keeps its 404
-	// behind the lock.
+	// Nothing listens where the test gateway's games, github, home, notes, pulls and todos are,
+	// so a 503 means the request reached their forwarder. An /api path that no service claims
+	// keeps its 404 behind the lock.
 	for target, want := range map[string]int{
+		"/api/games/recent":         http.StatusServiceUnavailable,
 		"/api/github/mine":          http.StatusServiceUnavailable,
 		"/api/home":                 http.StatusServiceUnavailable,
 		"/api/notes":                http.StatusServiceUnavailable,
@@ -109,7 +110,7 @@ func TestTheGatewayRefusesEveryoneElse(t *testing.T) {
 	// The Tailscale lock comes first: a session doesn't open it.
 	for _, target := range []string{
 		"/", "/notes", "/api/home", "/api/notes", "/api/notes/files/Inbox.md", "/api/pulls/mine",
-		"/api/todos", "/api/github/mine", "/api/nothing",
+		"/api/todos", "/api/games/recent", "/api/github/mine", "/api/nothing",
 		"/auth/google/login", "/auth/google/callback",
 		"/agent/questions", "/agent/questions/x", "/agent/sessions", "/agent/sessions/x/note",
 	} {
@@ -209,7 +210,7 @@ func withSession(req *http.Request, token string) *http.Request {
 	return req
 }
 
-// gatewayEnv returns the test gateway's environment and secrets, with home, notes, pulls
+// gatewayEnv returns the test gateway's environment and secrets, with games, home, notes, pulls
 // and todos on a port where nothing listens, web at webURL and the database in a schema of its
 // own.
 func gatewayEnv(t *testing.T, webURL string) (vars, items map[string]string) {
@@ -217,10 +218,10 @@ func gatewayEnv(t *testing.T, webURL string) (vars, items map[string]string) {
 
 	schema := databasetest.NewSchema(t)
 	vars = map[string]string{
-		"BAKHYARD_PEERS": "github=tcp://127.0.0.1:1,home=tcp://127.0.0.1:1" +
-			",notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1,nudge=tcp://127.0.0.1:1" +
-			",pulls=tcp://127.0.0.1:1,time=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1" +
-			",web=tcp://" + strings.TrimPrefix(webURL, "http://"),
+		"BAKHYARD_PEERS": "games=tcp://127.0.0.1:1,github=tcp://127.0.0.1:1" +
+			",home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1" +
+			",nudge=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1,time=tcp://127.0.0.1:1" +
+			",todos=tcp://127.0.0.1:1,web=tcp://" + strings.TrimPrefix(webURL, "http://"),
 		"BAKHYARD_TAILSCALE_LOGIN":  testLogin,
 		"BAKHYARD_HOST":             testHost,
 		"BAKHYARD_GOOGLE_CLIENT_ID": "client",
