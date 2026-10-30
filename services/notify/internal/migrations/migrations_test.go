@@ -28,8 +28,8 @@ func TestTheMigrationsMakeTheTables(t *testing.T) {
 	}
 
 	versions, err := pgx.CollectRows(rows, pgx.RowTo[int64])
-	if err != nil || !slices.Equal(versions, []int64{1}) {
-		t.Errorf("got the migrations %v (%v), want [1]", versions, err)
+	if err != nil || !slices.Equal(versions, []int64{1, 2}) {
+		t.Errorf("got the migrations %v (%v), want [1 2]", versions, err)
 	}
 
 	rows, err = pool.Query(t.Context(),
@@ -39,7 +39,9 @@ func TestTheMigrationsMakeTheTables(t *testing.T) {
 	}
 
 	tables, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if err != nil || !slices.Equal(tables, []string{"goose_db_version", "push_subscriptions"}) {
-		t.Errorf("got the tables %v (%v), want goose_db_version, push_subscriptions", tables, err)
+	want := []string{"alerts", "goose_db_version", "push_subscriptions"}
+
+	if err != nil || !slices.Equal(tables, want) {
+		t.Errorf("got the tables %v (%v), want %v", tables, err, want)
 	}
 }
