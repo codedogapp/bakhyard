@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/codedogapp/bakhyard/services/notify/internal/push"
 )
@@ -30,7 +31,7 @@ const (
 // ErrInvalid means that a webhook isn't a group of alerts that fire or have resolved.
 var ErrInvalid = errors.New("the webhook needs a status, firing or resolved, and an alert")
 
-// Group is the body of Alertmanager's webhook, version 4, as far as the push needs it: a group of
+// Group is the body of Alertmanager's webhook, version 4, as far as notify needs it: a group of
 // alerts, which fires while any of them fires, the labels and annotations that they share, and
 // how many alerts Alertmanager left out.
 type Group struct {
@@ -46,6 +47,11 @@ type Alert struct {
 	Status      Status            `json:"status"`
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
+	// StartsAt is when the alert began to fire, and EndsAt when it resolved, zero while it fires.
+	StartsAt time.Time `json:"startsAt"`
+	EndsAt   time.Time `json:"endsAt"`
+	// Fingerprint is Alertmanager's hash of the alert's labels.
+	Fingerprint string `json:"fingerprint"`
 }
 
 // Message words g's push, which opens the Home. Its title is the summary that g's alerts share,
