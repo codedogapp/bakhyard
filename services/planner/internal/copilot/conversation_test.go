@@ -91,6 +91,8 @@ func TestRepeats(t *testing.T) {
 		{Update{Change: ChangeDelta, Message: Message{ID: "m2", Text: " Rome"}}, false},
 		{Update{Change: ChangeMessage, Message: Message{ID: "m2", Text: "So Rome"}}, false},
 		{Update{Change: ChangePlan, Plan: "# Plan\n"}, false},
+		{Update{Change: ChangeQuestion, Question: Question{ID: "q1", Text: "Which city?"}}, false},
+		{Update{Change: ChangeAnswered, Question: Question{ID: "q1", Text: "Which city?"}}, false},
 	} {
 		if got := talk.Repeats(test.update); got != test.repeats {
 			t.Errorf("Repeats(%+v) = %t, want %t", test.update, got, test.repeats)

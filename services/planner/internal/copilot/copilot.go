@@ -29,6 +29,9 @@ type Settings struct {
 type Client struct {
 	copilot *sdk.Client
 	work    string
+	// stopped closes as the client stops, with stop, which ends the questions' waits.
+	stopped <-chan struct{}
+	stop    func()
 
 	mu    sync.Mutex
 	plans map[string]*plan
@@ -41,7 +44,15 @@ func New(settings Settings, environ []string) *Client {
 }
 
 func newClient(options *sdk.ClientOptions, work string) *Client {
-	return &Client{copilot: sdk.NewClient(options), work: work, plans: map[string]*plan{}}
+	stopped := make(chan struct{})
+
+	return &Client{
+		copilot: sdk.NewClient(options),
+		work:    work,
+		stopped: stopped,
+		stop:    sync.OnceFunc(func() { close(stopped) }),
+		plans:   map[string]*plan{},
+	}
 }
 
 func clientOptions(settings Settings, environ []string) *sdk.ClientOptions {
@@ -82,8 +93,11 @@ func (c *Client) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop leaves the plans' sessions, which the CLI keeps, and stops the CLI.
+// Stop ends the questions' waits for their answers, so that the CLI gets an error for each,
+// leaves the plans' sessions, which the CLI keeps, and stops the CLI.
 func (c *Client) Stop() error {
+	c.stop()
+
 	if err := c.copilot.Stop(); err != nil {
 		return fmt.Errorf("stop the copilot CLI: %w", err)
 	}

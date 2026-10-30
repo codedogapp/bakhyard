@@ -9,6 +9,7 @@ import (
 	"net/textproto"
 	"sync"
 	"testing"
+	"time"
 
 	sdk "github.com/github/copilot-sdk/go"
 )
@@ -136,6 +137,21 @@ func (f *fakeCLI) send(message outgoing) error {
 	defer f.mu.Unlock()
 
 	return write(f.conn, message)
+}
+
+// replied returns the result of the client's next answer to a request of the fake's, which is
+// empty for an error, or fails when no answer comes.
+func (f *fakeCLI) replied(t *testing.T) jsontext.Value {
+	t.Helper()
+
+	select {
+	case result := <-f.answers:
+		return result
+	case <-time.After(wait):
+		t.Fatal("the client didn't answer")
+	}
+
+	return nil
 }
 
 // emit sends the client events of session id, as the CLI does while the agent works.

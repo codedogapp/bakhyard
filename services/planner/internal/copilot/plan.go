@@ -26,22 +26,26 @@ func tools() []string {
 // plan is a plan that the agent works out in a session of its own.
 type plan struct {
 	session *sdk.Session
+	// stopped closes as the client stops, which ends the questions' waits for their answers.
+	stopped <-chan struct{}
 
 	mu sync.Mutex
 	// writing are the messages that the assistant is writing, with their text so far.
-	writing   []Message
-	content   string
+	writing []Message
+	content string
+	// questions are the agent's questions that wait for their answers, in the order asked.
+	questions []waiting
 	followers map[chan Update]struct{}
 }
 
-func newPlan() *plan {
-	return &plan{followers: map[chan Update]struct{}{}}
+func newPlan(stopped <-chan struct{}) *plan {
+	return &plan{stopped: stopped, followers: map[chan Update]struct{}{}}
 }
 
 // Plan starts a session that works out a plan for prompt, in plan mode, and returns the
 // session's ID. The agent goes on working after Plan returns.
 func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
-	planned := newPlan()
+	planned := newPlan(c.stopped)
 
 	session, err := c.copilot.CreateSession(ctx, &sdk.SessionConfig{
 		Model:                  model,
@@ -51,6 +55,7 @@ func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
 		Streaming:              new(true),
 		OnEvent:                planned.see,
 		OnPermissionRequest:    deny,
+		OnUserInputRequest:     planned.ask,
 		OnExitPlanModeRequest:  planned.keep,
 	})
 	if err != nil {
@@ -85,7 +90,8 @@ func (c *Client) find(id string) (*plan, error) {
 }
 
 // snapshot returns what the plan has, short of the messages that the CLI keeps: the messages
-// that the assistant is writing, and the plan once exit_plan_mode has brought it.
+// that the assistant is writing, the questions that wait, and the plan once exit_plan_mode has
+// brought it.
 func (p *plan) snapshot() Conversation {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -95,7 +101,7 @@ func (p *plan) snapshot() Conversation {
 
 // now is snapshot, with p.mu held.
 func (p *plan) now() Conversation {
-	return Conversation{Writing: slices.Clone(p.writing), Plan: p.content}
+	return Conversation{Writing: slices.Clone(p.writing), Questions: p.asking(), Plan: p.content}
 }
 
 // keep keeps the plan that exit_plan_mode brings, tells the followers, and ends plan mode.

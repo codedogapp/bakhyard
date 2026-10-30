@@ -95,7 +95,7 @@ func TestFollow(t *testing.T) {
 		{Change: ChangeDelta, Message: Message{ID: "m3", From: Assistant, Text: "Rome."}},
 		{Change: ChangeMessage, Message: Message{ID: "m3", From: Assistant, Text: "To Rome."}},
 	} {
-		if got := next(t, updates); got != want {
+		if got := next(t, updates); !reflect.DeepEqual(got, want) {
 			t.Errorf("update = %+v, want %+v", got, want)
 		}
 	}
@@ -104,8 +104,9 @@ func TestFollow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got, want := next(t, updates), (Update{Change: ChangePlan, Plan: "# Plan\n"}); got != want {
-		t.Errorf("update = %+v, want %+v", got, want)
+	brought := Update{Change: ChangePlan, Plan: "# Plan\n"}
+	if got := next(t, updates); !reflect.DeepEqual(got, brought) {
+		t.Errorf("update = %+v, want %+v", got, brought)
 	}
 
 	leave()
@@ -176,7 +177,7 @@ func TestFollowFails(t *testing.T) {
 }
 
 func TestSee(t *testing.T) {
-	planned := newPlan()
+	planned := newPlan(nil)
 	updates, _ := planned.follow()
 
 	for _, event := range []sdk.SessionEvent{
@@ -222,7 +223,7 @@ func TestSee(t *testing.T) {
 }
 
 func TestFollowerFallsBehind(t *testing.T) {
-	planned := newPlan()
+	planned := newPlan(nil)
 	slow, _ := planned.follow()
 
 	for range backlog + 1 {

@@ -105,6 +105,7 @@ func (f follower) ends(t *testing.T) {
 
 func TestFollowingAPlanStreamsItsConversation(t *testing.T) {
 	asked := copilot.Message{ID: "1", From: copilot.User, Text: "Plan a trip"}
+	city := copilot.Question{ID: "q1", Text: "Which city?", Freeform: true}
 	updates := []copilot.Update{
 		// It came while the planner read the conversation, which has it already.
 		{Change: copilot.ChangeMessage, Message: asked},
@@ -116,6 +117,8 @@ func TestFollowingAPlanStreamsItsConversation(t *testing.T) {
 			Change:  copilot.ChangeMessage,
 			Message: copilot.Message{ID: "m2", From: copilot.Assistant, Text: "Where to?"},
 		},
+		{Change: copilot.ChangeQuestion, Question: city},
+		{Change: copilot.ChangeAnswered, Question: city},
 		{Change: copilot.ChangePlan, Plan: "# Plan\n"},
 	}
 	fake := &standIn{
@@ -134,9 +137,13 @@ func TestFollowingAPlanStreamsItsConversation(t *testing.T) {
 	for _, want := range []string{
 		"event: conversation\n" +
 			`data: {"messages":[{"id":"1","from":"user","text":"Plan a trip"}],` +
-			`"writing":[],"plan":""}`,
+			`"writing":[],"questions":[],"plan":""}`,
 		"event: delta\n" + `data: {"id":"m2","from":"assistant","text":"Where"}`,
 		"event: message\n" + `data: {"id":"m2","from":"assistant","text":"Where to?"}`,
+		"event: question\n" +
+			`data: {"id":"q1","text":"Which city?","choices":[],"freeform":true}`,
+		"event: answered\n" +
+			`data: {"id":"q1","text":"Which city?","choices":[],"freeform":true}`,
 		"event: plan\n" + `data: {"plan":"# Plan\n"}`,
 	} {
 		if got := page.next(t); got != want {

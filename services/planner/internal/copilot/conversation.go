@@ -36,7 +36,9 @@ type Conversation struct {
 	Messages []Message `json:"messages"`
 	// Writing are the messages that the assistant is still writing, with their text so far.
 	Writing []Message `json:"writing"`
-	Plan    string    `json:"plan"`
+	// Questions are the agent's questions that wait for the user's answer, in the order asked.
+	Questions []Question `json:"questions"`
+	Plan      string     `json:"plan"`
 }
 
 // Conversation returns the conversation of the plan id so far, from the CLI's record and the
@@ -53,7 +55,9 @@ func (c *Client) Conversation(ctx context.Context, id string) (Conversation, err
 // Repeats reports whether update brings a message that c already has whole: an update that came
 // while Follow read c.
 func (c Conversation) Repeats(update Update) bool {
-	return update.Change != ChangePlan && c.has(update.Message.ID)
+	brings := update.Change == ChangeDelta || update.Change == ChangeMessage
+
+	return brings && c.has(update.Message.ID)
 }
 
 // has reports whether c has the whole message id.
