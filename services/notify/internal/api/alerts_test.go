@@ -71,7 +71,11 @@ func TestAlertsKeepTheAlertsAndPushTheGroup(t *testing.T) {
 		t.Errorf("kept %+v, want DiskFull's alert, started at %v, not ended", got, started)
 	}
 
-	want := push.Message{Title: "A filesystem is nearly full", Body: "/ is 91% full", URL: "/"}
+	want := push.Message{
+		Title: "A filesystem is nearly full",
+		Body:  "/ is 91% full",
+		URL:   "/alerts",
+	}
 	if len(sender.sent) != 1 || sender.sent[0] != want {
 		t.Errorf("sent %+v, want %+v", sender.sent, want)
 	}
