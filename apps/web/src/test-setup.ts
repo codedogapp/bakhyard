@@ -13,3 +13,12 @@ HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogEleme
 HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
   this.open = false;
 };
+
+// jsdom has no client rects for a range yet, which a note's editor measures its text with (CodeMirror). These stand-ins
+// give a range an element's, which jsdom has: none, and an empty box, as it lays nothing out.
+Range.prototype.getClientRects = function getClientRects() {
+  return document.createElement('span').getClientRects();
+};
+Range.prototype.getBoundingClientRect = function getBoundingClientRect() {
+  return document.createElement('span').getBoundingClientRect();
+};
