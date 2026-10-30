@@ -146,7 +146,7 @@ func TestPostsAnswerByTheirOutcome(t *testing.T) {
 			router, logs := serve(t, api.Backends{
 				Devices: fakeDevices{test.devices},
 				Sender:  &fakeSender{err: test.sender},
-				Alerts:  &fakeKeeper{},
+				Alerts:  &fakeHistory{},
 			})
 
 			rec := do(router, http.MethodPost, test.path, test.body)
