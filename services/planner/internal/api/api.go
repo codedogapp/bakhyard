@@ -39,9 +39,17 @@ type Planner interface {
 	Send(ctx context.Context, id, text string) error
 }
 
-// Door serves the planner's routes. Without Copilot, Planner is nil, and every route answers 404.
+// Vault keeps plans as notes of the Obsidian vault, as a vault.Client does.
+type Vault interface {
+	// Save makes plan a new note of the vault and returns the note's path.
+	Save(ctx context.Context, plan string) (string, error)
+}
+
+// Door serves the planner's routes. Without Copilot, Planner is nil, and every route answers 404;
+// without notes, Vault is nil, and saving a plan answers 404.
 type Door struct {
 	Planner Planner
+	Vault   Vault
 	Logger  *slog.Logger
 	// Heartbeat is how often a plan's event stream sends a comment, so that proxies keep it open.
 	Heartbeat time.Duration
@@ -51,9 +59,9 @@ type Door struct {
 // POST /planner/plans starts a plan (start),
 // GET /planner/plans/{id} answers its conversation so far (conversation),
 // GET /planner/plans/{id}/events streams it (events),
-// POST /planner/plans/{id}/messages sends it a follow-up message (message), and
+// POST /planner/plans/{id}/messages sends it a follow-up message (message),
 // POST /planner/plans/{id}/questions/{question}/answer answers one of its questions that wait
-// (answer). stopping ends when the service is told to stop, and ends the event streams with it.
+// (answer), and POST /planner/plans/{id}/note saves its plan in the vault (note). stopping ends when the service is told to stop, and ends the event streams with it.
 // Other methods get 405.
 func (d Door) Register(stopping context.Context, router chi.Router) {
 	router.Get("/planner/plans", list(d.Planner, d.Logger))
@@ -64,4 +72,5 @@ func (d Door) Register(stopping context.Context, router chi.Router) {
 	})
 	router.Post("/planner/plans/{id}/messages", message(d.Planner, d.Logger))
 	router.Post("/planner/plans/{id}/questions/{question}/answer", answer(d.Planner, d.Logger))
+	router.Post("/planner/plans/{id}/note", note(d.Planner, d.Vault, d.Logger))
 }

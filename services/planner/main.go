@@ -41,15 +41,21 @@ func main() {
 	}
 }
 
-// routes returns the handler of planner, which serves its API. With Copilot set up, it starts the
-// Copilot CLI, which stops once ctx ends; stopping waits for it. The event streams end with ctx
-// too.
+// routes returns the handler of planner, which serves its API and saves plans through notes when
+// BAKHYARD_PEERS lists it. With Copilot set up, it starts the Copilot CLI, which stops once ctx
+// ends; stopping waits for it. The event streams end with ctx too.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
 	readSecret secrets.Reader,
 	stopping *sync.WaitGroup,
 ) (http.Handler, error) {
+	// Read the peers first, so a mistake there doesn't start the CLI.
+	notes, err := vaultClient(getenv)
+	if err != nil {
+		return nil, err
+	}
+
 	planner, err := startPlanner(ctx, getenv, readSecret, stopping)
 	if err != nil {
 		return nil, err
@@ -59,7 +65,9 @@ func routes(
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Door{Planner: planner, Logger: slog.Default(), Heartbeat: heartbeat}.Register(ctx, router)
+
+	door := api.Door{Planner: planner, Vault: notes, Logger: slog.Default(), Heartbeat: heartbeat}
+	door.Register(ctx, router)
 
 	return router, nil
 }

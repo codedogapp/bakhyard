@@ -90,9 +90,15 @@ type plannerAPI struct {
 
 // newPlannerAPI returns the API that a Door serves from planner, in a service that never stops.
 func newPlannerAPI(planner api.Planner) plannerAPI {
+	return newAPI(api.Door{Planner: planner})
+}
+
+// newAPI returns the API that door serves, logging to the API's logs, in a service that never
+// stops.
+func newAPI(door api.Door) plannerAPI {
 	logs := &bytes.Buffer{}
 	router := chi.NewRouter()
-	door := api.Door{Planner: planner, Logger: slog.New(slog.NewTextHandler(logs, nil))}
+	door.Logger = slog.New(slog.NewTextHandler(logs, nil))
 	door.Register(context.Background(), router)
 
 	return plannerAPI{router: router, logs: logs}
@@ -119,6 +125,7 @@ func TestEachRouteIsNotFoundWithoutCopilot(t *testing.T) {
 		{http.MethodGet, "/planner/plans/plan-1/events"},
 		{http.MethodPost, "/planner/plans/plan-1/messages"},
 		{http.MethodPost, "/planner/plans/plan-1/questions/q1/answer"},
+		{http.MethodPost, "/planner/plans/plan-1/note"},
 	} {
 		rec := planner.serve(t, route.method, route.target, `{"prompt":"Plan a trip"}`)
 		if rec.Code != http.StatusNotFound || rec.Body.String() != "Copilot is not set up\n" {
@@ -139,6 +146,8 @@ func TestEachRouteTakesOnlyItsMethod(t *testing.T) {
 		{http.MethodPost, "/planner/plans/plan-1/events"},
 		{http.MethodGet, "/planner/plans/plan-1/messages"},
 		{http.MethodGet, "/planner/plans/plan-1/questions/q1/answer"},
+		{http.MethodGet, "/planner/plans/plan-1/note"},
+		{http.MethodPut, "/planner/plans/plan-1/note"},
 	} {
 		rec := planner.serve(t, route.method, route.target, "")
 		if rec.Code != http.StatusMethodNotAllowed {
