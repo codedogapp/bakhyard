@@ -169,6 +169,19 @@ func sessionOf(params jsontext.Value) (session, error) {
 	return named, err
 }
 
+// record is the CLI's record of a plan's session: the user's prompt, a message that the CLI adds,
+// a message of the assistant that only calls a tool, and the assistant's question.
+const record = `{"events": [
+	{"id": "1", "parentId": null, "timestamp": "2026-01-02T03:04:05Z", "type": "user.message",
+		"data": {"content": "Plan a trip"}},
+	{"id": "2", "parentId": "1", "timestamp": "2026-01-02T03:04:06Z", "type": "user.message",
+		"data": {"content": "Mind the plan", "source": "system"}},
+	{"id": "3", "parentId": "2", "timestamp": "2026-01-02T03:04:07Z",
+		"type": "assistant.message", "data": {"messageId": "m1", "content": ""}},
+	{"id": "4", "parentId": "3", "timestamp": "2026-01-02T03:04:08Z",
+		"type": "assistant.message", "data": {"messageId": "m2", "content": "Where to?"}}
+]}`
+
 // result returns the CLI's answer to a request for method in session.
 func result(method string, named session) any {
 	switch method {
@@ -178,6 +191,8 @@ func result(method string, named session) any {
 		return map[string]string{"sessionId": named.SessionID, "workspacePath": "/workspace"}
 	case "session.send":
 		return map[string]string{"messageId": "message-1"}
+	case "session.getMessages":
+		return jsontext.Value(record)
 	case "session.detach":
 		return map[string]bool{"success": true}
 	default:
