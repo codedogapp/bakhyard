@@ -1,10 +1,12 @@
 // Package gitea reads a note's bytes from the vault's repository in Gitea, and commits a note's
-// new bytes in their place, through Gitea's contents API and the token of a bot user that can
-// write the vault (docs/plan.md §3, decisions 420 and 421).
+// new bytes in their place, or as a new note, through Gitea's contents API and the token of a bot
+// user that can write the vault (docs/plan.md §3, decisions 420, 421 and 423).
 package gitea
 
 import (
+	"bytes"
 	"context"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -26,7 +28,18 @@ var (
 	// ErrRefused says that Gitea refused a commit: another commit took the branch first, or the
 	// bot user can't write to the repository.
 	ErrRefused = errors.New("refused: another commit took the branch first, or the bot can't write")
+	// ErrTaken says that something in the repository takes the path: a file or a folder there, or
+	// a file where one of the path's folders would be.
+	ErrTaken = errors.New("the path is taken in the vault's repository")
 )
+
+// change is a commit to one file that the client asks Gitea for.
+type change struct {
+	// Content is the file's new bytes, which JSON carries in base64.
+	Content []byte `json:"content"`
+	// SHA is the ID of the blob that the new bytes replace, which a new file has none of.
+	SHA string `json:"sha,omitempty"`
+}
 
 // Settings say where the vault's repository is, and as whom to reach it.
 type Settings struct {
@@ -69,6 +82,30 @@ func (c *Client) target(route, name string) (*url.URL, error) {
 	}
 
 	return c.settings.Repo.JoinPath(route, strings.Join(segments, "/")), nil
+}
+
+// commit asks Gitea to commit body to the file at name, a path in the repository, on its default
+// branch, with method: POST makes the file and PUT updates it. It returns Gitea's status code.
+func (c *Client) commit(ctx context.Context, method, name string, body change) (int, error) {
+	target, err := c.target("contents", name)
+	if err != nil {
+		return 0, err
+	}
+
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return 0, err
+	}
+
+	res, err := c.send(ctx, method, target, bytes.NewReader(encoded))
+	if err != nil {
+		return 0, err
+	}
+
+	// The status tells how the commit went, so the rest of the answer goes unread.
+	_ = res.Body.Close()
+
+	return res.StatusCode, nil
 }
 
 // send sends a request with body, if any, to target, as the bot user, and returns Gitea's

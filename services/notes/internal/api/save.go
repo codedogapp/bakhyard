@@ -17,8 +17,8 @@ import (
 // notes couldn't read a bigger note back to save it again (decision 422).
 const maxNote = 10 << 20
 
-// Store is the vault's repository, where a save commits a note: Gitea's, through its client
-// (decision 420).
+// Store is the vault's repository, where a save commits a note, and a new note goes: Gitea's,
+// through its client (decision 420).
 type Store interface {
 	// Read returns the text of the file name and its blob ID, or gitea.ErrNotFound.
 	Read(ctx context.Context, name string) (gitea.File, error)
@@ -26,6 +26,9 @@ type Store interface {
 	// the file has changed since, gitea.ErrNotFound when it's gone, or gitea.ErrRefused when Gitea
 	// refuses the commit.
 	Update(ctx context.Context, name, blob string, text []byte) error
+	// Create commits text as a new file name, or fails with gitea.ErrTaken when something takes
+	// the name, or gitea.ErrRefused when Gitea refuses the commit.
+	Create(ctx context.Context, name string, text []byte) error
 }
 
 // errChanged says that the note isn't at the version that a save names, or is gone.

@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -108,6 +109,40 @@ func TestScanFailsWhenTheVaultCantBeRead(t *testing.T) {
 	if files != nil || !errors.Is(err, fs.ErrPermission) ||
 		err.Error() != "scan the vault: open .: permission denied" {
 		t.Errorf("got %q, %v; want no files and the permission error with its context", files, err)
+	}
+}
+
+func TestListableNamesAreTheOnesScanCouldList(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		want bool
+	}{
+		{"Inbox.md", true},
+		{"Notes/A b.md", true},
+		{"Café/日本.md", true},
+		{"100% #1?.md", true},
+		{"Notes/Inbox.md.", true},
+		{strings.Repeat("a", 252) + ".md", true},
+		{strings.Repeat("é", 126) + ".md", true},
+		{strings.Repeat("a", 255) + "/Inbox.md", true},
+		{"", false},
+		{".", false},
+		{"/Inbox.md", false},
+		{"Notes/", false},
+		{"Notes//Inbox.md", false},
+		{"./Inbox.md", false},
+		{"Notes/../Inbox.md", false},
+		{".obsidian/app.md", false},
+		{"Notes/.Inbox.md", false},
+		{"\xff.md", false},
+		{"Caf\xe9/Inbox.md", false},
+		{strings.Repeat("a", 253) + ".md", false},
+		{strings.Repeat("é", 127) + ".md", false},
+		{strings.Repeat("a", 256) + "/Inbox.md", false},
+	} {
+		if got := vault.Listable(test.name); got != test.want {
+			t.Errorf("Listable(%q) = %t, want %t", test.name, got, test.want)
+		}
 	}
 }
 
