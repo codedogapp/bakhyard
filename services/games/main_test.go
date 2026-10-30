@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+
+	"github.com/codedogapp/bakhyard/internal/secrets"
 )
 
 func TestGamesServesWithoutExophase(t *testing.T) {
-	router, err := routes(t.Context(), envOf(nil), unasked())
+	router, err := routes(t.Context(), envOf(nil), secretsWith(nil), exophaseAt(unasked()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +41,7 @@ func TestGamesServesWithoutExophase(t *testing.T) {
 
 func TestGamesDoesNotStartWithABadPlayer(t *testing.T) {
 	router, err := routes(t.Context(), envOf(map[string]string{exophasePlayerVar: "me"}),
-		unasked())
+		secretsWith(nil), exophaseAt(unasked()))
 
 	want := `BAKHYARD_EXOPHASE_PLAYER: "me" is not an Exophase profile id, which is digits only`
 	if router != nil || err == nil || err.Error() != want {
@@ -45,12 +49,30 @@ func TestGamesDoesNotStartWithABadPlayer(t *testing.T) {
 	}
 }
 
-// unasked returns an address of Exophase's API that the tests never ask.
+// unasked returns an address of an API that the tests never ask.
 func unasked() *url.URL {
-	return &url.URL{Scheme: "https", Host: "api.exophase.example"}
+	return &url.URL{Scheme: "https", Host: "api.unasked.example"}
+}
+
+// exophaseAt returns the addresses of the APIs, with Exophase's at address and the others
+// unasked.
+func exophaseAt(address *url.URL) apis {
+	return apis{exophase: address, twitch: unasked(), igdb: unasked()}
 }
 
 // envOf returns an environment that holds only settings.
 func envOf(settings map[string]string) func(string) string {
 	return func(name string) string { return settings[name] }
+}
+
+// secretsWith returns a fake secrets reader that has only items, by name.
+func secretsWith(items map[string]string) secrets.Reader {
+	return func(_ context.Context, name string) (string, error) {
+		secret, ok := items[name]
+		if !ok {
+			return "", fmt.Errorf("no secret %s", name)
+		}
+
+		return secret, nil
+	}
 }

@@ -33,5 +33,8 @@ BAKHYARD_VAULT = "/Users/you/Documents/Vault"
 # The id of the Exophase profile whose games the games service lists, digits only: the
 # playerProfileId in the profile page's source. Leave it out to run without Exophase.
 # BAKHYARD_EXOPHASE_PLAYER = "1234567"
+# The client ID of the Twitch app with which the games service asks IGDB for the games' covers;
+# its client secret goes into the Keychain. Leave it out to run without covers.
+# BAKHYARD_TWITCH_CLIENT_ID = "0123456789abcdefghijklmnopqrst"
 # The Go tests' own database. Put its role's password in place of <password>.
 BAKHYARD_TEST_DATABASE = "postgres://bakhyard_test:<password>@127.0.0.1:5433/bakhyard_test"
