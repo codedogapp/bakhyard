@@ -190,6 +190,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `github-page` | The app shows the three lists, on a page of their own at `/github` or beside Bitbucket's on the PRs page, as the user chooses. The sixth of `github-widgets`' seven steps (decision 200) | Pending |
 | `github-attention` | The `github` service answers the attention contract, so the Home's "Needs you" lists what the user chooses of the review requests, the issues assigned to me and my PRs. The last of `github-widgets`' seven steps (decision 200) | Pending |
 | `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | In progress |
+| `games-plan` | `games-exophase` splits in eleven steps: the Exophase client, the cache, the service, the Twitch token, the IGDB search, the covers, the laptop, the gateway, the page and its covers; the games list, the covers' matches and the Twitch token stay in memory. The first of `games-exophase`'s eleven steps (decision 300) | Done (#168) |
 | `vault-edit-sync` | Editing the vault from Bakhyard (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one and then does `copilot-planner` (decision 195) | In progress |
 | `vault-plan` | The vault session's first steps: where a save goes waits on the user's answer to §12's question on how edits get back to the Mac, so the version that a save checks and the editor come first; a note's version is the SHA-256 of its bytes, sent as its `ETag`, and a save is a `PUT` that sends it back in `If-Match` (decision 400) | Done (#167) |
 | `note-etag` | notes answers each note with its version as a strong `ETag`, the SHA-256 of its bytes, and a matching `If-None-Match` with a 304 (decision 400) | Planned |
@@ -330,7 +331,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host lap
 | pulls | `pr_state` (PR id, snooze, nudged at), with the snoozes (decision 175) |
 | notify | `push_subscriptions` |
 | planner | `copilot_sessions` (id, title, status, note_path) |
-| games | `covers` (title, igdb_id, image_id, matched_at); the last good games list in `integration_cache` |
+| games | none: the games list, the covers' matches and the Twitch token stay in memory (decision 300) |
 | gateway | `sessions` (sign-in) |
 | every integration service | `integration_cache` (source, key, json, fetched_at), `settings` |
 
@@ -1259,13 +1260,18 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 5: games**
 
-- `games-exophase` [games]. Needs `frontend-shell`, `spike-games-access`.
-  - Exophase's games list on request, cached for an hour, refetched in the background once older (decision 67).
-  - Widgets: the games played in the last 14 days, with playtime and trophies and % per game (Nintendo is playtime only).
-  - IGDB covers matched by title and cached (decision 68); the Twitch app token is cached and renewed before it expires.
-  - An honest user agent; `tls-client` if challenges start. Backoff, last-good cache, stale badge.
-  - The Games card's description in the app becomes §7's.
-  - Never fetch or store profile HTML.
+- `games-exophase` [games]. Needs `frontend-shell`, `spike-games-access`. The games I played in the last 14 days, with playtime, trophies and the percentage (Nintendo: playtime only), from Exophase's games list on request (decision 67), with IGDB's covers (decision 68). Eleven steps (decision 300):
+  - `games-plan`: the split, and the choices that span the steps (decision 300). Done (#168).
+  - `exophase-client`: the `games` service's Exophase client reads the games I last played since a given time from the games list's JSON, with an honest user agent; it never fetches or stores a profile's HTML. `tls-client` only if challenges start.
+  - `games-cache`: the service fetches on request: the first request waits for the first fetch, later ones get the latest list at once and start a fetch in the background once it's an hour old; after a failure, the last good list stays and the next fetch backs off.
+  - `games-service`: a new `games` service answers the games I played in the last 14 days at `GET /games/recent`.
+  - `twitch-token`: the service gets a Twitch app token for IGDB, keeps it and renews it before it expires.
+  - `igdb-search`: the service's IGDB client finds a title's cover with a filtered search and an exact-name fallback (decision 68), within IGDB's 4 requests a second.
+  - `games-covers`: each game in the answer carries its IGDB cover; each title is matched once and the match kept.
+  - `homelab-games`: in the homelab repo, `games` runs on the laptop with its settings and secret, and the gateway's peers name it.
+  - `games-gateway`: the gateway forwards `/api/games` to `games`.
+  - `games-page`: the Games page lists the games, and marks them stale when the latest fetch failed (decision 67); the Games card's description in the app becomes §7's.
+  - `games-page-covers`: the Games page shows each game's cover.
 
 **Phase 6: vault edits and Copilot**
 
@@ -1709,6 +1715,17 @@ Decisions 200 to 299 are the `github-widgets` session's.
 201. **The check of a link, shared** (`shared-web-link`): the lead's choices (2026-10-30), for the user to review. The GitHub client of `github-client` keeps an item's page only when it's an https URL, as the Bitbucket client keeps a PR's (decision 143), so the app never links a `javascript:` URL. Code that two services need moves to the root `internal/` (AGENTS.md), so the Bitbucket client's `webPage` moves a step ahead of its second user, as `shared-secure-url` did (decision 144), to a package of its own, `internal/weblink`, as `weblink.HTTPS`: the link when it's an https URL with a host, and nothing otherwise. Nothing changes in behaviour. The checks that refuse a push subscription or a server's address that isn't https, in notify and the nudge tool, stay where they are, since they fail with an error rather than drop a link. Rejected: a copy in the GitHub client; a place in `internal/env`, which reads the settings.
 
 Decisions 300 to 399 are the `games-exophase` session's.
+
+300. **Games in eleven steps** (`games-plan`): the lead's choices (2026-10-30), for the user to review. `games-exophase` is far more than one step's 150 hand-written lines, so it splits in eleven (§8.2), each service step before the page step that shows it, as `time-tracking`'s did: the Exophase client, the cache, the service, the Twitch token, the IGDB search, the covers, the laptop, the gateway, the page and its covers.
+     - **The service**: `games`, in `services/games`, built as `time` is (decision 182), on 127.0.0.1:8090 under `mise run up` (decision 195). `GET /games/recent` answers the games I played in the last 14 days, last played first, as a poller's snapshot, `{"games":[…],"searched":"…"}`, with `failure` when the latest fetch failed, so the app's loader of a snapshot reads it (decision 147). It has nothing that needs me, so it doesn't answer the attention contract and home doesn't ask it.
+     - **On request** (decision 67): no timer. The first request waits for the first fetch. Later ones get the latest list at once, and one that finds it more than an hour old starts a fetch in the background, one at a time. A fetch that fails keeps the last good list, with the failure, and the next can't start for 5 minutes, then twice as long after each failure in a row, up to 6 hours; a success ends the wait. `poll.Poller` keeps the list and answers it, with no interval, so its `Run` polls once, at the first request; a package of the service's own decides when to poll again.
+     - **Memory only**: the games list, the covers' matches and the Twitch token live in the service's memory, with no database, as `pulls`' PRs do; this amends §3's data, which kept the covers and the last good list in tables. After a restart, which Flux does with every new image (decision 152), the first request also waits for a search of each game's cover, at most four a second, and the service asks Twitch for a new token; Twitch keeps an app's 25 newest tokens active, and the older ones are no longer used.
+     - **Exophase**: the player's id is a setting, `BAKHYARD_EXOPHASE_PLAYER`, digits only, which the user reads from their profile page's source (`window.playerProfileId`), since the service never fetches the page. Without it, `GET /games/recent` answers 404 `Exophase is not set up`; with anything but digits, the service exits 1.
+     - **IGDB**: the Twitch app's client ID is a setting, `BAKHYARD_TWITCH_CLIENT_ID`, and its secret the Keychain item `bakhyard`/`twitch-client-secret` (decision 79). Without the ID the games come without covers; with the ID but no secret, the service exits 1. The covers are matched as the list is fetched, for the titles not matched yet.
+     - **Fixed addresses**: Exophase's, Twitch's and IGDB's addresses are constants in the code, and `routes` takes them as a parameter, so tests give a stand-in's.
+     - **The laptop first**: the gateway doesn't start without the address of each peer it names, so `homelab-games`, which runs `games` on the laptop and adds it to the gateway's peers there, merges before `games-gateway`, as codedogapp/homelab#42 came before `time-gateway` (#151). While the homelab PR waits for the user, the page's steps go first, and the page says that Exophase isn't set up until the gateway forwards to the service.
+     - **A known limit**: after a quiet spell, the first request answers the old list while the new one is fetched; the next request gets the new one.
+     - **Rejected**: a database for these caches, which the user would set up on the Mac and on the laptop for what a restart fetches again in seconds; the addresses as settings, as Bitbucket's is (decision 146), which the user would copy though they're the same for everyone; a timer, which decision 67 rules out; `poll.Poller` alone, which polls on a timer or only once.
 
 Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-planner`.
 
