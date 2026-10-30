@@ -28,13 +28,5 @@ onMount(() => {
   <Questions questions={loaded.state.questions} answered={refresh} />
   <Sessions sessions={loaded.state.sessions} />
 {:else if loaded.kind === 'failed'}
-  <p class="failed">Couldn't load the questions.</p>
+  <p class="page-status">Couldn't load the questions.</p>
 {/if}
-
-<style>
-.failed {
-  margin: 0;
-  padding: 0 var(--page-padding) 64px;
-  color: var(--ink-muted);
-}
-</style>

@@ -1,0 +1,14 @@
+/* A page's status line in place of its sections, such as "Bitbucket isn't set up." (decision 206): muted, with the
+   space that a section leaves under it. */
+.page-status {
+  margin: 0;
+  padding: 0 var(--page-padding) 64px;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .page-status {
+    padding-bottom: 48px;
+  }
+}
