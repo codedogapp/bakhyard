@@ -143,7 +143,7 @@ processes:
 
   games:
     <<: *service
-    description: Lists the games I played lately on Exophase
+    description: Lists the games I played lately on Exophase, with their IGDB covers
     command: bin/games
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8090

@@ -26,11 +26,12 @@ cp mise.local.example.toml mise.local.toml
 | `BAKHYARD_BITBUCKET_WORKSPACES` | pulls | The slugs of the workspaces to list your open pull requests in, separated by commas |
 | `BAKHYARD_GITHUB_API` | github | GitHub's REST API, `https://api.github.com`, where github searches for your open pull requests, review requests and issues ([below](#github)) |
 | `BAKHYARD_EXOPHASE_PLAYER` | games | The id of the Exophase profile whose games to list, digits only ([below](#exophase)) |
+| `BAKHYARD_TWITCH_CLIENT_ID` | games | The client ID of the Twitch app with which games asks IGDB for the games' covers ([below](#igdb)) |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
-The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, notify, nudge, pulls, time and todos to start. Todos and time run without Jira when none of the three Jira settings is set, pulls without Bitbucket when none of the three Bitbucket settings is set, github without GitHub when `BAKHYARD_GITHUB_API` isn't set, and games without Exophase when `BAKHYARD_EXOPHASE_PLAYER` isn't set.
+The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, notify, nudge, pulls, time and todos to start. Todos and time run without Jira when none of the three Jira settings is set, pulls without Bitbucket when none of the three Bitbucket settings is set, github without GitHub when `BAKHYARD_GITHUB_API` isn't set, and games without Exophase when `BAKHYARD_EXOPHASE_PLAYER` isn't set and without covers when `BAKHYARD_TWITCH_CLIENT_ID` isn't set.
 
-On the Mac, the gateway, todos, pulls, time and github read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`, `github-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
+On the Mac, the gateway, todos, pulls, time, github and games read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`, `github-token`, `twitch-client-secret`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
 
 ## Tailscale
 
@@ -188,6 +189,22 @@ Games lists the games you played in the last 14 days, the last played first, wit
 2. In `mise.local.toml`, set `BAKHYARD_EXOPHASE_PLAYER` to that number, such as `1234567`, then restart games.
 
 The id must be digits only; with anything else, games exits 1 and says so: `BAKHYARD_EXOPHASE_PLAYER: "…" is not an Exophase profile id, which is digits only`. Without it, `GET /games/recent` answers 404 `Exophase is not set up`. `mise run up` runs games on port 8090, where `GET /games/recent` answers the games, with when the latest fetch to succeed began and why the latest fetch failed, if it did. Games fetches the list only when asked: the first request waits for the first fetch, and later ones get the list at once, while one that finds it an hour old or more starts a fetch in the background. When a fetch fails, for example while Exophase is down, games keeps answering the last list it got, adds the failure, such as `list my Exophase games: 500 Internal Server Error`, which is also what Exophase answers for an id it doesn't know, `list my Exophase games: 403 Forbidden, a Cloudflare challenge` or, for a profile that isn't public, `list my Exophase games: Exophase has no public profile with this id`, and logs `poll Exophase` with it. The next fetch then waits 5 minutes, and twice as long after each failure in a row, up to 6 hours. The list lives in games' memory, so a restart fetches it again.
+
+## IGDB
+
+Games shows each game's cover from IGDB, which it asks as a Twitch app (decisions 68 and 304 to 306). IGDB's API is free for non-commercial use, under the terms of the Twitch Developer Service Agreement. To set it up:
+
+1. Turn on two-factor authentication for your Twitch account, under [Security and Privacy](https://www.twitch.tv/settings/security): Twitch's developer console needs it.
+2. In the [developer console](https://dev.twitch.tv/console), on the Applications tab, select Register Your Application. Give the app a name that no other Twitch app has, add the OAuth redirect URL `http://localhost`, which IGDB doesn't use, pick any category and the client type Confidential, then select Create. Select Manage beside the new app: the page shows its client ID. Select New Secret and copy the secret.
+3. Put the client secret in the Keychain. With `-w` last, `security` asks for it:
+
+   ```sh
+   security add-generic-password -s bakhyard -a twitch-client-secret -w
+   ```
+
+4. In `mise.local.toml`, set `BAKHYARD_TWITCH_CLIENT_ID` to the app's client ID, then restart games.
+
+Without the setting, the games come without covers. With it but no secret in the Keychain, games exits 1 and says so: `read the Twitch client secret: no Keychain item with service bakhyard and account twitch-client-secret`. With both, each game in `GET /games/recent` carries `cover`, the address of its cover on IGDB, unless IGDB has none; the app loads the image from IGDB. Games finds the covers as it fetches the list, a title at a time and at most four requests a second, so the first request after a start waits for them too. It keeps each title's cover, or that IGDB has none, for a week. When IGDB or Twitch fails, the games whose covers it hasn't found go without until the next fetch, and games logs `find covers` with the failure, such as `find the cover of "…": ask IGDB: 503 Service Unavailable` or, for a client ID that Twitch doesn't know, `find the cover of "…": get a Twitch token: 400 Bad Request, invalid client`. The covers and Twitch's token live in games' memory, so a restart asks again. A new secret makes the old one fail at once: store it with `-U` added to the command in step 3, then restart games.
 
 ## Run
 

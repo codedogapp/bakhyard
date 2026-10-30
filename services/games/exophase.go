@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/codedogapp/bakhyard/services/games/internal/api"
+	"github.com/codedogapp/bakhyard/services/games/internal/covers"
 	"github.com/codedogapp/bakhyard/services/games/internal/exophase"
 	"github.com/codedogapp/bakhyard/services/games/internal/refresh"
 )
@@ -37,11 +38,12 @@ func exophaseClient(getenv func(string) string, address *url.URL) (*exophase.Cli
 }
 
 // poll returns what keeps the games I played in the last 14 days, which it lists with client
-// whenever a request finds them stale, until ctx ends, or nil when Exophase is off and client is
-// nil.
+// whenever a request finds them stale, until ctx ends, with their covers from cache, or nil when
+// Exophase is off and client is nil.
 func poll(
 	ctx context.Context,
 	client *exophase.Client,
+	cache *covers.Cache,
 	logger *slog.Logger,
 ) *refresh.OnRequest[api.Recent] {
 	if client == nil {
@@ -50,8 +52,11 @@ func poll(
 
 	recent := refresh.New("Exophase", func(ctx context.Context) (api.Recent, error) {
 		games, err := client.PlayedSince(ctx, time.Now().Add(-recentWindow))
+		if err != nil {
+			return api.Recent{}, err
+		}
 
-		return api.Recent{Games: games}, err
+		return api.Recent{Games: covered(ctx, games, cache, logger)}, nil
 	}, logger)
 	go recent.Run(ctx)
 

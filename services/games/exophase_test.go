@@ -15,7 +15,8 @@ import (
 func TestGamesListsTheGamesIPlayedInTheLast14Days(t *testing.T) {
 	address, asked := exophaseStandIn(t, time.Now())
 
-	router, err := routes(t.Context(), envOf(map[string]string{exophasePlayerVar: "123"}), address)
+	router, err := routes(t.Context(), envOf(map[string]string{exophasePlayerVar: "123"}),
+		secretsWith(nil), exophaseAt(address))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +63,8 @@ func TestGamesTellsWhyExophaseFailed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	router, err := routes(t.Context(), envOf(map[string]string{exophasePlayerVar: "123"}), address)
+	router, err := routes(t.Context(), envOf(map[string]string{exophasePlayerVar: "123"}),
+		secretsWith(nil), exophaseAt(address))
 	if err != nil {
 		t.Fatal(err)
 	}
