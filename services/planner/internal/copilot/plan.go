@@ -33,6 +33,7 @@ type plan struct {
 	// writing are the messages that the assistant is writing, with their text so far.
 	writing []Message
 	content string
+	status  Status
 	// questions are the agent's questions that wait for their answers, in the order asked.
 	questions []waiting
 	// calls are the questions of the agent's ask_user calls that have started and not yet ended.
@@ -77,8 +78,8 @@ func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
 }
 
 // snapshot returns what the plan has, short of the messages that the CLI keeps: the messages
-// that the assistant is writing, the questions that wait, and the plan once exit_plan_mode has
-// brought it.
+// that the assistant is writing, the questions that wait, the plan once exit_plan_mode has
+// brought it, and the agent's status.
 func (p *plan) snapshot() Conversation {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -88,7 +89,9 @@ func (p *plan) snapshot() Conversation {
 
 // now is snapshot, with p.mu held.
 func (p *plan) now() Conversation {
-	return Conversation{Writing: slices.Clone(p.writing), Questions: p.asking(), Plan: p.content}
+	return Conversation{
+		Writing: slices.Clone(p.writing), Questions: p.asking(), Plan: p.content, Status: p.status,
+	}
 }
 
 // keep keeps the plan that exit_plan_mode brings, tells the followers, and ends plan mode.

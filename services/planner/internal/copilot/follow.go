@@ -25,6 +25,8 @@ const (
 	ChangeQuestion Change = "question"
 	// ChangeAnswered is a question that has had its answer, and no longer waits.
 	ChangeAnswered Change = "answered"
+	// ChangeStatus is a change of whether the agent is working, or of the error that stopped it.
+	ChangeStatus Change = "status"
 )
 
 // Update is a change to a plan's conversation.
@@ -36,6 +38,8 @@ type Update struct {
 	Plan string
 	// Question is the question, for ChangeQuestion and ChangeAnswered.
 	Question Question
+	// Status is the agent's new status, for ChangeStatus.
+	Status Status
 }
 
 // Follow returns the conversation of the plan id so far, as Conversation does, and its updates
@@ -85,8 +89,8 @@ func (p *plan) unfollow(updates chan Update) {
 }
 
 // see takes in the session's events: it keeps the text of the messages that the assistant is
-// writing, and tells the followers about it and about each whole message, the agent's questions
-// and the user's answers among them.
+// writing, and tells the followers about it, about each whole message, the agent's questions and
+// the user's answers among them, and about the agent's status.
 func (p *plan) see(event sdk.SessionEvent) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -97,6 +101,8 @@ func (p *plan) see(event sdk.SessionEvent) {
 	case *sdk.AssistantMessageData:
 		p.writing = slices.DeleteFunc(p.writing, withID(data.MessageID))
 	}
+
+	p.mind(event)
 
 	if message, ok := messageOf(event); ok {
 		p.tell(Update{Change: ChangeMessage, Message: message})

@@ -188,7 +188,7 @@ func TestSee(t *testing.T) {
 		delta("m2", "So"),
 		delta("m1", "ere"),
 		{ID: "e1", Data: &sdk.UserMessageData{Content: "Mind the plan", Source: new("system")}},
-		{ID: "e2", Data: &sdk.SessionIdleData{}},
+		{ID: "e2", Data: &sdk.AssistantTurnEndData{TurnID: "0"}},
 	} {
 		planned.see(event)
 	}

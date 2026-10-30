@@ -120,9 +120,10 @@ func TestFollowingAPlanStreamsItsConversation(t *testing.T) {
 		{Change: copilot.ChangeQuestion, Question: city},
 		{Change: copilot.ChangeAnswered, Question: city},
 		{Change: copilot.ChangePlan, Plan: "# Plan\n"},
+		{Change: copilot.ChangeStatus, Status: copilot.Status{Failure: "Quota exceeded"}},
 	}
 	fake := &standIn{
-		talk:    copilot.Conversation{Messages: []copilot.Message{asked}},
+		talk:    copilot.Conversation{Messages: []copilot.Message{asked}, Working: true},
 		updates: make(chan copilot.Update, len(updates)),
 	}
 
@@ -137,7 +138,7 @@ func TestFollowingAPlanStreamsItsConversation(t *testing.T) {
 	for _, want := range []string{
 		"event: conversation\n" +
 			`data: {"messages":[{"id":"1","from":"user","text":"Plan a trip"}],` +
-			`"writing":[],"questions":[],"plan":""}`,
+			`"writing":[],"questions":[],"plan":"","working":true,"failure":""}`,
 		"event: delta\n" + `data: {"id":"m2","from":"assistant","text":"Where"}`,
 		"event: message\n" + `data: {"id":"m2","from":"assistant","text":"Where to?"}`,
 		"event: question\n" +
@@ -145,6 +146,7 @@ func TestFollowingAPlanStreamsItsConversation(t *testing.T) {
 		"event: answered\n" +
 			`data: {"id":"q1","text":"Which city?","choices":[],"freeform":true}`,
 		"event: plan\n" + `data: {"plan":"# Plan\n"}`,
+		"event: status\n" + `data: {"working":false,"failure":"Quota exceeded"}`,
 	} {
 		if got := page.next(t); got != want {
 			t.Errorf("got %q, want %q", got, want)

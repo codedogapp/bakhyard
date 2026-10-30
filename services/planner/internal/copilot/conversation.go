@@ -32,7 +32,8 @@ type Message struct {
 	Text string `json:"text"`
 }
 
-// Conversation is a plan's conversation so far, and the plan once the agent has brought it.
+// Conversation is a plan's conversation so far, the plan once the agent has brought it, and
+// whether the agent is working.
 type Conversation struct {
 	Messages []Message `json:"messages"`
 	// Writing are the messages that the assistant is still writing, with their text so far.
@@ -40,6 +41,7 @@ type Conversation struct {
 	// Questions are the agent's questions that wait for the user's answer, in the order asked.
 	Questions []Question `json:"questions"`
 	Plan      string     `json:"plan"`
+	Status
 }
 
 // Conversation returns the conversation of the plan id so far, from the CLI's record and the

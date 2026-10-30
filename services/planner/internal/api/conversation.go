@@ -10,8 +10,9 @@ import (
 )
 
 // conversation returns the handler of GET /planner/plans/{id}, which answers the plan's
-// conversation so far, and its plan once the agent has brought it. A plan that the planner
-// doesn't keep gets a 404, and an error from Copilot a 502, whose cause logger gets.
+// conversation so far, its plan once the agent has brought it, and whether the agent is working.
+// A plan that the planner doesn't keep gets a 404, and an error from Copilot a 502, whose cause
+// logger gets.
 func conversation(planner Planner, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if planner == nil {
