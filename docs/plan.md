@@ -184,7 +184,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `github-widgets` | The GitHub widgets (§8.2 Phase 4), by a session of their own in `../bakhyard-github/`, which adds its steps' rows under this one (decision 195) | In progress |
 | `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | In progress |
 | `vault-edit-sync` | Editing the vault from Bakhyard (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one and then does `copilot-planner` (decision 195) | In progress |
-| `vault-plan` | The vault session's first steps: where a save goes waits on the user's answer to §12's question on how edits get back to the Mac, so the version that a save checks and the editor come first; a note's version is the SHA-256 of its bytes, sent as its `ETag`, and a save is a `PUT` that sends it back in `If-Match` (decision 400) | Done (#N) |
+| `vault-plan` | The vault session's first steps: where a save goes waits on the user's answer to §12's question on how edits get back to the Mac, so the version that a save checks and the editor come first; a note's version is the SHA-256 of its bytes, sent as its `ETag`, and a save is a `PUT` that sends it back in `If-Match` (decision 400) | Done (#167) |
 | `note-etag` | notes answers each note with its version as a strong `ETag`, the SHA-256 of its bytes, and a matching `If-None-Match` with a 304 (decision 400) | Planned |
 | `note-editor` | A note's page edits it in a CodeMirror 6 editor and saves it with `PUT /api/notes/files/<path>` and `If-Match`, once `GET /api/notes` says saving is set up; a note changed since gets a 412, and the page keeps the user's text (decision 400) | Planned |
 
@@ -1258,7 +1258,7 @@ Every item is pending unless it says done. The service an item lands in is in br
 **Phase 6: vault edits and Copilot**
 
 - `vault-edit-sync` [notes, web]. Needs `vault-render`. Moved from Phase 2 (decision 69). The steps so far (decision 400); the rest follow the user's answer to §12's question on how edits get back to the Mac:
-  - `vault-plan`: this split, a note's version, the SHA-256 of its bytes, and the save, a `PUT` that sends the version back in `If-Match` (decision 400). Done (#N).
+  - `vault-plan`: this split, a note's version, the SHA-256 of its bytes, and the save, a `PUT` that sends the version back in `If-Match` (decision 400). Done (#167).
   - `note-etag`: notes answers each note with its version as a strong `ETag`, and a matching `If-None-Match` with a 304 (decision 400).
   - `note-editor`: a note's page edits it in a CodeMirror 6 editor and saves it with a `PUT`, once `GET /api/notes` says saving is set up (decision 400).
   - After the answer: the store behind the save, with the §3 conflict rules; new notes get unique names; history and rollback; and the way edits get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151, §12).
