@@ -77,6 +77,11 @@ export function withoutExtension(path: string): string {
   return path.slice(0, -noteExtension.length);
 }
 
+/** The title of the note at path, its file name without ".md": "Q3" for "Work/Plans/Q3.md" (decision 91). */
+export function titleOf(path: string): string {
+  return withoutExtension(path.slice(path.lastIndexOf('/') + 1));
+}
+
 const notePages = '/notes/';
 
 /** The path of the page of the note at path: "/notes/" and the path without ".md", each name escaped (decision 94). */
