@@ -1,10 +1,23 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// The tests' own ports, apart from mise run up's (8080 to 8088), so both can run at once.
-const gateway = '127.0.0.1:8180';
-const web = '127.0.0.1:8182';
+// The tests' own ports, apart from mise run up's (8080 and on), so both can run at once. A session that works
+// beside others sets BAKHYARD_E2E_PORT to a base of its own (AGENTS.md, Parallel sessions).
+const base = basePort(process.env.BAKHYARD_E2E_PORT);
+const gateway = `127.0.0.1:${base}`;
+const web = `127.0.0.1:${base + 2}`;
 // Nothing listens here: the tests answer the app's API calls in the browser, so none should reach the services.
-const nowhere = 'tcp://127.0.0.1:8189';
+const nowhere = `tcp://127.0.0.1:${base + 9}`;
+
+function basePort(value: string | undefined): number {
+  if (!value) {
+    return 8180;
+  }
+  const port = Number(value);
+  if (!/^\d+$/.test(value) || port < 1024 || port > 65526) {
+    throw new Error(`BAKHYARD_E2E_PORT: "${value}" is not a whole number from 1024 to 65526`);
+  }
+  return port;
+}
 
 // SIGTERM lets a service shut down as it does under process-compose.
 const stop = { signal: 'SIGTERM', timeout: 5000 } as const;

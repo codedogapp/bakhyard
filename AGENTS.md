@@ -16,7 +16,7 @@ The canonical rules for everyone who works on Bakhyard: the user and the coding 
 
 ## Pipeline
 
-The main session does all the work itself, in the open, so the user can follow it. No sub-agents. Every step goes through these roles, in order:
+Each session does all its work itself, in the open, so the user can follow it. No sub-agents. Every step goes through these roles, in order:
 
 1. **Lead**: writes the step brief (goal, scope, out of scope, acceptance criteria). The brief goes into the PR description.
 2. **Engineer**: implements the step with unit tests and runs every gate until green.
@@ -29,6 +29,18 @@ The main session does all the work itself, in the open, so the user can follow i
 - Non-blocking findings go into the PR description, not into another round.
 - Known upstream gaps go into plan §10 without asking the user.
 - Progress notes to the user are short and factual: what changed, the commands run and their results, open issues.
+
+## Parallel sessions
+
+Several sessions can work at once, each on its own feature (plan decision 195).
+
+- The **orchestrator** works in the main checkout. It starts and steers the feature sessions, runs SonarQube Cloud, and handles Renovate's PRs and the steps that belong to no feature. Only it runs `mise run up`.
+- A **feature session** works in a worktree of its own, `../bakhyard-<name>/`, with a branch per step from `origin/main`. It never touches another worktree.
+- Each session numbers its decisions in its own block of plan §9 and adds its §0 rows under its feature's row, so the sessions' PRs don't edit the same lines.
+- Before merging, a session merges `origin/main` into its branch, never a rebase, and merges the PR once `check` is green on that head.
+- Each session runs the end-to-end tests on its own ports, from `BAKHYARD_E2E_PORT`, and starts services for live checks only on its own ports.
+- A test that times out while other sessions run their checks gets one more run; a second timeout is a defect.
+- Sessions ask the user through nudge.
 
 ## Definition of done
 
