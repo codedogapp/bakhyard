@@ -188,8 +188,9 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `homelab-github` | The homelab repo runs the `github` service on the laptop, with the token in a Secret, and names it among the gateway's and home's peers, before `github-gateway` makes the gateway require it. The fourth of `github-widgets`' seven steps (decision 200) | Pending |
 | `github-gateway` | The gateway forwards `/api/github` to the `github` service, behind both of its locks. The fifth of `github-widgets`' seven steps (decision 200) | Pending |
 | `shared-polled-section` | The PRs page's lists and the Todos page's Jira tickets show a poller's list through one component in the shell, `PolledSection`, for the GitHub page's lists, its third user; nothing changes on screen. The sixth of `github-widgets`' eight steps (decision 205) | Done (#184) |
-| `github-page` | The app shows the three lists, on a page of their own at `/github` or beside Bitbucket's on the PRs page, as the user chooses. The seventh of `github-widgets`' eight steps (decisions 200 and 205) | Pending |
-| `github-attention` | The `github` service answers the attention contract, so the Home's "Needs you" lists what the user chooses of the review requests, the issues assigned to me and my PRs. The last of `github-widgets`' eight steps (decisions 200 and 205) | Pending |
+| `shared-page-status` | The PRs, Time, Nudge and Todos pages draw the line that takes their sections' place, such as "Bitbucket isn't set up.", from one global class, for the GitHub page's, its fifth user; on phones, the Nudge page's line now leaves a section's 48 px below it. The seventh of `github-widgets`' nine steps (decision 206) | Pending |
+| `github-page` | The app shows the three lists, on a page of their own at `/github` or beside Bitbucket's on the PRs page, as the user chooses. The eighth of `github-widgets`' nine steps (decisions 200, 205 and 206) | Pending |
+| `github-attention` | The `github` service answers the attention contract, so the Home's "Needs you" lists what the user chooses of the review requests, the issues assigned to me and my PRs. The last of `github-widgets`' nine steps (decisions 200, 205 and 206) | Pending |
 | `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | In progress |
 | `games-plan` | `games-exophase` splits in eleven steps: the Exophase client, the cache, the service, the Twitch token, the IGDB search, the covers, the laptop, the gateway, the page and its covers; the games list, the covers' matches and the Twitch token stay in memory. The first of `games-exophase`'s eleven steps (decision 300) | Done (#168) |
 | `exophase-client` | The `games` service's Exophase client: the games I last played since a given time, the last played first, each with its platforms, playtime and trophies, from the games list's pages until one ends before that time, four at most; a 403 from Cloudflare's challenge says so. The second of `games-exophase`'s eleven steps (decision 301) | Done (#172) |
@@ -1008,6 +1009,8 @@ Cards are solid `--surface`, so they sit on the grain like paper on a desk. Thes
 
 **Section head**: a 1 px `--ink` rule on top with 13 px of space under it (ref), then the title on the left and a mono note or a text link on the right, aligned to the bottom, with 30 px below (24 on phones) (ref). A note that doesn't fit beside the title wraps under it. Each section has 64 px of space below it (48 on phones).
 
+**Status line**: a line that takes a page's sections' place, such as "Bitbucket isn't set up." or "Couldn't load the todos.", in body text and `--ink-muted` under the page head, with a section's space below it, and a long word breaks rather than widen the page (decision 206).
+
 - One word of the title is the serif accent: "Needs you *today*", "Your *apps*", "This *week*".
 - **Text link**: 14 px with a line height of 1.5, kept on one line (ref). A 1 px `--ink-muted` underline sits 5 px below the text (ref) and turns `--ink` on hover, with no transition, like the nav. A → arrow, the same as the app cards', follows 22 px after the text (ref), and the underline runs under it too.
 
@@ -1260,13 +1263,14 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 4: GitHub**
 
-- `github-widgets` [github]. Needs `frontend-shell`. Eight steps (decisions 200 to 205):
+- `github-widgets` [github]. Needs `frontend-shell`. Nine steps (decisions 200 to 206):
   - `shared-web-link`: the Bitbucket client's check that a PR's page is an https URL moves to the root `internal/weblink`, for the GitHub client; nothing changes in behaviour (decision 201). Done (#171).
   - `github-client`: a client of GitHub's search finds my open PRs, the PRs that wait for my review or my teams', and the open issues assigned to me, across every owner, through a classic PAT with `repo` and `read:org` (decisions 202 and 203). Done (#173).
   - `github-service`: the `github` service polls the three searches every 5 minutes, within search's 30 requests a minute, and answers them at `GET /github/mine`, `/github/reviews` and `/github/issues`, or 404 without its setting (decision 204). Done (#176).
   - `homelab-github`: the laptop runs the service, with its token in a Secret, before the gateway requires it.
   - `github-gateway`: the gateway forwards `/api/github` to the service.
   - `shared-polled-section`: the PRs page's lists and the Todos page's Jira tickets show a poller's list through one component in the shell, for the GitHub page's lists; nothing changes on screen (decision 205). Done (#184).
+  - `shared-page-status`: the PRs, Time, Nudge and Todos pages draw the line that takes their sections' place from one global class, for the GitHub page's (decision 206).
   - `github-page`: the lists in the app, where the user chooses: a page of their own at `/github`, or beside Bitbucket's on the PRs page.
   - `github-attention`: what the user chooses of the lists reaches the Home's "Needs you", over the attention contract.
 
@@ -1762,6 +1766,12 @@ Decisions 200 to 299 are the `github-widgets` session's.
      - **Biome** doesn't read the `generics` attribute (biomejs/biome#11215, §10), so the attribute names `Polls` with `import()` rather than through an import, which Biome would take for unused and which would need a suppression.
      - **`github-widgets` has eight steps** (decision 200): this one comes sixth, before `github-page`. It serves both of the user's answers on where the lists live.
      - **Rejected**: a third copy for the GitHub page; global classes for the card, as for the list rows (decision 123), which would leave the markup and the texts copied; one key for every snapshot's list, which would change three services' answers; the Time page's failure line, which sits over the page's sections rather than in one.
+206. **A page's status line, shared** (`shared-page-status`): the lead's choices (2026-10-30), for the user to review. The PRs page's "Bitbucket isn't set up.", the Time page's "Jira isn't set up." and "Couldn't load the time report.", the Nudge page's "Couldn't load the questions." and the Todos page's "Couldn't load the todos." each drew the line that takes the page's sections' place from a copy of the same rules, and the GitHub page's "GitHub isn't set up." would have made a fifth, so `shared-page-status` moves them to one global class a step ahead of `github-page`, as decisions 112 and 205 did.
+     - **The class**: `.page-status`, in a stylesheet of its own, `src/styles/page.css`, which `main.ts` loads after the others: no margin, the page's padding at the sides, `--ink-muted`, a section's 64 px below it (48 on phones), and long words that break rather than widen the page (§7's status line). A class rather than a component, as the list rows' and the form's (decisions 112 and 123), since the line is a paragraph with nothing in it but each page's own text.
+     - **What changes**: on phones, the Nudge page's line now leaves 48 px below it, as a section does, rather than 64 px, since its copy lacked the phone rule. Only the Time page's copy broke long words; the others' texts are short, so nothing else changes on screen.
+     - **The Time page's failure line**, when the line sits over the page's sections, keeps its own smaller space below it, 30 px (24 on phones), as the Todos page's form leaves over its first section.
+     - **`github-widgets` has nine steps** (decision 200): this one comes seventh, before `github-page`.
+     - **Rejected**: a fifth copy for the GitHub page; a component, which would wrap a paragraph and its text for no gain; the polled sections' muted lines (decision 205), which sit in a section, under its head, so the section gives them their space.
 
 Decisions 300 to 399 are the `games-exophase` session's.
 

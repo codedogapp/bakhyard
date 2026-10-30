@@ -29,13 +29,13 @@ onMount(() => {
 
 <PageHead>Time</PageHead>
 {#if report.kind === 'off'}
-  <p class="off">Jira isn't set up.</p>
+  <p class="page-status">Jira isn't set up.</p>
 {:else if report.kind === 'failed'}
-  <p class="off">Couldn't load the time report.</p>
+  <p class="page-status">Couldn't load the time report.</p>
 {:else if report.kind === 'loaded'}
   {@const { days, week, searched, failure } = report.snapshot}
   {#if failure}
-    <p class={days ? 'failure' : 'off'}>
+    <p class={['page-status', { failure: days }]}>
       The last search failed: {failure}.
       {#if days && searched}
         These hours are from <time datetime={searched}>{searchedLabel(searched)}</time>.
@@ -59,24 +59,12 @@ onMount(() => {
 <FillDialog {fill} />
 
 <style>
-.off,
-.failure {
-  margin: 0;
-  padding: 0 var(--page-padding) 64px;
-  color: var(--ink-muted);
-  overflow-wrap: anywhere;
-}
-
 /* Over the sections, the line leaves the space that the Todos page's form leaves over its first section. */
 .failure {
   padding-bottom: 30px;
 }
 
 @media (max-width: 700px) {
-  .off {
-    padding-bottom: 48px;
-  }
-
   .failure {
     padding-bottom: 24px;
   }
