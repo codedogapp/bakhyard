@@ -17,6 +17,7 @@ function answer(response: () => Promise<Response>) {
 // Saturday 31 October 2026, 09:41 in Tokyo, where the tests run.
 const now = new Date('2026-10-31T09:41:00+09:00');
 const searched = '2026-10-31T00:30:00Z';
+const cover = 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1abc.jpg';
 const recent: Snapshot = {
   games: [
     {
@@ -25,6 +26,7 @@ const recent: Snapshot = {
       lastPlayed: '2026-10-31T00:20:00Z',
       playtimeMinutes: 750,
       trophies: { earned: 12, total: 40, percent: 30 },
+      cover,
     },
     { title: 'Tower Climb', platforms: ['Switch'], lastPlayed: '2026-10-30T11:00:00Z', playtimeMinutes: 45 },
     { title: 'Harbour Lights', platforms: ['PC'], lastPlayed: '2026-10-19T08:00:00Z' },
@@ -51,6 +53,17 @@ test('lists the games I played lately as it shows, a row each, none a link', asy
   expect(screen.queryByRole('link')).not.toBeInTheDocument();
   expect(screen.queryByText('Stale')).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/games/recent');
+});
+
+test("shows each game's cover as its blank's background, which screen readers skip", async () => {
+  answer(loaded(recent));
+  render(GamesPage, { props: { now } });
+
+  await screen.findByRole('list');
+  const blanks = rows().map((row) => row.querySelector<HTMLElement>('.cover'));
+  expect(blanks.map((blank) => blank?.style.backgroundImage)).toEqual([`url("${cover}")`, '', '']);
+  expect(blanks.every((blank) => blank?.childNodes.length === 0)).toBe(true);
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
 });
 
 test('marks the games stale when the latest fetch failed, and says when they are from', async () => {

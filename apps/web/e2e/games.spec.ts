@@ -1,24 +1,18 @@
 import type { Page } from '@playwright/test';
 
-import type { Snapshot } from '../src/games/games';
 import { bounds } from './bounds';
 import { chipLooks } from './chips';
-import { games, home } from './demo';
+import { home } from './demo';
 import { expect, test } from './fixtures';
+import { answerCovers, answerGames, games } from './games';
 import { group } from './groups';
-
-/** Answers the Games page's call for the games with the snapshot, or with the status. */
-async function answerGames(page: Page, answer: Snapshot | number) {
-  await page.route('/api/games/recent', (route) =>
-    typeof answer === 'number' ? route.fulfill({ status: answer }) : route.fulfill({ json: answer })
-  );
-}
 
 const played = (page: Page) => group(page, 'Recently played');
 const failure = 'list games: Get "https://www.exophase.com/public/player/1/games": 403 Forbidden';
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
+  await answerCovers(page);
 });
 
 test('the Games page lists the games I played in the last 14 days', async ({ page }, testInfo) => {
