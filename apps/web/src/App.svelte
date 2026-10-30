@@ -15,6 +15,7 @@ import MorePage from './pages/MorePage.svelte';
 import NotFound from './pages/NotFound.svelte';
 import SignIn from './pages/SignIn.svelte';
 import PlannerPage from './planner/PlannerPage.svelte';
+import PlanPage from './planner/PlanPage.svelte';
 import PullsPage from './pulls/PullsPage.svelte';
 import { startClock } from './shell/clock';
 import Header from './shell/Header.svelte';
@@ -85,6 +86,8 @@ $effect(() =>
       <GamesPage {now} />
     {:else if page.kind === 'planner'}
       <PlannerPage {now} />
+    {:else if page.kind === 'plan'}
+      <PlanPage id={page.id} />
     {:else if page.kind === 'nudge'}
       <NudgePage />
     {:else if page.kind === 'app'}
