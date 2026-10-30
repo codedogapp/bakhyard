@@ -14,6 +14,10 @@ BAKHYARD_GOOGLE_CLIENT_ID = "1234567890-abcdef.apps.googleusercontent.com"
 BAKHYARD_GOOGLE_EMAIL = "you@example.com"
 # The Obsidian vault's folder, as an absolute path. The notes service lists its files.
 BAKHYARD_VAULT = "/Users/you/Documents/Vault"
+# The vault's repository in Gitea's API, where the notes service saves notes as Gitea's bot user;
+# the bot's token goes into the Keychain. Leave it out, as the Mac normally does, to keep notes
+# read-only.
+# BAKHYARD_VAULT_REPO = "https://gitea.tailnet.ts.net/api/v1/repos/you/vault"
 # The Jira site whose open tickets the todos service lists and whose worklogs the time service
 # reads, Jira's REST API for a token with scopes, and the email of the token's account; the token
 # goes into the Keychain. Leave all three out to run without Jira.

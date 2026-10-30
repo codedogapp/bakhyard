@@ -45,7 +45,7 @@ func TestUpdateCommitsTheTextInPlaceOfTheBlob(t *testing.T) {
 	}
 }
 
-func TestUpdateTellsAChangedFileAndAGoneOne(t *testing.T) {
+func TestUpdateTellsAChangedFileAGoneOneAndARefusal(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		status int
@@ -59,6 +59,14 @@ func TestUpdateTellsAChangedFileAndAGoneOne(t *testing.T) {
 		{
 			"a file that's gone", http.StatusNotFound,
 			`{"message":"repository file does not exist [path: A.md]"}`, gitea.ErrNotFound,
+		},
+		{
+			"a push that lost a race to the branch", http.StatusForbidden, `{"message":"cannot ` +
+				`lock ref 'refs/heads/main': is at b3 but expected b2"}`, gitea.ErrRefused,
+		},
+		{
+			"a bot that can't write", http.StatusForbidden, `{"message":"user should have a ` +
+				`permission to write to the target branch"}`, gitea.ErrRefused,
 		},
 	} {
 		client, _ := clientOf(t, answer(test.status, test.body))
@@ -76,15 +84,6 @@ func TestUpdateFailsOnAnyOtherAnswer(t *testing.T) {
 		status           int
 	}{
 		{
-			"a push that lost a race to the branch", `{"message":"cannot lock ref ` +
-				`'refs/heads/main': is at b3 but expected b2"}`, "403 Forbidden",
-			http.StatusForbidden,
-		},
-		{
-			"a bot that can't write", `{"message":"user should have a permission to write ` +
-				`to the target branch"}`, "403 Forbidden", http.StatusForbidden,
-		},
-		{
 			"a failure in Gitea", `{"message":"internal"}`, "500 Internal Server Error",
 			http.StatusInternalServerError,
 		},
@@ -94,7 +93,8 @@ func TestUpdateFailsOnAnyOtherAnswer(t *testing.T) {
 
 		err := client.Update(t.Context(), "A.md", "b1", []byte("text"))
 		if err == nil || !strings.Contains(err.Error(), test.want) ||
-			errors.Is(err, gitea.ErrChanged) || errors.Is(err, gitea.ErrNotFound) {
+			errors.Is(err, gitea.ErrChanged) || errors.Is(err, gitea.ErrNotFound) ||
+			errors.Is(err, gitea.ErrRefused) {
 			t.Errorf("%s: got %v, want an error that says %q", test.name, err, test.want)
 		}
 	}

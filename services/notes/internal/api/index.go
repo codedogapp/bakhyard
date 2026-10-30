@@ -71,6 +71,14 @@ func (idx *index) files() []string {
 	return idx.latest.files
 }
 
+// lists reports whether the latest scan lists the file name.
+func (idx *index) lists(name string) bool {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	return idx.latest.listed[name]
+}
+
 // open opens the file name through the root of the latest scan, and fails with fs.ErrNotExist
 // unless that scan lists it and it's still a regular file.
 func (idx *index) open(name string) (*os.File, fs.FileInfo, error) {
