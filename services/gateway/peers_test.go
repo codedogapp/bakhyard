@@ -23,7 +23,7 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 	home, notes := service("home"), service("notes")
 	pulls, todos := service("pulls"), service("todos")
 	notify, nudge := service("notify"), service("nudge")
-	timeService := service("time")
+	games, timeService := service("games"), service("time")
 
 	web := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		t.Errorf("web got %s %s, want nothing", r.Method, r.URL.Path)
@@ -31,7 +31,8 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 	t.Cleanup(web.Close)
 
 	vars, items := gatewayEnv(t, web.URL)
-	vars["BAKHYARD_PEERS"] = "home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
+	vars["BAKHYARD_PEERS"] = "games=tcp://" + strings.TrimPrefix(games.URL, "http://") +
+		",home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
 		",notes=tcp://" + strings.TrimPrefix(notes.URL, "http://") +
 		",notify=tcp://" + strings.TrimPrefix(notify.URL, "http://") +
 		",nudge=tcp://" + strings.TrimPrefix(nudge.URL, "http://") +
@@ -44,6 +45,8 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 	// Whatever the method or the path under /api/<service>, the service answers for itself
 	// (decisions 41 and 92).
 	for _, test := range []struct{ method, target, want string }{
+		{http.MethodGet, "/api/games/recent", "games got GET /games/recent"},
+		{http.MethodPost, "/api/games", "games got POST /games"},
 		{http.MethodGet, "/api/home", "home got GET /home"},
 		{http.MethodGet, "/api/notes", "notes got GET /notes"},
 		{http.MethodPost, "/api/notes", "notes got POST /notes"},
@@ -79,7 +82,7 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 
 // peerNames returns the names of the gateway's peers, each of which BAKHYARD_PEERS must name.
 func peerNames() []string {
-	return []string{"home", "notes", "notify", "nudge", "pulls", "time", "todos", "web"}
+	return []string{"games", "home", "notes", "notify", "nudge", "pulls", "time", "todos", "web"}
 }
 
 // withPeers returns BAKHYARD_PEERS with every peer but those in lacking.
@@ -103,6 +106,8 @@ func TestTheGatewayNeedsItsPeers(t *testing.T) {
 		withPeers("notify", "nudge"): {"notify", "nudge"},
 		withPeers("pulls", "todos"):  {"pulls", "todos"},
 		withPeers("time"):            {"time"},
+		withPeers("games"):           {"games"},
+		withPeers("games", "web"):    {"games", "web"},
 		"":                           peerNames(),
 	} {
 		vars, items := gatewayEnv(t, "http://127.0.0.1:2")

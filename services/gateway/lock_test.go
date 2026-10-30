@@ -26,6 +26,7 @@ func TestTheGatewayNeedsASessionForTheAPIOnly(t *testing.T) {
 		{http.MethodGet, "/", http.StatusOK},
 		{http.MethodHead, "/notes", http.StatusOK},
 		{http.MethodGet, "/auth/other", http.StatusOK},
+		{http.MethodGet, "/api/games/recent", http.StatusUnauthorized},
 		{http.MethodGet, "/api/home", http.StatusUnauthorized},
 		{http.MethodPost, "/api/home", http.StatusUnauthorized},
 		{http.MethodGet, "/api/notes", http.StatusUnauthorized},
@@ -70,10 +71,11 @@ func TestTheGatewayKeepsTheSessionFromTheServices(t *testing.T) {
 		return srv
 	}
 	home, pulls, todos, web := service("home"), service("pulls"), service("todos"), service("web")
-	timeService := service("time")
+	games, timeService := service("games"), service("time")
 
 	vars, items := gatewayEnv(t, web.URL)
-	vars["BAKHYARD_PEERS"] = "home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
+	vars["BAKHYARD_PEERS"] = "games=tcp://" + strings.TrimPrefix(games.URL, "http://") +
+		",home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
 		",notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1,nudge=tcp://127.0.0.1:1" +
 		",pulls=tcp://" + strings.TrimPrefix(pulls.URL, "http://") +
 		",time=tcp://" + strings.TrimPrefix(timeService.URL, "http://") +
@@ -87,6 +89,7 @@ func TestTheGatewayKeepsTheSessionFromTheServices(t *testing.T) {
 		target, service string
 		renewed         bool
 	}{
+		{"/api/games/recent", "games", true},
 		{"/api/home", "home", true},
 		{"/api/pulls/mine", "pulls", true},
 		{"/api/time/report", "time", true},

@@ -11,6 +11,7 @@ func TestTheOpenGatewayLetsEveryRequestThrough(t *testing.T) {
 	router := openGateway(t)
 
 	for _, test := range []struct{ method, target, want string }{
+		{http.MethodGet, "/api/games/recent", "games got GET /games/recent"},
 		{http.MethodGet, "/api/home", "home got GET /home"},
 		{http.MethodGet, "/api/notes/files/Inbox.md", "notes got GET /notes/files/Inbox.md"},
 		{http.MethodGet, "/api/pulls/mine", "pulls got GET /pulls/mine"},
@@ -101,9 +102,7 @@ func TestOnlyTheEndToEndBuildIsOpen(t *testing.T) {
 	// The open gateway needs nothing but its peers; the real one needs its sign-in settings too.
 	_, err := served(secretsWith(nil))(t.Context(), func(key string) string {
 		if key == "BAKHYARD_PEERS" {
-			return "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1" +
-				",nudge=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1" +
-				",time=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1,web=tcp://127.0.0.1:1"
+			return withPeers()
 		}
 
 		return ""

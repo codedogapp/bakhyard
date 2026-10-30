@@ -191,7 +191,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `shared-page-status` | The PRs, Time, Nudge and Todos pages draw the line that takes their sections' place, such as "Bitbucket isn't set up.", from one global class, for the GitHub page's, its fifth user; on phones, the Nudge page's line now leaves a section's 48 px below it. The seventh of `github-widgets`' nine steps (decision 206) | Done (#187) |
 | `github-page` | The app shows the three lists on a page of their own at `/github`, as the user chose. The eighth of `github-widgets`' nine steps (decision 207) | Done (#191) |
 | `github-attention` | The `github` service answers the attention contract, so the Home's "Needs you" lists my open PRs, the PRs that wait for my review and the issues assigned to me, as the user chose; its new source, the first change to a contract in use, brings `proto:breaking` into `check`. The last of `github-widgets`' nine steps (decision 208) | Done (#194) |
-| `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | In progress |
+| `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | Done (#188); the laptop's covers wait for a Twitch app (decision 309) |
 | `games-plan` | `games-exophase` splits in eleven steps: the Exophase client, the cache, the service, the Twitch token, the IGDB search, the covers, the laptop, the gateway, the page and its covers; the games list, the covers' matches and the Twitch token stay in memory. The first of `games-exophase`'s eleven steps (decision 300) | Done (#168) |
 | `exophase-client` | The `games` service's Exophase client: the games I last played since a given time, the last played first, each with its platforms, playtime and trophies, from the games list's pages until one ends before that time, four at most; a 403 from Cloudflare's challenge says so. The second of `games-exophase`'s eleven steps (decision 301) | Done (#172) |
 | `games-cache` | The `games` service polls Exophase only on request: the first request waits for the first poll, later ones get the latest list at once and start a poll in the background once the list is an hour old; after a failed poll the last good list stays, and the next poll waits 5 minutes, twice as long after each failure in a row, up to 6 hours. The third of `games-exophase`'s eleven steps (decision 302) | Done (#175) |
@@ -199,6 +199,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `twitch-token` | The `games` service gets a Twitch app token for IGDB with the client credentials grant, keeps it in memory until 9 tenths of its life, asks Twitch one request at a time, and forgets a token that IGDB refuses. The fifth of `games-exophase`'s eleven steps (decision 304) | Done (#181) |
 | `igdb-search` | The `games` service's IGDB client finds a title's cover: the top result of a search filtered to main games, expansions, remakes, remasters, expanded games and ports, or a game named exactly the title when the top result has another name; it asks one request at a time, at least 250 ms apart, and with a new token once when IGDB refuses one. The sixth of `games-exophase`'s eleven steps (decision 305) | Done (#183) |
 | `games-covers` | Each game in the `games` service's answer carries its IGDB cover when `BAKHYARD_TWITCH_CLIENT_ID` and the Keychain's `twitch-client-secret` are set: each title's cover, or that IGDB has none, is kept a week, the first failure stops the asking until the next fetch, and a missing cover never fails the list. The seventh of `games-exophase`'s eleven steps (decision 306) | Done (#186) |
+| `games-gateway` | The gateway forwards `/api/games` to the `games` service, behind both of its locks, so the app reaches the games I played lately at `GET /api/games/recent`. `games` is one of the gateway's peers, each of which `BAKHYARD_PEERS` must name, and `mise run up` starts the gateway once games is ready. The ninth of `games-exophase`'s eleven steps (decision 300) | Done (#188) |
 | `games-page` | The Games page lists the games I played in the last 14 days from `GET /api/games/recent`, each time it shows: for each, the day I last played it, its title, its platforms, its trophies and its playtime. A list kept from an earlier fetch, after the latest failed, gets a Stale chip after its count, and the page says that Exophase isn't set up until the gateway forwards to `games`. The Games card says "Recent games and stats from Exophase". The tenth of `games-exophase`'s eleven steps (decision 307) | Done (#190) |
 | `games-page-covers` | The Games page shows each game's cover from IGDB, 48 by 68 px, between the day and the title, and on phones at the start of the row's second line. A game without a cover, a cover still loading and one that fails to load all leave the same blank, framed as a cover is, and screen readers skip the covers. The eleventh of `games-exophase`'s eleven steps (decision 308) | Done (#193) |
 | `vault-edit-sync` | Editing the vault from Bakhyard (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one and then does `copilot-planner` (decision 195) | In progress |
@@ -435,7 +436,7 @@ flowchart LR
 | Service | Role | Listens on | Peers | Grows into (§8.2) |
 | --- | --- | --- | --- | --- |
 | nats | Event bus; JetStream on for later durable flows | `tcp://127.0.0.1:4222`, monitoring `:8222` | | reminders → notify |
-| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home, notes, notify, nudge, pulls, time, todos | auth-signin |
+| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, games, home, notes, notify, nudge, pulls, time, todos | auth-signin |
 | web | Serves the embedded Svelte build | unix socket | | frontend-shell (PWA parts) |
 | home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner | home-feed |
 | notes | Obsidian vault | unix socket | nats | vault-index, vault-render, vault-edit-sync |
@@ -611,7 +612,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 - Each service has a `description`, a `command` (`bin/<name>`, run with `bash -c` from the repo root) and an `environment` with its `BAKHYARD_LISTEN` and, for the gateway, `BAKHYARD_PEERS` (§4.7).
 - A readiness probe checks each service's `GET /healthz` (§4.7), first 1 s after the start, then every 2 s. A check gets 1 s to answer, and 3 failures in a row fail the probe.
-- The gateway `depends_on` home, notes, notify, nudge, pulls, time, todos and web with `condition: process_healthy`, so it starts once their probes pass.
+- The gateway `depends_on` games, home, notes, notify, nudge, pulls, time, todos and web with `condition: process_healthy`, so it starts once their probes pass.
 - What every service shares sits in an `x-service` YAML anchor, merged into each with `<<: *service`:
   - `availability.restart: always`: a service that exits, or fails its probe, restarts after 1 s, however often it needs to. A service stopped by hand stays stopped.
   - `shutdown.timeout_seconds: 10`: a stop sends SIGTERM to the service's process group, then SIGKILL if it's still running 10 s later. Without the timeout, process-compose never sends SIGKILL, and a hung service never stops. The group holds what a service starts too, such as the planner's Copilot CLI, so a hung CLI never outlives its service (decision 406).
@@ -1308,10 +1309,11 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `twitch-token`: the service gets a Twitch app token for IGDB, keeps it and renews it before it expires (decision 304). Done (#181).
   - `igdb-search`: the service's IGDB client finds a title's cover with a filtered search and an exact-name fallback (decisions 68 and 305), within IGDB's 4 requests a second. Done (#183).
   - `games-covers`: each game in the answer carries its IGDB cover; each title is matched once and the match kept for a week (decision 306). Done (#186).
-  - `homelab-games`: in the homelab repo, `games` runs on the laptop with its settings and secret, and the gateway's peers name it.
-  - `games-gateway`: the gateway forwards `/api/games` to `games`.
+  - `homelab-games`: done (codedogapp/homelab#44). In the homelab repo, `games` runs on the laptop with its setting, and the gateway's peers name it. Its games come without covers until there's a Twitch app (decision 309).
+  - `games-gateway`: the gateway forwards `/api/games` to `games`. Done (#188).
   - `games-page`: the Games page lists the games, and marks them stale when the latest fetch failed (decisions 67, 307); the Games card's description in the app becomes §7's. Done (#190).
   - `games-page-covers`: the Games page shows each game's cover (decision 308). Done (#193).
+  - `homelab-games-covers`: in the homelab repo, `games` gets a Twitch app's client ID and secret, so the laptop's games come with their covers. Waits for the user's Twitch app (decision 309).
 
 **Phase 6: vault edits and Copilot**
 
@@ -1898,6 +1900,8 @@ Decisions 300 to 399 are the `games-exophase` session's.
      - **IGDB**: the browser loads the covers from IGDB's image host, which the gateway's Content Security Policy allows under `img-src https:`; the gateway's `Referrer-Policy: same-origin` keeps Bakhyard's address from IGDB.
      - **The demo**: the end-to-end tests and the screenshots show covers drawn as SVG, since IGDB's are third-party material and the repo is public. With the demo games, they live in `e2e/games.ts`, since `e2e/demo.ts` had reached its 200 lines.
      - **Rejected**: the cover before the day, where every other list starts its rows with the label; a bigger cover, such as 64 by 91, which would make every row taller than its text; leaving the column out when no game has a cover, as when IGDB isn't set up, which would change the rows' shape with the service's settings; greyscale covers, since §7's monochrome is for Bakhyard's own colours; an `<img>`, with its broken-image icon, or with an error handler that swaps in the blank, which adds state for what a background does alone; the title as the cover's `alt`, which a screen reader would read twice; IGDB's `cover_small`, 90 by 128, which is blurry at 2x and would have the page rewrite the service's address; `loading="lazy"`, which a background doesn't have and a list of 14 days doesn't need.
+309. **The laptop without covers for now** (`homelab-games`): the user's choices (2026-10-30). The user has no Twitch app yet, so codedogapp/homelab#44 runs `games` with the Exophase profile alone, and the games come without covers, on the laptop as on the Mac. Once the app exists, `homelab-games-covers` adds its client ID to the Secret `games-settings`, beside the profile, rather than to `games.yaml`, and its secret to a Secret `games-secrets` mounted at `/secrets`.
+     - **Rejected**: holding codedogapp/homelab#44 and #188 until the app exists, which would keep the games off the laptop for the sake of their covers.
 
 Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-planner`.
 
