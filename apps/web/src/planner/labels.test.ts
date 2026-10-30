@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 
+import type { Conversation } from './conversation';
 import { authorLabel, sendLabel, startLabel, titleLabel, workLabel } from './labels';
 
 const words = (count: number) => Array.from({ length: count }, (_, index) => `word${index}`).join(' ');
@@ -51,19 +52,23 @@ test.each([
   expect(authorLabel(from)).toBe(want);
 });
 
-test.each([
-  { about: 'an agent at work', status: { working: true, failure: '' }, want: 'Copilot is working…' },
+const quiet: Conversation = { messages: [], writing: [], questions: [], working: false, failure: '' };
+const city = { id: 'q1', text: 'Which city?', choices: [], freeform: true };
+
+test.each<{ about: string; talk: Partial<Conversation>; want: string }>([
+  { about: 'an agent at work', talk: { working: true }, want: 'Copilot is working…' },
   {
     about: 'one at work after an error',
-    status: { working: true, failure: 'Rate limited' },
+    talk: { working: true, failure: 'Rate limited' },
     want: 'Copilot is working…',
   },
   {
-    about: 'one that stopped on an error',
-    status: { working: false, failure: 'Rate limited' },
-    want: 'Copilot stopped: Rate limited',
+    about: 'one that waits for an answer',
+    talk: { working: true, questions: [city] },
+    want: 'Copilot waits for your answer.',
   },
-  { about: 'one that stopped without one', status: { working: false, failure: '' }, want: '' },
-])('says "$want" for $about', ({ status, want }) => {
-  expect(workLabel(status)).toBe(want);
+  { about: 'one that stopped on an error', talk: { failure: 'Rate limited' }, want: 'Copilot stopped: Rate limited' },
+  { about: 'one that stopped without one', talk: {}, want: '' },
+])('says "$want" for $about', ({ talk, want }) => {
+  expect(workLabel({ ...quiet, ...talk })).toBe(want);
 });

@@ -37,17 +37,19 @@ const talk: Conversation = {
     { id: 'u2', from: 'user', text: 'Rome' },
   ],
   writing: [],
+  questions: [],
   working: true,
   failure: '',
 };
+const city = { id: 'q1', text: 'Which city?', choices: ['Rome', 'Paris'], freeform: true };
 
 const rows = () =>
   within(screen.getByRole('list'))
     .getAllByRole('listitem')
     .map((row) => row.textContent?.trim());
 
-// The line that says whether Copilot works: the page's status outside the reply form.
-const work = () => screen.getAllByRole('status').find((status) => status.closest('form') === null);
+// The line that says whether Copilot works: the page's status, outside the reply form and the questions' rows.
+const work = () => screen.getAllByRole('status').find((status) => status.closest('form, li') === null);
 
 beforeEach(() => {
   vi.stubGlobal('EventSource', FakeEvents);
@@ -81,7 +83,7 @@ test("shows the plan's conversation as it streams, and whether Copilot is workin
 test('says when the plan has no message yet', async () => {
   render(PlanPage, { props: { id: 'p1' } });
 
-  await FakeEvents.last.emit('conversation', { messages: [], writing: [], working: false, failure: '' });
+  await FakeEvents.last.emit('conversation', { messages: [], writing: [], questions: [], working: false, failure: '' });
 
   expect(screen.getByText('No messages yet.')).toBeInTheDocument();
   expect(screen.queryByRole('list')).not.toBeInTheDocument();
@@ -101,6 +103,68 @@ test('offers a reply to the plan once its conversation has loaded', async () => 
 
   expect(await screen.findByText('Sent')).toHaveRole('status');
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans/p1/messages', expect.anything());
+  expect(work()).toHaveTextContent('Copilot is working…');
+});
+
+test('shows the questions that wait after the messages, and hides the reply while one waits, keeping it', async () => {
+  render(PlanPage, { props: { id: 'p1' } });
+  await FakeEvents.last.emit('conversation', talk);
+  await fireEvent.input(screen.getByRole('textbox', { name: 'Reply' }), { target: { value: 'Make it a week' } });
+
+  await FakeEvents.last.emit('question', city);
+
+  expect(screen.getAllByRole('listitem').at(-1)).toHaveTextContent(/^Copilot\s*Which city\?/);
+  expect(screen.getByRole('button', { name: 'Rome' })).toBeInTheDocument();
+  expect(work()).toHaveTextContent('Copilot waits for your answer.');
+  expect(screen.queryByRole('textbox', { name: 'Reply' })).not.toBeInTheDocument();
+
+  await FakeEvents.last.emit('answered', city);
+
+  expect(screen.queryByText('Which city?')).not.toBeInTheDocument();
+  expect(work()).toHaveTextContent('Copilot is working…');
+  expect(screen.getByRole('textbox', { name: 'Reply' })).toHaveValue('Make it a week');
+});
+
+test('answers a question from its row, one that comes before any message too', async () => {
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(PlanPage, { props: { id: 'p1' } });
+  await FakeEvents.last.emit('conversation', { ...talk, messages: [], questions: [city] });
+  expect(screen.queryByText('No messages yet.')).not.toBeInTheDocument();
+
+  await fireEvent.click(screen.getByRole('button', { name: 'Rome' }));
+
+  expect(await screen.findByText('Sent')).toHaveRole('status');
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans/p1/questions/q1/answer', expect.anything());
+});
+
+test('keeps each answer typed with its question as another question goes', async () => {
+  const days = { id: 'q2', text: 'How many days?', choices: [], freeform: true };
+  render(PlanPage, { props: { id: 'p1' } });
+  await FakeEvents.last.emit('conversation', { ...talk, questions: [city, days] });
+  await fireEvent.input(screen.getByRole('textbox', { name: 'Answer to: How many days?' }), {
+    target: { value: 'Three' },
+  });
+
+  await FakeEvents.last.emit('answered', city);
+
+  expect(screen.getAllByRole('textbox')).toHaveLength(1);
+  expect(screen.getByRole('textbox', { name: 'Answer to: How many days?' })).toHaveValue('Three');
+});
+
+test('leaves out a question that Copilot took back as it stopped, then and as it works again', async () => {
+  render(PlanPage, { props: { id: 'p1' } });
+  await FakeEvents.last.emit('conversation', { ...talk, questions: [city] });
+
+  await FakeEvents.last.emit('status', { working: false, failure: '' });
+
+  expect(screen.queryByText('Which city?')).not.toBeInTheDocument();
+  expect(work()?.textContent).toBe('');
+  expect(screen.getByRole('textbox', { name: 'Reply' })).toBeInTheDocument();
+
+  await FakeEvents.last.emit('status', { working: true, failure: '' });
+
+  expect(screen.queryByText('Which city?')).not.toBeInTheDocument();
   expect(work()).toHaveTextContent('Copilot is working…');
 });
 

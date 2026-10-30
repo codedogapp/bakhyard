@@ -3,6 +3,7 @@ import PageHead from '../shell/PageHead.svelte';
 import Section from '../shell/Section.svelte';
 import { type Chat, followPlan } from './follow';
 import { authorLabel, workLabel } from './labels';
+import QuestionRow from './QuestionRow.svelte';
 import ReplyForm from './ReplyForm.svelte';
 
 // The plan's conversation, followed on its stream while the page shows.
@@ -24,9 +25,10 @@ $effect(() => {
   <p class="page-status">Couldn't load the plan.</p>
 {:else if chat.kind === 'loaded'}
   {@const messages = [...chat.talk.messages, ...chat.talk.writing]}
+  {@const questions = chat.talk.questions}
   <Section title="The" accent="conversation">
     <div class="card">
-      {#if messages.length > 0}
+      {#if messages.length > 0 || questions.length > 0}
         <ul class="list">
           <!-- Unkeyed: rows come and go only at the end, so a message that comes whole keeps its row. -->
           {#each messages as message}
@@ -35,13 +37,20 @@ $effect(() => {
               <span class="list-text text">{message.text}</span>
             </li>
           {/each}
+          <!-- Keyed, so each answer stays with its question as another goes. -->
+          {#each questions as question (question.id)}
+            <QuestionRow {id} {question} />
+          {/each}
         </ul>
       {:else}
         <p class="empty">No messages yet.</p>
       {/if}
     </div>
     <p class="form-status work" role="status">{workLabel(chat.talk)}</p>
-    <ReplyForm {id} />
+    <!-- Copilot takes no message while a question waits (decision 414), so the reply hides, keeping its text. -->
+    <div hidden={questions.length > 0}>
+      <ReplyForm {id} />
+    </div>
   </Section>
 {/if}
 

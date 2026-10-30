@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/codedogapp/bakhyard/internal/database"
@@ -57,6 +58,8 @@ func newPage(t *testing.T) *page {
 	}
 
 	router := chi.NewRouter()
+	// As the service does, answer HEAD with the GET handler.
+	router.Use(middleware.GetHead)
 	phone.Door{
 		Questions: site.questions,
 		Sessions:  site.sessions,
