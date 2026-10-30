@@ -1,5 +1,6 @@
 import type { Author, Status } from './conversation';
 import type { StartStatus } from './prompt.svelte';
+import type { SendStatus } from './reply.svelte';
 
 /** The most characters of a plan's title that its row shows. */
 const titleLength = 80;
@@ -31,6 +32,20 @@ export function startLabel(status: StartStatus): string {
       return 'Starting…';
     case 'started':
       return 'Started';
+    case 'failed':
+      return status.reason;
+    default:
+      return '';
+  }
+}
+
+/** The reply's status line: "Sending…", "Sent", why the send failed, or nothing before the first. */
+export function sendLabel(status: SendStatus): string {
+  switch (status.kind) {
+    case 'sending':
+      return 'Sending…';
+    case 'sent':
+      return 'Sent';
     case 'failed':
       return status.reason;
     default:
