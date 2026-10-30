@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { loadPulls, loadReviews, pullsNote, type Reviewer, reviewLine, type Snapshot } from './pulls';
+import { loadPulls, loadReviews, type Reviewer, reviewLine, type Snapshot } from './pulls';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -19,15 +19,6 @@ test.each([
 
   expect(await load()).toEqual({ kind: 'loaded', snapshot });
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith(url);
-});
-
-test.each([
-  { count: 0, want: undefined },
-  { count: 1, want: '1 PR' },
-  { count: 2, want: '2 PRs' },
-  { count: 120, want: '120 PRs' },
-])('counts $count pull requests as $want', ({ count, want }) => {
-  expect(pullsNote(count)).toBe(want);
 });
 
 test.each<{ reviewers?: Reviewer[]; want: string }>([
