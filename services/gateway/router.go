@@ -40,6 +40,7 @@ func wire(upstream upstreams, guard locks, logger *slog.Logger) http.Handler {
 	router.Group(func(api chi.Router) {
 		api.Use(guard.identified, guard.signedIn, session.Hide)
 		proxy.Register(api, "games", upstream.games, logger)
+		proxy.Register(api, "github", upstream.github, logger)
 		proxy.Register(api, "home", upstream.home, logger)
 		proxy.Register(api, "notes", upstream.notes, logger)
 		proxy.Register(api, "notify", upstream.notify, logger)

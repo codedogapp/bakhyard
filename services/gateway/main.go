@@ -111,13 +111,14 @@ func routes(getenv func(string) string, readSecret secrets.Reader) (http.Handler
 
 // upstreams are the URLs of the services that the gateway forwards to.
 type upstreams struct {
-	games, home, notes, notify, nudge, pulls, time, todos, web *url.URL
+	games, github, home, notes, notify, nudge, pulls, time, todos, web *url.URL
 }
 
-// peers returns the URLs of games, home, notes, notify, nudge, pulls, time, todos and web from
-// BAKHYARD_PEERS, or an error that names every one of them it lacks.
+// peers returns the URLs of games, github, home, notes, notify, nudge, pulls, time, todos and
+// web from BAKHYARD_PEERS, or an error that names every one of them it lacks.
 func peers(getenv func(string) string) (upstreams, error) {
 	games, gamesErr := peer(getenv, "games")
+	github, githubErr := peer(getenv, "github")
 	home, homeErr := peer(getenv, "home")
 	notes, notesErr := peer(getenv, "notes")
 	notify, notifyErr := peer(getenv, "notify")
@@ -128,7 +129,8 @@ func peers(getenv func(string) string) (upstreams, error) {
 	web, webErr := peer(getenv, "web")
 
 	err := errors.Join(
-		gamesErr, homeErr, notesErr, notifyErr, nudgeErr, pullsErr, timeErr, todosErr, webErr,
+		gamesErr, githubErr, homeErr, notesErr, notifyErr, nudgeErr, pullsErr, timeErr, todosErr,
+		webErr,
 	)
 	if err != nil {
 		return upstreams{}, err
@@ -136,6 +138,7 @@ func peers(getenv func(string) string) (upstreams, error) {
 
 	return upstreams{
 		games:  games,
+		github: github,
 		home:   home,
 		notes:  notes,
 		notify: notify,
