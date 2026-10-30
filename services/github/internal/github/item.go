@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/codedogapp/bakhyard/internal/weblink"
 )
 
 // Item is an open pull request or issue on GitHub.
@@ -70,7 +72,7 @@ func (found issue) item() (Item, error) {
 		ID:      found.Number,
 		Title:   found.Title,
 		Repo:    repo,
-		URL:     webPage(found.HTMLURL),
+		URL:     weblink.HTTPS(found.HTMLURL),
 		Draft:   found.Draft,
 		Created: found.CreatedAt.UTC(),
 		Updated: found.UpdatedAt.UTC(),
@@ -94,15 +96,4 @@ func repoOf(address string) (string, error) {
 	}
 
 	return owner + "/" + name, nil
-}
-
-// webPage returns href when it's an https URL, and an empty string when it isn't, so that the
-// app never links a javascript: URL or the like.
-func webPage(href string) string {
-	page, err := url.Parse(href)
-	if err != nil || page.Scheme != "https" || page.Host == "" {
-		return ""
-	}
-
-	return href
 }

@@ -1,6 +1,6 @@
 // Package github lists the user's open pull requests, the pull requests that wait for the user's
 // review and the open issues assigned to the user, across every owner, through the search of
-// GitHub's REST API and a personal access token (docs/plan.md §2, decisions 201 and 202).
+// GitHub's REST API and a personal access token (docs/plan.md §2, decisions 202 and 203).
 package github
 
 import (
