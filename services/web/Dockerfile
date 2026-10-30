@@ -1,5 +1,5 @@
 # Build from the repo's root: docker build -f services/web/Dockerfile . (docs/plan.md, decision 138)
-FROM --platform=$BUILDPLATFORM node:26.12.1-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS app
+FROM --platform=$BUILDPLATFORM node:26.13.0-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94 AS app
 # renovate: datasource=npm depName=pnpm
 ARG PNPM_VERSION=12.16.1
 RUN npm install --global --ignore-scripts "pnpm@$PNPM_VERSION"
