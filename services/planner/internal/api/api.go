@@ -4,6 +4,8 @@ package api
 import (
 	"context"
 	"log/slog"
+	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -20,12 +22,28 @@ type Planner interface {
 	// Conversation returns the conversation of the plan id so far, or copilot.ErrNoPlan when
 	// the planner hasn't started that plan.
 	Conversation(ctx context.Context, id string) (copilot.Conversation, error)
+	// Follow returns the conversation of the plan id so far and its updates from then on, which
+	// end with ctx or when the follower falls behind, or copilot.ErrNoPlan when the planner
+	// hasn't started that plan.
+	Follow(ctx context.Context, id string) (copilot.Conversation, <-chan copilot.Update, error)
 }
 
-// Register serves the plans on router: POST /planner/plans starts a plan (start), and
-// GET /planner/plans/{id} answers its conversation so far (conversation). Without Copilot,
-// planner is nil and the client gets a 404. Other methods get 405.
-func Register(router chi.Router, planner Planner, logger *slog.Logger) {
-	router.Post("/planner/plans", start(planner, logger))
-	router.Get("/planner/plans/{id}", conversation(planner, logger))
+// Door serves the planner's routes. Without Copilot, Planner is nil, and every route answers 404.
+type Door struct {
+	Planner Planner
+	Logger  *slog.Logger
+	// Heartbeat is how often a plan's event stream sends a comment, so that proxies keep it open.
+	Heartbeat time.Duration
+}
+
+// Register serves the plans on router: POST /planner/plans starts a plan (start),
+// GET /planner/plans/{id} answers its conversation so far (conversation), and
+// GET /planner/plans/{id}/events streams it (events). stopping ends when the service is told to
+// stop, and ends the event streams with it. Other methods get 405.
+func (d Door) Register(stopping context.Context, router chi.Router) {
+	router.Post("/planner/plans", start(d.Planner, d.Logger))
+	router.Get("/planner/plans/{id}", conversation(d.Planner, d.Logger))
+	router.Get("/planner/plans/{id}/events", func(w http.ResponseWriter, r *http.Request) {
+		d.events(stopping, w, r)
+	})
 }
