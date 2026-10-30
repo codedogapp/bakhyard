@@ -18,6 +18,9 @@ BAKHYARD_VAULT = "/Users/you/Documents/Vault"
 # the bot's token goes into the Keychain. Leave it out, as the Mac normally does, to keep notes
 # read-only.
 # BAKHYARD_VAULT_REPO = "https://gitea.tailnet.ts.net/api/v1/repos/you/vault"
+# The web address of the vault's history in Gitea, with the branch that the Mac pushes to; a note's
+# page then links to the note's history there. Leave it out for no such link.
+# BAKHYARD_VAULT_HISTORY = "https://gitea.tailnet.ts.net/you/vault/commits/branch/main"
 # The Jira site whose open tickets the todos service lists and whose worklogs the time service
 # reads, Jira's REST API for a token with scopes, and the email of the token's account; the token
 # goes into the Keychain. Leave all three out to run without Jira.
