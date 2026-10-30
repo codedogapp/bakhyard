@@ -78,7 +78,9 @@ test.each([
   answer(async () => new Response('No\n', { status }));
   render(TimePage);
 
-  expect(await screen.findByText(says)).toHaveClass('off');
+  const line = await screen.findByText(says);
+  expect(line).toHaveClass('page-status');
+  expect(line).not.toHaveClass('failure');
   expect(heads()).toEqual([]);
 });
 
@@ -90,7 +92,7 @@ test('says why the last search failed, and when the hours it shows are from', as
   expect(line).toHaveTextContent(
     'The last search failed: search worklogs: 502 Bad Gateway. These hours are from 21 October at 09:38.'
   );
-  expect(line).toHaveClass('failure');
+  expect(line).toHaveClass('page-status', 'failure');
   expect(within(line).getByText('21 October at 09:38')).toHaveAttribute('datetime', searched);
   expect(heads()).toEqual(['This week', 'Last 7 days']);
 });
@@ -101,6 +103,7 @@ test('says why the last search failed, with no section, before any search has su
 
   const line = await screen.findByText(/^The last search failed/);
   expect(line).toHaveTextContent(/^The last search failed: find me: 401 Unauthorized\.$/);
-  expect(line).toHaveClass('off');
+  expect(line).toHaveClass('page-status');
+  expect(line).not.toHaveClass('failure');
   expect(heads()).toEqual([]);
 });

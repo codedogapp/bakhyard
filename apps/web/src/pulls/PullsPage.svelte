@@ -22,7 +22,7 @@ onMount(() => {
 <PageHead>Pull requests</PageHead>
 <!-- Without Bitbucket, the pulls service answers 404 for both lists; one older than the reviews, for those alone. -->
 {#if mine.kind === 'off' && reviews.kind === 'off'}
-  <p class="off">Bitbucket isn't set up.</p>
+  <p class="page-status">Bitbucket isn't set up.</p>
 {:else}
   <PullsSection
     pulls={mine}
@@ -40,17 +40,3 @@ onMount(() => {
     failed="Couldn't load the review requests."
   />
 {/if}
-
-<style>
-.off {
-  margin: 0;
-  padding: 0 var(--page-padding) 64px;
-  color: var(--ink-muted);
-}
-
-@media (max-width: 700px) {
-  .off {
-    padding-bottom: 48px;
-  }
-}
-</style>

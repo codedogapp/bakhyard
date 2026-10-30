@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	sdk "github.com/github/copilot-sdk/go"
 )
@@ -24,10 +25,13 @@ type Settings struct {
 	Token string
 }
 
-// Client works out plans on a Copilot CLI of its own.
+// Client works out plans on a Copilot CLI of its own, and keeps those it has started.
 type Client struct {
 	copilot *sdk.Client
 	work    string
+
+	mu    sync.Mutex
+	plans map[string]*plan
 }
 
 // New returns a client for the CLI that settings name. The CLI inherits environ, less the
@@ -37,7 +41,7 @@ func New(settings Settings, environ []string) *Client {
 }
 
 func newClient(options *sdk.ClientOptions, work string) *Client {
-	return &Client{copilot: sdk.NewClient(options), work: work}
+	return &Client{copilot: sdk.NewClient(options), work: work, plans: map[string]*plan{}}
 }
 
 func clientOptions(settings Settings, environ []string) *sdk.ClientOptions {

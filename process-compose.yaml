@@ -154,6 +154,19 @@ processes:
       initial_delay_seconds: 1
       period_seconds: 2
 
+  planner:
+    <<: *service
+    description: Works out plans with the Copilot CLI
+    command: bin/planner
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8091
+    readiness_probe:
+      http_get:
+        port: 8091
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
   gateway:
     <<: *service
     description: "The only way in: /api to the services, everything else to web"

@@ -54,7 +54,7 @@ onMount(() => {
     </Section>
   {/each}
 {:else if list.failed}
-  <p class="failed">Couldn't load the todos.</p>
+  <p class="page-status">Couldn't load the todos.</p>
 {/if}
 <!-- The tickets wait for the todos to show or fail, so the todos never push them down. -->
 {#if todos || list.failed}
@@ -81,15 +81,8 @@ onMount(() => {
   list-style: none;
 }
 
-.failed {
-  margin: 0;
-  padding: 0 var(--page-padding) 64px;
-  color: var(--ink-muted);
-}
-
 @media (max-width: 700px) {
-  .last,
-  .failed {
+  .last {
     padding-bottom: 48px;
   }
 }
