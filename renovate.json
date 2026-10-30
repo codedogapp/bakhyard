@@ -16,6 +16,17 @@
       "description": ["pnpm refuses npm releases younger than a day, so Renovate waits as long (docs/plan.md §6.4)"],
       "matchDatasources": ["npm"],
       "minimumReleaseAge": "1 day"
+    },
+    {
+      "description": ["The Copilot CLI follows the version that the Copilot SDK names, not its newest release (docs/plan.md decision 74)"],
+      "matchManagers": ["mise"],
+      "matchDepNames": ["copilot"],
+      "enabled": false
+    },
+    {
+      "description": ["Each Copilot SDK release names its Copilot CLI version, which mise.toml pins (docs/plan.md decision 74)"],
+      "matchDepNames": ["github.com/github/copilot-sdk/go"],
+      "prBodyNotes": ["Set `copilot` in `mise.toml` to the `copilotCliVersion` in the SDK's `nodejs/package.json` at this release; `mise run copilot:check` fails until it matches."]
     }
   ]
 }
