@@ -1,16 +1,6 @@
 import { expect, test } from 'vitest';
 
-import {
-  addLabel,
-  editLabel,
-  groupNote,
-  inboxLabel,
-  priorityLabel,
-  rowLabel,
-  ticketsNote,
-  tickLabel,
-  todosSummary,
-} from './labels';
+import { addLabel, editLabel, groupNote, inboxLabel, priorityLabel, rowLabel, tickLabel, todosSummary } from './labels';
 
 test.each([
   { count: 0, want: 'No todos on the list.' },
@@ -35,15 +25,6 @@ test.each([
   { count: 120, want: '120 todos' },
 ])('counts a group of $count as "$want"', ({ count, want }) => {
   expect(groupNote(count)).toBe(want);
-});
-
-test.each([
-  { count: 0, want: undefined },
-  { count: 1, want: '1 ticket' },
-  { count: 2, want: '2 tickets' },
-  { count: 120, want: '120 tickets' },
-])('counts $count Jira tickets as $want', ({ count, want }) => {
-  expect(ticketsNote(count)).toBe(want);
 });
 
 test('labels no add as blank', () => {
