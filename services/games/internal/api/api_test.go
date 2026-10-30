@@ -17,6 +17,11 @@ import (
 )
 
 func TestRecentAnswersWhatWasFound(t *testing.T) {
+	hades := exophase.Game{
+		Title: "Hades", Platforms: []string{"PS5"},
+		LastPlayed: time.Date(1999, 12, 31, 22, 0, 0, 0, time.UTC),
+	}
+
 	for _, test := range []struct {
 		name  string
 		found api.Recent
@@ -25,12 +30,15 @@ func TestRecentAnswersWhatWasFound(t *testing.T) {
 		{"no games", api.Recent{}, `{"games":[],"searched":"2000-01-01T00:00:00Z"}`},
 		{
 			"a game",
-			api.Recent{Games: []exophase.Game{{
-				Title: "Hades", Platforms: []string{"PS5"},
-				LastPlayed: time.Date(1999, 12, 31, 22, 0, 0, 0, time.UTC),
-			}}},
+			api.Recent{Games: []api.Game{{Game: hades}}},
 			`{"games":[{"title":"Hades","platforms":["PS5"],"lastPlayed":"1999-12-31T22:00:00Z"}],` +
 				`"searched":"2000-01-01T00:00:00Z"}`,
+		},
+		{
+			"a game with its cover",
+			api.Recent{Games: []api.Game{{Game: hades, Cover: "https://images.example/hades.jpg"}}},
+			`{"games":[{"title":"Hades","platforms":["PS5"],"lastPlayed":"1999-12-31T22:00:00Z",` +
+				`"cover":"https://images.example/hades.jpg"}],"searched":"2000-01-01T00:00:00Z"}`,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

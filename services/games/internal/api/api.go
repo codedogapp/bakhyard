@@ -13,7 +13,16 @@ import (
 // Recent is what GET /games/recent answers beside when the latest poll to succeed began and why
 // the latest poll failed: the games I played in the last 14 days, the last played first.
 type Recent struct {
-	Games []exophase.Game `json:"games"`
+	Games []Game `json:"games"`
+}
+
+// Game is a game in the answer: what Exophase says of it, and its cover.
+type Game struct {
+	exophase.Game
+
+	// Cover is the address of the game's cover on IGDB, or "" when it has none or IGDB isn't set
+	// up.
+	Cover string `json:"cover,omitzero"`
 }
 
 // Register serves GET /games/recent on router, which answers what recent has found on Exophase,
