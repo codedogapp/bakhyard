@@ -74,6 +74,16 @@ const lines: { name: string; path: string; says: string; answer: (page: Page) =>
       await answerTickets(page, tickets);
     },
   },
+  {
+    name: 'Alerts',
+    path: '/alerts',
+    says: "Couldn't load the alerts.",
+    answer: async (page) => {
+      await page.route('/api/notify/alerts', (route) =>
+        route.fulfill({ status: 500, body: 'Internal Server Error\n' })
+      );
+    },
+  },
 ];
 
 for (const { name, path, says, answer } of lines) {

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { tick } from 'svelte';
 
+import AlertsPage from './alerts/AlertsPage.svelte';
 import GamesPage from './games/GamesPage.svelte';
 import GitHubPage from './github/GitHubPage.svelte';
 import HomePage from './home/HomePage.svelte';
@@ -90,6 +91,8 @@ $effect(() =>
       <PlanPage id={page.id} />
     {:else if page.kind === 'nudge'}
       <NudgePage />
+    {:else if page.kind === 'alerts'}
+      <AlertsPage {now} />
     {:else if page.kind === 'app'}
       <AppPage app={page.app} />
     {:else if page.kind === 'more'}

@@ -1,5 +1,5 @@
-/** An app's id: the name of its service, and of its page (plan §4.3). */
-export type AppId = 'notes' | 'todos' | 'pulls' | 'time' | 'github' | 'games' | 'planner' | 'nudge';
+/** An app's id: the name of its page, and of its service, but for Alerts, which notify serves (plan §4.3, decision 606). */
+export type AppId = 'notes' | 'todos' | 'pulls' | 'time' | 'github' | 'games' | 'planner' | 'nudge' | 'alerts';
 
 export interface App {
   id: AppId;
@@ -20,6 +20,7 @@ const catalogue: readonly Omit<App, 'number'>[] = [
   { id: 'games', label: 'Games', name: 'Games', description: 'Recent games and stats from Exophase' },
   { id: 'planner', label: 'Planner', name: 'Planner', description: 'Copilot plans saved to the vault' },
   { id: 'nudge', label: 'Nudge', name: 'Nudge', description: 'Questions from your agents, answered on your phone' },
+  { id: 'alerts', label: 'Alerts', name: 'Alerts', description: "The laptop's alerts, as they fire and resolve" },
 ];
 
 /** Every app, in the order the nav and the Home list them. */
