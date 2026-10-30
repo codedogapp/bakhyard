@@ -1,6 +1,6 @@
 import { SvelteSet } from 'svelte/reactivity';
 
-import { fetchNotes, syncNotes } from './api';
+import { fetchNotes, type Listing, syncNotes } from './api';
 
 /** The last request for the list: running, or how it ended. A Sync that worked keeps its time. */
 export type Status =
@@ -14,6 +14,8 @@ export type Status =
 export class NotesState {
   /** The vault's files from the last list that loaded; undefined until one does. */
   files = $state.raw<readonly string[]>();
+  /** Whether the notes service saves notes, from the last list that loaded (decision 400). */
+  editable = $state(false);
   status = $state.raw<Status>({ kind: 'idle' });
   filter = $state('');
   /** The paths of the open folders. */
@@ -40,7 +42,7 @@ export class NotesState {
   async #load(): Promise<void> {
     this.status = { kind: 'loading' };
     try {
-      this.files = await fetchNotes();
+      this.#take(await fetchNotes());
       this.status = { kind: 'loaded' };
     } catch {
       this.status = { kind: 'load-failed' };
@@ -59,10 +61,15 @@ export class NotesState {
   async #sync(): Promise<void> {
     this.status = { kind: 'syncing' };
     try {
-      this.files = await syncNotes();
+      this.#take(await syncNotes());
       this.status = { kind: 'synced', at: new Date() };
     } catch {
       this.status = { kind: 'sync-failed' };
     }
+  }
+
+  #take(listing: Listing): void {
+    this.files = listing.files;
+    this.editable = listing.editable;
   }
 }
