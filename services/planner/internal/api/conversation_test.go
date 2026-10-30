@@ -18,7 +18,9 @@ func TestReadingAPlanAnswersItsConversation(t *testing.T) {
 		Writing:   []copilot.Message{{ID: "m3", From: copilot.Assistant, Text: "So"}},
 		Questions: []copilot.Question{{ID: "q1", Text: "Which city?", Choices: []string{"Rome"}}},
 		Plan:      "# Plan\n",
+		Working:   true,
 	}
+	stopped := copilot.Conversation{Failure: "Quota exceeded"}
 
 	for _, test := range []struct {
 		talk copilot.Conversation
@@ -28,8 +30,9 @@ func TestReadingAPlanAnswersItsConversation(t *testing.T) {
 			`{"id":"m2","from":"assistant","text":"Where to?"}],` +
 			`"writing":[{"id":"m3","from":"assistant","text":"So"}],` +
 			`"questions":[{"id":"q1","text":"Which city?","choices":["Rome"],"freeform":false}],` +
-			`"plan":"# Plan\n"}`},
-		{copilot.Conversation{}, `{"messages":[],"writing":[],"questions":[],"plan":""}`},
+			`"plan":"# Plan\n","working":true,"failure":""}`},
+		{stopped, `{"messages":[],"writing":[],"questions":[],"plan":"",` +
+			`"working":false,"failure":"Quota exceeded"}`},
 	} {
 		rec := newPlannerAPI(&standIn{talk: test.talk}).serve(t, http.MethodGet,
 			"/planner/plans/plan-1", "")
