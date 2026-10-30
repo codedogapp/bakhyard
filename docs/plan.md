@@ -213,7 +213,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `alerts-list` | notify's `GET /notify/alerts` lists the alerts that fire and those resolved in the last 30 days. The eighth of `homelab-alerts`' steps (decisions 606 and 608) | Done (#229) |
 | `alerts-page` | The web's Alerts page, at `/alerts`, shows the alerts that fire and those of the last 30 days. The ninth of `homelab-alerts`' steps (decisions 606 and 609) | Done (#232) |
 | `alerts-push-link` | A tap on an alert's push opens the Alerts page rather than the Home. The tenth of `homelab-alerts`' steps (decision 606) | Done (#234) |
-| `alerts-attention` | notify answers the attention contract with the alerts that fire, and home asks it under the peer name `alerts`, so the Home lists them in "Needs you today". The eleventh of `homelab-alerts`' steps (decision 606) | Pending |
+| `alerts-attention` | notify answers the attention contract with the alerts that fire, and home asks it under the peer name `alerts`, so the Home lists them in "Needs you today". The eleventh of `homelab-alerts`' steps (decision 606) | Done (#235) |
 | `homelab-alerts-home` | In the homelab repo, home asks notify for its items, as the peer `alerts`, and a NetworkPolicy lets it. The twelfth of `homelab-alerts`' steps (decision 606) | Pending |
 | `alerts-page-done` | The plan records the Alerts page at work, once a live alert has shown on the page and the Home. The thirteenth of `homelab-alerts`' steps (decision 606) | Pending |
 | `vault-edit-sync` | Editing the vault from Bakhyard (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one (decisions 195 and 700) | Done (codedogapp/homelab#49) |
@@ -473,7 +473,7 @@ flowchart LR
 | nats | Event bus; JetStream on for later durable flows | `tcp://127.0.0.1:4222`, monitoring `:8222` | | reminders → notify |
 | gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, games, github, home, notes, notify, nudge, pulls, time, todos | auth-signin |
 | web | Serves the embedded Svelte build | unix socket | | frontend-shell (PWA parts) |
-| home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner | home-feed |
+| home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner, notify (as `alerts`) | home-feed |
 | notes | Obsidian vault | unix socket | nats | vault-index, vault-render, vault-edit-sync |
 | todos | Todos linked to Jira | unix socket | nats | todos-jira |
 | pulls | Bitbucket pull requests and reviewer nudges | unix socket | nats | bitbucket-prs, pr-reminders |
@@ -481,7 +481,7 @@ flowchart LR
 | github | GitHub pull requests, reviews and issues | unix socket | nats | github-widgets |
 | games | Recent games and stats from Exophase, with IGDB covers | unix socket | nats | games-exophase |
 | planner | Copilot plans saved to the vault | unix socket | nats | copilot-planner |
-| notify (later) | Web Push and the notification centre | unix socket | nats | notifications |
+| notify | Web Push, and the laptop's alerts for the Alerts page and the Home | unix socket | nats | notifications |
 
 - Internal services listen on unix sockets in `$BAKHYARD_HOME/run/svc/` (directory mode 0700). Only the gateway has a TCP port.
 - Each service owns its data directory and its tables (§3 Data).
@@ -675,7 +675,7 @@ process-compose runs the services on the Mac only, for development; the laptop r
 
 ### 4.11 Home logic
 
-> **v1.3:** as built in `home-fanout` (decision 167): home still answers `GET /home` with JSON rather than `GetHome`, and asks the peers in its own `BAKHYARD_PEERS` (§4.7), todos, pulls, time and github, rather than every service. Each call is gRPC over h2c with 1.5 s to answer. A failure other than `Unimplemented`, the timeout included, leaves that peer's items out and logs `list the items` with the peer's name, unless the request has ended. Since `home-sources` (decision 169), the answer's `sources` says how asking each peer went, `{"app","state"}` in `BAKHYARD_PEERS`' order, with the states in lower case, `ok` and `unavailable`, and no `message` yet. An item's app is its peer's name, and an item without an outside source has "Bakhyard" as its source. `late` is worked out once every peer has answered. Since `home-time-week` (decision 186), home also asks the peer named `time` for `GetWeek`, at the same time as the items and with the same 1.5 s, and answers the week with `weekState`. Since `time-attention` (decision 188), time lists items too, the weekdays with nothing logged, where it answered `Unimplemented` before. Since `github-attention` (decision 208), github lists items too, the PRs that wait for my review and the issues assigned to me, with "GitHub" as their source.
+> **v1.3:** as built in `home-fanout` (decision 167): home still answers `GET /home` with JSON rather than `GetHome`, and asks the peers in its own `BAKHYARD_PEERS` (§4.7), todos, pulls, time and github, rather than every service. Each call is gRPC over h2c with 1.5 s to answer. A failure other than `Unimplemented`, the timeout included, leaves that peer's items out and logs `list the items` with the peer's name, unless the request has ended. Since `home-sources` (decision 169), the answer's `sources` says how asking each peer went, `{"app","state"}` in `BAKHYARD_PEERS`' order, with the states in lower case, `ok` and `unavailable`, and no `message` yet. An item's app is its peer's name, and an item without an outside source has "Bakhyard" as its source. `late` is worked out once every peer has answered. Since `home-time-week` (decision 186), home also asks the peer named `time` for `GetWeek`, at the same time as the items and with the same 1.5 s, and answers the week with `weekState`. Since `time-attention` (decision 188), time lists items too, the weekdays with nothing logged, where it answered `Unimplemented` before. Since `github-attention` (decision 208), github lists items too, the PRs that wait for my review and the issues assigned to me, with "GitHub" as their source. Since `alerts-attention` (decision 610), home also asks notify, under the peer name `alerts`, which lists the laptop's alerts that fire, with "Bakhyard" as their source.
 
 - `GetHome` fans out `ListItems` to every peer except nats, concurrently (`wg.Go`), with a 1.5 s timeout each.
   - `Unimplemented` means that app has no items (OK).
@@ -1412,7 +1412,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `alerts-list`: notify's `GET /notify/alerts` lists the alerts that fire and those of the last 30 days (decisions 606 and 608). Done (#229).
   - `alerts-page`: the web's Alerts page, at `/alerts` (decisions 606 and 609). Done (#232).
   - `alerts-push-link`: a tap on an alert's push opens the Alerts page (decision 606). Done (#234).
-  - `alerts-attention`: notify answers the attention contract with the alerts that fire, so the Home lists them (decision 606).
+  - `alerts-attention`: notify answers the attention contract with the alerts that fire, so the Home lists them (decisions 606 and 610). Done (#235).
   - `homelab-alerts-home`: in the homelab repo, home asks notify for its items (decision 606).
   - `alerts-page-done`: the plan records the Alerts page at work, after a live check (decision 606).
 - `hardening-docs`. Needs `auth-signin`, `copilot-planner`, `deploy-k3s`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`.
@@ -2231,6 +2231,12 @@ Decisions 600 to 699 are the alerts session's: `homelab-alerts`.
      - **One failure line**: a failed load says "Couldn't load the alerts." in the status line, in place of both sections, as the Nudge page's does; the two lists come in one answer.
      - **The nav's fit**: with Alerts, the header's nav has ten links, and at 32 px apart the header needs 1032 px, so below that Sign out ran into the page's padding, and below 1002 px the page scrolled sideways; the nav shows from 981 px. In the tablet layout, up to 1100 px, the links sit 24 px apart, so the header needs 962 px. The next app's link needs another look. Rejected: moving the tab bar's breakpoint, which changes every tablet's layout; hiding links behind a More in the nav, which waits until the nav can't fit.
      - **The app**: Alerts is the last app, 09, so on phones it shows under More, with no tab of its own, as the apps from Time on do. Its card on the Home's "Your apps" and on the More page counts "0 items" until `alerts-attention` gives the Home the alerts that fire.
+610. **notify's items for the Home** (`alerts-attention`, #235): the lead's choices (2026-10-30), for the user to review, within decision 606.
+     - **An item**: one for each alert that fires, in the list's order (decision 608), so at most 100. Its title is the alert's summary, or its name when it has none, as the push's and the page's titles are (decisions 601 and 609), which fills in decision 606's summary; its detail is the description. With no source, the Home says "Bakhyard"; with no due time, the items sort after those that have one, by title. They count on the Alerts card of "Your apps" and of the More page.
+     - **The id**: the alert's fingerprint and when it fired, in UTC to the microsecond, such as `c4f6a1b2d3e4f5a6@2026-10-30T12:00:00.123456Z`: the table's key (decision 606). The Home draws its items keyed by id, so two must never share one. The fingerprint alone repeats when a lost resolve leaves an old firing beside a new one; a name and a time repeat when one rule's alerts fire at the same evaluation, such as FilesystemFull on two devices. The store's list gains the fingerprint, which its JSON leaves out.
+     - **The mount**: notify serves the contract over gRPC beside its routes, as todos does. The gateway forwards only `/api/notify/…` to notify, so the contract stays inside.
+     - **A failed read**: `ListItems` returns the store's error, so home marks `alerts` unavailable and logs it (§4.11), as with any peer.
+     - **Under `mise run up`**: home's `BAKHYARD_PEERS` gains `alerts=tcp://127.0.0.1:8086`, notify's address, first in the peers' alphabetical order, so the Home's `sources` start with it.
 
 Decisions 700 to 799 are the planner session's: the rest of `copilot-planner`.
 

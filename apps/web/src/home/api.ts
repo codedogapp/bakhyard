@@ -1,7 +1,7 @@
 import type { Week } from '../time/week';
 
 /** The apps that have items so far, as home names them. */
-type App = 'github' | 'planner' | 'pulls' | 'time' | 'todos';
+type App = 'alerts' | 'github' | 'planner' | 'pulls' | 'time' | 'todos';
 
 /** Where the items come from so far: an outside service, or Bakhyard itself. */
 type Source = 'Bakhyard' | 'Bitbucket' | 'Copilot' | 'GitHub' | 'Jira';

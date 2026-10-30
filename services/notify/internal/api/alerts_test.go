@@ -110,6 +110,7 @@ func TestAlertsSayWhatAGroupNeeds(t *testing.T) {
 func TestAlertsListAnswersTheKeptAlerts(t *testing.T) {
 	alerts := &fakeHistory{entries: []history.Entry{
 		{
+			Fingerprint: "a1b2c3d4e5f6a7b8",
 			Name:        "OnBattery",
 			Summary:     "The laptop runs on its battery",
 			Description: "Plug it in",
