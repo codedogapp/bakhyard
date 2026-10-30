@@ -1,5 +1,5 @@
-// Package api serves notify's HTTP routes: the app's key and subscriptions, and the internal
-// routes that services and Alertmanager send notifications through.
+// Package api serves notify's HTTP routes: the app's key, subscriptions and alerts, and the
+// internal routes that services and Alertmanager send notifications through.
 package api
 
 import (
@@ -13,6 +13,7 @@ import (
 
 	"github.com/codedogapp/bakhyard/internal/jsonbody"
 	"github.com/codedogapp/bakhyard/services/notify/internal/alert"
+	"github.com/codedogapp/bakhyard/services/notify/internal/history"
 	"github.com/codedogapp/bakhyard/services/notify/internal/push"
 	"github.com/codedogapp/bakhyard/services/notify/internal/subscription"
 )
@@ -27,20 +28,22 @@ type Sender interface {
 	Send(ctx context.Context, message push.Message) error
 }
 
-// Keeper keeps the alerts that Alertmanager posts.
-type Keeper interface {
+// History keeps the alerts that Alertmanager posts, and lists them.
+type History interface {
 	Keep(ctx context.Context, alerts []alert.Alert) error
+	List(ctx context.Context) ([]history.Entry, error)
 }
 
 // Backends are what notify's endpoints run on.
 type Backends struct {
 	Devices Adder
 	Sender  Sender
-	Alerts  Keeper
+	Alerts  History
 }
 
 // Register serves notify on router. GET /notify/key answers the public key that a browser
-// subscribes with, and POST /notify/subscriptions stores a browser's subscription. POST
+// subscribes with, POST /notify/subscriptions stores a browser's subscription, and GET
+// /notify/alerts answers the alerts that fire and those that resolved in the last 30 days. POST
 // /internal/send, outside /notify so that the gateway never forwards to it, pushes a message to
 // every device; only other services in the cluster reach it. POST /internal/alerts, outside
 // /notify too, takes the webhook of the cluster's Alertmanager, which alone reaches it, keeps its
@@ -72,6 +75,29 @@ func Register(router chi.Router, publicKey string, backends Backends, logger *sl
 		lenient: true,
 		do:      backends.alerts,
 	}.handler(logger))
+	router.Get("/notify/alerts", listAlerts(backends.Alerts, logger))
+}
+
+// listAlerts returns the handler of GET /notify/alerts. When the alerts can't be read, the client
+// gets a 500 and logger gets the cause.
+func listAlerts(alerts History, logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		entries, err := alerts.List(r.Context())
+		if err != nil {
+			logger.ErrorContext(r.Context(), "list the alerts", "err", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		// The alerts hold text from the UTF8 database alone, so they always encode: an error
+		// means the client has gone.
+		_ = json.MarshalWrite(w, struct {
+			Alerts []history.Entry `json:"alerts"`
+		}{entries})
+	}
 }
 
 // alerts keeps group's alerts and then pushes the group. A group that isn't one of alerts that

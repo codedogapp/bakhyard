@@ -10,6 +10,7 @@ import (
 
 	"github.com/codedogapp/bakhyard/services/notify/internal/alert"
 	"github.com/codedogapp/bakhyard/services/notify/internal/api"
+	"github.com/codedogapp/bakhyard/services/notify/internal/history"
 	"github.com/codedogapp/bakhyard/services/notify/internal/push"
 )
 
@@ -37,29 +38,34 @@ const webhook = `{
 	}]
 }`
 
-type fakeKeeper struct {
-	err  error
-	kept [][]alert.Alert
+type fakeHistory struct {
+	err     error
+	kept    [][]alert.Alert
+	entries []history.Entry
 }
 
-func (f *fakeKeeper) Keep(_ context.Context, alerts []alert.Alert) error {
+func (f *fakeHistory) Keep(_ context.Context, alerts []alert.Alert) error {
 	f.kept = append(f.kept, alerts)
 
 	return f.err
 }
 
+func (f *fakeHistory) List(context.Context) ([]history.Entry, error) {
+	return f.entries, f.err
+}
+
 func TestAlertsKeepTheAlertsAndPushTheGroup(t *testing.T) {
-	sender, keeper := &fakeSender{}, &fakeKeeper{}
-	router, _ := serve(t, api.Backends{Devices: fakeDevices{}, Sender: sender, Alerts: keeper})
+	sender, alerts := &fakeSender{}, &fakeHistory{}
+	router, _ := serve(t, api.Backends{Devices: fakeDevices{}, Sender: sender, Alerts: alerts})
 
 	do(router, http.MethodPost, "/internal/alerts", webhook)
 
-	if len(keeper.kept) != 1 || len(keeper.kept[0]) != 1 {
-		t.Fatalf("kept %+v, want the one alert", keeper.kept)
+	if len(alerts.kept) != 1 || len(alerts.kept[0]) != 1 {
+		t.Fatalf("kept %+v, want the one alert", alerts.kept)
 	}
 
 	started := time.Date(2026, 10, 30, 12, 0, 0, 123456789, time.UTC)
-	if got := keeper.kept[0][0]; got.Fingerprint != "c4f6a1b2d3e4f5a6" ||
+	if got := alerts.kept[0][0]; got.Fingerprint != "c4f6a1b2d3e4f5a6" ||
 		!got.StartsAt.Equal(started) || !got.EndsAt.IsZero() ||
 		got.Labels["alertname"] != "DiskFull" {
 		t.Errorf("kept %+v, want DiskFull's alert, started at %v, not ended", got, started)
@@ -74,7 +80,7 @@ func TestAlertsKeepTheAlertsAndPushTheGroup(t *testing.T) {
 func TestAlertsThatCantBeKeptAreNotPushed(t *testing.T) {
 	sender := &fakeSender{}
 	router, logs := serve(t, api.Backends{
-		Devices: fakeDevices{}, Sender: sender, Alerts: &fakeKeeper{err: errors.New("down")},
+		Devices: fakeDevices{}, Sender: sender, Alerts: &fakeHistory{err: errors.New("down")},
 	})
 
 	rec := do(router, http.MethodPost, "/internal/alerts", webhook)
@@ -86,13 +92,77 @@ func TestAlertsThatCantBeKeptAreNotPushed(t *testing.T) {
 }
 
 func TestAlertsSayWhatAGroupNeeds(t *testing.T) {
-	sender, keeper := &fakeSender{}, &fakeKeeper{}
-	router, _ := serve(t, api.Backends{Devices: fakeDevices{}, Sender: sender, Alerts: keeper})
+	sender, alerts := &fakeSender{}, &fakeHistory{}
+	router, _ := serve(t, api.Backends{Devices: fakeDevices{}, Sender: sender, Alerts: alerts})
 
 	rec := do(router, http.MethodPost, "/internal/alerts", `{"status":"pending","alerts":[{}]}`)
 	if rec.Code != http.StatusBadRequest || rec.Body.String() != alert.ErrInvalid.Error()+"\n" ||
-		len(sender.sent) != 0 || len(keeper.kept) != 0 {
+		len(sender.sent) != 0 || len(alerts.kept) != 0 {
 		t.Errorf("got %d %q, sent %+v and kept %+v, want a 400 that says what's missing",
-			rec.Code, rec.Body, sender.sent, keeper.kept)
+			rec.Code, rec.Body, sender.sent, alerts.kept)
+	}
+}
+
+func TestAlertsListAnswersTheKeptAlerts(t *testing.T) {
+	alerts := &fakeHistory{entries: []history.Entry{
+		{
+			Name:        "OnBattery",
+			Summary:     "The laptop runs on its battery",
+			Description: "Plug it in",
+			StartedAt:   time.Date(2026, 10, 30, 13, 0, 0, 0, time.UTC),
+		},
+		{
+			Name:        "DiskFull",
+			Summary:     "A filesystem is nearly full",
+			Description: "/ is 91% full",
+			StartedAt:   time.Date(2026, 10, 30, 12, 0, 0, 0, time.FixedZone("", 3600)),
+			ResolvedAt:  time.Date(2026, 10, 30, 12, 30, 0, 123456000, time.UTC),
+		},
+	}}
+	router, _ := serve(
+		t,
+		api.Backends{Devices: fakeDevices{}, Sender: &fakeSender{}, Alerts: alerts},
+	)
+
+	rec := do(router, http.MethodGet, "/notify/alerts", "")
+
+	want := `{"alerts":[{"name":"OnBattery","summary":"The laptop runs on its battery",` +
+		`"description":"Plug it in","startedAt":"2026-10-30T13:00:00Z"},` +
+		`{"name":"DiskFull","summary":"A filesystem is nearly full",` +
+		`"description":"/ is 91% full","startedAt":"2026-10-30T12:00:00+01:00",` +
+		`"resolvedAt":"2026-10-30T12:30:00.123456Z"}]}`
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/json" ||
+		rec.Body.String() != want {
+		t.Errorf("got %d %q %s, want 200 and %s", rec.Code, rec.Header().Get("Content-Type"),
+			rec.Body, want)
+	}
+}
+
+func TestAlertsListAnswersByItsOutcome(t *testing.T) {
+	for _, test := range []struct {
+		name, method string
+		alerts       *fakeHistory
+		want         int
+		body, logged string
+	}{
+		{"none", http.MethodGet, &fakeHistory{}, http.StatusOK, `{"alerts":[]}`, ""},
+		{
+			"a failure", http.MethodGet, &fakeHistory{err: errors.New("down")},
+			http.StatusInternalServerError, "Internal Server Error\n", "list the alerts",
+		},
+		{"another method", http.MethodPut, &fakeHistory{}, http.StatusMethodNotAllowed, "", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			router, logs := serve(t, api.Backends{
+				Devices: fakeDevices{}, Sender: &fakeSender{}, Alerts: test.alerts,
+			})
+
+			rec := do(router, test.method, "/notify/alerts", "")
+			if rec.Code != test.want || rec.Body.String() != test.body ||
+				!strings.Contains(logs.String(), test.logged) {
+				t.Errorf("got %d %q with the log %q, want %d %q", rec.Code, rec.Body, logs,
+					test.want, test.body)
+			}
+		})
 	}
 }
