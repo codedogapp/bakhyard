@@ -43,7 +43,7 @@ type Update struct {
 // closes. Updates that come while Follow reads the conversation can repeat its messages, which
 // Conversation.Repeats tells.
 func (c *Client) Follow(ctx context.Context, id string) (Conversation, <-chan Update, error) {
-	planned, err := c.find(id)
+	planned, err := c.find(ctx, id)
 	if err != nil {
 		return Conversation{}, nil, err
 	}

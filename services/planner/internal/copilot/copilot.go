@@ -25,13 +25,16 @@ type Settings struct {
 	Token string
 }
 
-// Client works out plans on a Copilot CLI of its own, and keeps those it has started.
+// Client works out plans on a Copilot CLI of its own, and holds those it has started or brought
+// back from the CLI.
 type Client struct {
 	copilot *sdk.Client
 	work    string
 	// stopped closes as the client stops, with stop, which ends the questions' waits.
 	stopped <-chan struct{}
 	stop    func()
+	// resuming lets one plan of an earlier run come back at a time.
+	resuming sync.Mutex
 
 	mu    sync.Mutex
 	plans map[string]*plan

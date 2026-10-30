@@ -55,7 +55,7 @@ func (d Door) events(stopping context.Context, w http.ResponseWriter, r *http.Re
 }
 
 // follow follows the plan in the path until the page leaves, and reports whether it can. Without
-// Copilot, or for a plan that the planner hasn't started, it answers 404; for an error from
+// Copilot, or for a plan that the planner doesn't keep, it answers 404; for an error from
 // Copilot it answers 502, and the logger gets the cause.
 func (d Door) follow(
 	w http.ResponseWriter,

@@ -23,19 +23,19 @@ type Planner interface {
 	// Plan starts a plan for prompt and returns its ID.
 	Plan(ctx context.Context, prompt string) (string, error)
 	// Conversation returns the conversation of the plan id so far, or copilot.ErrNoPlan when
-	// the planner hasn't started that plan.
+	// the planner keeps no such plan.
 	Conversation(ctx context.Context, id string) (copilot.Conversation, error)
 	// Follow returns the conversation of the plan id so far and its updates from then on, which
 	// end with ctx or when the follower falls behind, or copilot.ErrNoPlan when the planner
-	// hasn't started that plan.
+	// keeps no such plan.
 	Follow(ctx context.Context, id string) (copilot.Conversation, <-chan copilot.Update, error)
 	// Answer hands answer to its question of the plan id, which then no longer waits. It returns
-	// copilot.ErrNoPlan when the planner hasn't started that plan, copilot.ErrNoQuestion when
-	// the question doesn't wait, and copilot.ErrNotAChoice when the answer isn't one of the
-	// choices of a question that takes no other.
-	Answer(id string, answer copilot.Answer) error
+	// copilot.ErrNoPlan when the planner keeps no such plan, copilot.ErrNoQuestion when the
+	// question doesn't wait, and copilot.ErrNotAChoice when the answer isn't one of the choices
+	// of a question that takes no other.
+	Answer(ctx context.Context, id string, answer copilot.Answer) error
 	// Send sends text to the plan id as the user's next message, or returns copilot.ErrNoPlan
-	// when the planner hasn't started that plan.
+	// when the planner keeps no such plan.
 	Send(ctx context.Context, id, text string) error
 }
 

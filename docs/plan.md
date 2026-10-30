@@ -220,6 +220,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-asked` | The agent's questions and the user's answers show among a plan's messages, read from the CLI's record of `ask_user`'s calls: once a call has ended, its question as the assistant's message and its answer as the user's, in `GET /planner/plans/{id}` and as the stream's `message` (decision 412) | Done (#200) |
 | `planner-list` | `GET /planner/plans` lists the plans that the CLI keeps, those of the service's earlier runs among them, the last updated first, as `{"plans":[…]}`: each with its `id`, the CLI's `title` for it, `started_at` and `updated_at`. `planner-resume` splits in three, so `copilot-planner` has twenty-one steps (decision 413) | Done (#201) |
 | `planner-send` | `POST /planner/plans/{id}/messages`, with a body such as `{"text":"Make it a week"}`, sends a follow-up message to a plan, in plan mode like the prompt, so that the agent works the plan out further: 204, or 404 for a plan that the client hasn't started, and 400 for a blank text (decision 414) | Done (#202) |
+| `planner-resume` | The planner's client brings back a plan of an earlier run as a route asks for it: it looks the plan up in the CLI, resumes its session with a new plan's settings, one plan at a time, and holds it until the service stops, so that it reads, streams, and takes answers and follow-ups, with its plan from the plan file in its session's workspace; a plan that the CLI doesn't keep gets a 404, and an error from Copilot a 502, on the answer route too (decision 415) | In progress |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1328,7 +1329,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-asked`: the questions asked and their answers show among a plan's messages, from the CLI's record of `ask_user`'s calls (decision 412). Done (#200).
   - `planner-list`: `GET /planner/plans` lists the plans that the CLI keeps, those of earlier runs among them (decision 413). Done (#201).
   - `planner-send`: `POST /planner/plans/{id}/messages` sends a follow-up message to a plan (decision 414). Done (#202).
-  - `planner-resume`: the client brings back a plan of an earlier run as it's asked for, so that it reads, streams, and takes answers and follow-ups, with its plan.
+  - `planner-resume`: the client brings back a plan of an earlier run as it's asked for, so that it reads, streams, and takes answers and follow-ups, with its plan (decision 415).
   - `planner-image`: the service's image, with the CLI in it.
   - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it.
   - `planner-gateway`: the gateway forwards `/api/planner` to `planner`.
@@ -1970,6 +1971,15 @@ Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-p
      - **Known gap**: the agent's turn isn't over while one of its questions waits, so a message sent then waits until the question has its answer. `planner-ask`'s page will deal with it.
      - **Live check**: whether the agent brings a revised plan waits for the work account's token, as the other planner steps' live checks do (decision 403).
      - **Rejected**: 201 or 202 with the message's ID, which the page doesn't need, since the stream brings the message with the ID that the conversation uses; interjecting the message into the agent's turn (`immediate`), which the SDK marks experimental; the session's current mode, which isn't plan mode once the plan has come.
+415. **Bringing back a plan** (`planner-resume`): the lead's choices (2026-10-30), for the user to review.
+     - **When**: as a route asks for a plan that the client doesn't hold, the client looks it up with the SDK's `GetSessionMetadata`, which needs no token, then resumes its session with the settings and handlers that `Plan` gives a new one, and holds it until the service stops. A plan that the CLI doesn't keep gets `ErrNoPlan`, so a 404, `no such plan`, without a resume. Every route of a plan finds it this way, so `Answer` takes the request's context, and an error from Copilot on the answer route gets a 502, as on the other routes, where decision 411 had a 500.
+     - **One at a time**: the page asks for a plan's conversation and its stream at once. The SDK keeps one session per ID, so a second resume of a session would take its events from the plan that the first brought back. So one plan comes back at a time, and the client looks again once its turn comes; the plans it holds don't wait.
+     - **The plan**: the CLI records neither the plan that `exit_plan_mode` brings nor the request that brings it, so the client reads the plan from `plan.md` in the session's workspace, the folder that the SDK's `WorkspacePath` names, where the agent writes it. Without the file, or without a workspace, the plan has none yet.
+     - **Pending work**: a tool call that was still running as the service stopped ends as interrupted (`ContinuePendingWork` false), as the stop ends the questions that wait (decision 410).
+     - **The CLI's check**: a resume checks the token and the host, as starting a plan does, even for a session that the CLI doesn't keep, so the lookup comes first. A refused token gives a 502 for an earlier run's plan, as for a new one.
+     - **Known gap**: a plan file that the agent was still writing as the service stopped shows as the plan after a restart, though live the plan shows only once `exit_plan_mode` brings it.
+     - **Live check**: whether an earlier run's plan comes back and takes a follow-up waits for the work account's token, as the other planner steps' live checks do (decision 403). A spike on CLI 1.0.105, with copies of local sessions and without a token, saw the lookup answer nothing for an unknown ID and the session for a known one, and the resume fail on the token in about 0.2 s; planner answered those 404 and 502.
+     - **Rejected**: the experimental `session.plan.read`, as decision 405 turned it down; the plan file only for a plan whose record has an `exit_plan_mode` call, which would still show the file as the agent edited it since; resuming every plan as the service starts, which would check the token for plans that nobody opens; trying the resume and reading its error, since the CLI checks the token first; the CLI's default for pending work, which isn't documented.
 
 Decisions 500 on are the orchestrator's, after 199.
 

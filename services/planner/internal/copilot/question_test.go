@@ -75,7 +75,11 @@ func TestQuestion(t *testing.T) {
 		t.Errorf("Conversation = %+v, %v, want the question waiting", talk, err)
 	}
 
-	if err := client.Answer(planID, Answer{Question: asked.ID, Text: "Rome"}); err != nil {
+	if err := client.Answer(
+		t.Context(),
+		planID,
+		Answer{Question: asked.ID, Text: "Rome"},
+	); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,7 +92,7 @@ func TestQuestion(t *testing.T) {
 func TestAnswerForAnUnknownPlan(t *testing.T) {
 	client := started(t, newFakeCLI("", ""))
 
-	err := client.Answer("unknown", Answer{Question: "q1", Text: "Rome"})
+	err := client.Answer(t.Context(), "unknown", Answer{Question: "q1", Text: "Rome"})
 	if !errors.Is(err, ErrNoPlan) {
 		t.Errorf("Answer = %v, want ErrNoPlan", err)
 	}

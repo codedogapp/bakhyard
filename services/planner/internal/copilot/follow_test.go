@@ -165,9 +165,9 @@ func TestFollowFails(t *testing.T) {
 		t.Errorf("Follow = %v, %v, want the CLI's error", updates, err)
 	}
 
-	planned, err := client.find(planID)
-	if err != nil {
-		t.Fatal(err)
+	planned, found := client.held(planID)
+	if !found {
+		t.Fatal("the client doesn't hold the plan")
 	}
 
 	planned.mu.Lock()

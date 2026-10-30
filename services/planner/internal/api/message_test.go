@@ -60,7 +60,7 @@ func TestSendingAMessageTakesUpTo64KiB(t *testing.T) {
 	}
 }
 
-func TestSendingAMessageToAPlanNotStartedIsNotFound(t *testing.T) {
+func TestSendingAMessageToAnUnknownPlanIsNotFound(t *testing.T) {
 	planner := newPlannerAPI(&standIn{})
 
 	rec := planner.serve(t, http.MethodPost, "/planner/plans/plan-2/messages",
