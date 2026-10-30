@@ -18,9 +18,9 @@ type list struct {
 
 // Register scans the vault in folder, and fails if it can't. Then it serves the vault on router:
 // GET /notes lists its files, GET /notes/files/<path> returns one of them, and POST /notes/sync
-// scans the vault again. With a store, PUT /notes/files/<path> saves a note in it, and the list
-// says so. Other methods get 405, and logger gets the errors that reading the vault, or saving to
-// it, runs into.
+// scans the vault again. With a store, PUT /notes/files/<path> saves a note in it, POST
+// /notes/files/<path> makes a new one, and the list says so. Other methods get 405, and logger
+// gets the errors that reading the vault, or writing to it, runs into.
 func Register(router chi.Router, folder string, store Store, logger *slog.Logger) error {
 	idx, err := newIndex(folder)
 	if err != nil {
@@ -37,6 +37,7 @@ func Register(router chi.Router, folder string, store Store, logger *slog.Logger
 
 	if editable {
 		router.Put(filesPath+"*", saver{idx: idx, store: store, logger: logger}.ServeHTTP)
+		router.Post(filesPath+"*", creator{idx: idx, store: store, logger: logger}.ServeHTTP)
 	}
 
 	return nil

@@ -20,8 +20,7 @@ func Scan(fsys fs.FS) ([]string, error) {
 			return err
 		}
 
-		name := entry.Name()
-		if path != "." && (strings.HasPrefix(name, ".") || !utf8.ValidString(name)) {
+		if path != "." && skipped(entry.Name()) {
 			return skip(entry)
 		}
 
@@ -36,6 +35,32 @@ func Scan(fsys fs.FS) ([]string, error) {
 	}
 
 	return files, nil
+}
+
+// maxName is the longest folder or file name, in bytes, that the file systems of Linux, ext4's
+// among them, take, so the longest that a vault's checkout on the laptop can hold.
+const maxName = 255
+
+// Listable reports whether Scan could list a regular file at name, a slash-separated path such as
+// "Notes/Inbox.md": one that io/fs calls valid, with no folder or file on it that Scan skips,
+// "." included, or that's longer than a checkout can hold.
+func Listable(name string) bool {
+	if !fs.ValidPath(name) {
+		return false
+	}
+
+	for segment := range strings.SplitSeq(name, "/") {
+		if skipped(segment) || len(segment) > maxName {
+			return false
+		}
+	}
+
+	return true
+}
+
+// skipped reports whether Scan skips a folder or file named name.
+func skipped(name string) bool {
+	return strings.HasPrefix(name, ".") || !utf8.ValidString(name)
 }
 
 // skip leaves out entry: the whole folder if it is one, else the file alone.
