@@ -187,7 +187,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `github-service` | A new `github` service polls the three searches as it starts and every 5 minutes after, and answers them at `GET /github/mine`, `GET /github/reviews` and `GET /github/issues`; without GitHub's setting it answers 404. `mise run up` runs it on port 8089 and the Gitea workflow builds its image. The third of `github-widgets`' seven steps (decisions 200 and 204) | Done (#176) |
 | `homelab-github` | The homelab repo runs the `github` service on the laptop, with the token in a Secret, and names it among the gateway's and home's peers, before `github-gateway` makes the gateway require it. The fourth of `github-widgets`' seven steps (decision 200) | Pending |
 | `github-gateway` | The gateway forwards `/api/github` to the `github` service, behind both of its locks. The fifth of `github-widgets`' seven steps (decision 200) | Pending |
-| `shared-polled-section` | The PRs page's lists and the Todos page's Jira tickets show a poller's list through one component in the shell, `PolledSection`, for the GitHub page's lists, its third user; nothing changes on screen. The sixth of `github-widgets`' eight steps (decision 205) | Pending |
+| `shared-polled-section` | The PRs page's lists and the Todos page's Jira tickets show a poller's list through one component in the shell, `PolledSection`, for the GitHub page's lists, its third user; nothing changes on screen. The sixth of `github-widgets`' eight steps (decision 205) | Done (#184) |
 | `github-page` | The app shows the three lists, on a page of their own at `/github` or beside Bitbucket's on the PRs page, as the user chooses. The seventh of `github-widgets`' eight steps (decisions 200 and 205) | Pending |
 | `github-attention` | The `github` service answers the attention contract, so the Home's "Needs you" lists what the user chooses of the review requests, the issues assigned to me and my PRs. The last of `github-widgets`' eight steps (decisions 200 and 205) | Pending |
 | `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | In progress |
@@ -1262,7 +1262,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `github-service`: the `github` service polls the three searches every 5 minutes, within search's 30 requests a minute, and answers them at `GET /github/mine`, `/github/reviews` and `/github/issues`, or 404 without its setting (decision 204). Done (#176).
   - `homelab-github`: the laptop runs the service, with its token in a Secret, before the gateway requires it.
   - `github-gateway`: the gateway forwards `/api/github` to the service.
-  - `shared-polled-section`: the PRs page's lists and the Todos page's Jira tickets show a poller's list through one component in the shell, for the GitHub page's lists; nothing changes on screen (decision 205).
+  - `shared-polled-section`: the PRs page's lists and the Todos page's Jira tickets show a poller's list through one component in the shell, for the GitHub page's lists; nothing changes on screen (decision 205). Done (#184).
   - `github-page`: the lists in the app, where the user chooses: a page of their own at `/github`, or beside Bitbucket's on the PRs page.
   - `github-attention`: what the user chooses of the lists reaches the Home's "Needs you", over the attention contract.
 
