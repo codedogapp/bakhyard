@@ -37,11 +37,18 @@ func TestGatherGathersEveryPeersItems(t *testing.T) {
 			Id: new("web#1"), Title: new("Ship"), Source: new(attentionv1.Source_SOURCE_BITBUCKET),
 		}.Build(),
 	))
+	github := serveAttention(t, answer(
+		attentionv1.Item_builder{
+			Id: new("acme/api#3"), Title: new("Cache the search"),
+			Source: new(attentionv1.Source_SOURCE_GITHUB),
+		}.Build(),
+	))
 
 	got, sources, logs := gather(
 		t,
 		env.Peer{Name: "todos", Address: todos},
 		env.Peer{Name: "pulls", Address: pulls},
+		env.Peer{Name: "github", Address: github},
 	)
 
 	want := []screen.Item{
@@ -52,12 +59,16 @@ func TestGatherGathersEveryPeersItems(t *testing.T) {
 		{ID: "todos/7", App: "todos", Title: "Call the bank", Source: screen.SourceBakhyard},
 		{ID: "todos/8", App: "todos", Source: screen.SourceBakhyard},
 		{ID: "pulls/web#1", App: "pulls", Title: "Ship", Source: screen.SourceBitbucket},
+		{
+			ID: "github/acme/api#3", App: "github", Title: "Cache the search",
+			Source: screen.SourceGitHub,
+		},
 	}
 	if !slices.EqualFunc(got, want, sameItem) {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 
-	checkSources(t, sources, ok("todos"), ok("pulls"))
+	checkSources(t, sources, ok("todos"), ok("pulls"), ok("github"))
 
 	if logs != "" {
 		t.Errorf("logged %q, want nothing", logs)
