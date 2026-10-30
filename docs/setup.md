@@ -1,6 +1,6 @@
 # Setup
 
-What a machine needs before `mise run up` can run Bakhyard: the local settings, `tailscale serve`, a Google OAuth client and its secret in the Keychain, and Postgres; Jira and Bitbucket are optional. [The plan](plan.md) says why (§3 Auth, §3 Data, §4.7).
+What a machine needs before `mise run up` can run Bakhyard: the local settings, `tailscale serve`, a Google OAuth client and its secret in the Keychain, and Postgres; Jira, Bitbucket and GitHub are optional. [The plan](plan.md) says why (§3 Auth, §3 Data, §4.7).
 
 ## Local settings
 
@@ -24,11 +24,12 @@ cp mise.local.example.toml mise.local.toml
 | `BAKHYARD_BITBUCKET_API` | pulls | Bitbucket's REST API, `https://api.bitbucket.org/2.0`, where pulls lists your open pull requests ([below](#bitbucket)) |
 | `BAKHYARD_BITBUCKET_EMAIL` | pulls | The email of the Atlassian account that owns the Bitbucket token |
 | `BAKHYARD_BITBUCKET_WORKSPACES` | pulls | The slugs of the workspaces to list your open pull requests in, separated by commas |
+| `BAKHYARD_GITHUB_API` | github | GitHub's REST API, `https://api.github.com`, where github searches for your open pull requests, review requests and issues ([below](#github)) |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
-The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, notify, nudge, pulls, time and todos to start. Todos and time run without Jira when none of the three Jira settings is set, and pulls without Bitbucket when none of the three Bitbucket settings is set.
+The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, notify, nudge, pulls, time and todos to start. Todos and time run without Jira when none of the three Jira settings is set, pulls without Bitbucket when none of the three Bitbucket settings is set, and github without GitHub when `BAKHYARD_GITHUB_API` isn't set.
 
-On the Mac, the gateway, todos, pulls and time read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
+On the Mac, the gateway, todos, pulls, time and github read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`, `github-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
 
 ## Tailscale
 
@@ -162,6 +163,21 @@ Pulls lists open pull requests on Bitbucket Cloud, in the workspaces you name: t
 The API's URL must be https, as Jira's must; only a loopback IP address may take http, for a stand-in Bitbucket in tests. Spaces around a slug don't count, and a workspace named twice is listed once. With only some of the settings, a URL that isn't https, an empty slug, `.` or `..` among the slugs, or no token in the Keychain, pulls exits 1 and says which: `BAKHYARD_BITBUCKET_EMAIL is not set`, `BAKHYARD_BITBUCKET_API: "…" is not an https URL`, `BAKHYARD_BITBUCKET_WORKSPACES: "acme,,globex" is not a list of workspace slugs` or `read the Bitbucket token: no Keychain item with service bakhyard and account bitbucket-token`. Without any of the settings, `GET /api/pulls/mine` and `GET /api/pulls/reviews` answer 404 `Bitbucket is not set up`. Pulls polls Bitbucket as it starts and every 5 minutes after: it asks who you are, then lists your open pull requests in each workspace, with who reviews each and where each stands. It looks for the pull requests that wait for your review as it starts and every 15 minutes after: it lists each workspace's repositories, the latest updated first, then asks each of the 100 latest updated across the workspaces for its open pull requests with you among the reviewers, and `GET /api/pulls/reviews` answers them; a pull request in an older repository doesn't show. When Bitbucket refuses the token, for example once it has expired, `GET /api/pulls/mine` keeps answering what the last poll to succeed found, adds Bitbucket's answer as its `failure`, such as `find me on Bitbucket: 401 Unauthorized`, and pulls logs `poll Bitbucket` with it; `GET /api/pulls/reviews` does the same, and pulls logs `poll Bitbucket reviews`. To replace the token, add `-U` to the command in step 2, then restart pulls.
 
 With notify among its peers, as `mise run up` sets them, pulls reminds you of your open pull requests that wait for approvals, on weekdays at 10:00 and 15:00 in its time zone: the Mac's, or a container's `TZ`, such as `TZ=Asia/Tokyo`, without which a container keeps UTC (decisions 175 and 177). It counts each pull request that isn't a draft, was opened more than a day before, and has fewer approvals than it needs: what the `minimum_approvals` merge check of its target branch requires, else one. One notification, "Remind your reviewers", lists them, a line each, such as `Fix the login (acme/web #1): 1 of 2 approvals`, and a tap opens the PRs page; with none, nothing comes. A pull request whose merge checks don't load is left out, and pulls logs `check a PR for the reminder` with the failure; a push that fails is logged `push the PR reminder`, and the next time tries again. A time that passes while pulls is down isn't made up. Without notify among its peers, pulls doesn't remind.
+
+## GitHub
+
+The github service searches GitHub, across every owner that your token reaches, for your open pull requests, the open pull requests that wait for your review or one of your teams', and the open issues assigned to you (decisions 202 to 204). It searches with a personal access token (classic), since a fine-grained one reaches only one owner (decision 202). To set it up:
+
+1. On GitHub, select your profile picture, then Settings, Developer settings, Personal access tokens and Tokens (classic). Select Generate new token, then Generate new token (classic). Give the token a note, such as `bakhyard`, an expiration at most a year away, and the scopes `repo` and `read:org`: `repo` lets search see your private repositories, and `read:org` is there for your teams' review requests (decision 202). Select Generate token. For each organisation that uses SAML single sign-on, [authorize the token](https://docs.github.com/en/enterprise-cloud@latest/authentication/authenticating-with-single-sign-on/authorizing-a-personal-access-token-for-use-with-single-sign-on) too.
+2. Put the token in the Keychain. With `-w` last, `security` asks for it:
+
+   ```sh
+   security add-generic-password -s bakhyard -a github-token -w
+   ```
+
+3. In `mise.local.toml`, set `BAKHYARD_GITHUB_API` to `https://api.github.com`, then restart github.
+
+The API's URL must be https, as Jira's must; only a loopback IP address may take http, for a stand-in GitHub in tests. With a URL that isn't https or no token in the Keychain, github exits 1 and says which: `BAKHYARD_GITHUB_API: "…" is not an https URL` or `read the GitHub token: no Keychain item with service bakhyard and account github-token`. `mise run up` runs it on port 8089. Without the setting, `GET /github/mine`, `GET /github/reviews` and `GET /github/issues` answer 404 `GitHub is not set up`. With it, github searches GitHub for each of the three lists as it starts and every 5 minutes after, the latest updated first, and each route answers its list, with when the latest search to succeed began and why the latest search failed, if it did. When GitHub refuses the token, for example once it has expired, each route keeps answering what the last search to succeed found and adds GitHub's answer as its `failure`, such as `search GitHub for my open PRs: 401 Unauthorized`, and github logs `poll GitHub`, `poll GitHub reviews` or `poll GitHub issues` with it. To replace the token, add `-U` to the command in step 2, then restart github.
 
 ## Run
 
