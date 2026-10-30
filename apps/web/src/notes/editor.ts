@@ -1,6 +1,6 @@
 import type { Attachment } from 'svelte/attachments';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { markdownKeymap, markdownLanguage, pasteURLAsLink } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { EditorView, keymap } from '@codemirror/view';
@@ -21,8 +21,12 @@ const inkOnly = HighlightStyle.define([
 
 /**
  * Shows text, a note's Markdown, in a CodeMirror editor in the element, and gives the editor the focus (decision 401):
- * Markdown as GitHub writes it, after the note's YAML frontmatter, with its lines wrapped and undo. Tab leaves the
- * editor, as it leaves any field. The editor goes with the element.
+ * Markdown as GitHub writes it, after the note's YAML frontmatter, with its lines wrapped and undo. Enter carries a list
+ * or a quote on to the next line, and a URL pasted over text links it. Tab leaves the editor, as it leaves any field.
+ * The editor goes with the element.
+ *
+ * The bare Markdown language, without lang-markdown's markdown(), which would add HTML's, CSS's and JavaScript's for
+ * the HTML in a note: 150 kB more in the editor's chunk.
  */
 export function noteEditor(text: string): Attachment<HTMLElement> {
   return (parent) => {
@@ -31,8 +35,9 @@ export function noteEditor(text: string): Attachment<HTMLElement> {
       doc: text,
       extensions: [
         history(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
-        yamlFrontmatter({ content: markdown({ base: markdownLanguage }) }),
+        keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap]),
+        yamlFrontmatter({ content: markdownLanguage }),
+        pasteURLAsLink,
         syntaxHighlighting(inkOnly),
         EditorView.lineWrapping,
         EditorView.contentAttributes.of({ 'aria-label': 'Markdown' }),

@@ -39,6 +39,48 @@ test('undoes an edit', () => {
   expect(view.state.doc.toString()).toBe('Tune');
 });
 
+function press(view: EditorView, key: string): void {
+  view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+}
+
+test.each([
+  { name: 'a list item starts the next item', text: '- Tune', after: '- Tune\n- ' },
+  { name: 'a task starts the next task', text: '- [x] Tune', after: '- [x] Tune\n- [ ] ' },
+  { name: 'a quote goes on quoting', text: '> Slow', after: '> Slow\n> ' },
+  { name: 'plain text starts a plain line', text: 'Tune', after: 'Tune\n' },
+  {
+    name: 'a list in the frontmatter, which is YAML, starts a plain line',
+    text: '---\ntags:\n- guitar\n---\n',
+    at: 18,
+    after: '---\ntags:\n- guitar\n\n---\n',
+  },
+])('Enter after $name', ({ text, at = text.length, after }) => {
+  const { host } = attached(text);
+  const view = EditorView.findFromDOM(host)!;
+  view.dispatch({ selection: { anchor: at } });
+
+  press(view, 'Enter');
+
+  expect(view.state.doc.toString()).toBe(after);
+});
+
+// A paste with text/plain on the clipboard, which jsdom's events can't carry.
+function paste(view: EditorView, text: string): void {
+  const event = new Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'clipboardData', { value: { getData: () => text } });
+  view.contentDOM.dispatchEvent(event);
+}
+
+test('a URL pasted over text links the text', () => {
+  const { host } = attached('See the lesson');
+  const view = EditorView.findFromDOM(host)!;
+  view.dispatch({ selection: { anchor: 4, head: 14 } });
+
+  paste(view, 'https://example.com/lesson');
+
+  expect(view.state.doc.toString()).toBe('See [the lesson](https://example.com/lesson)');
+});
+
 test('goes with the element', () => {
   const { host, cleanup } = attached(markdown);
 
