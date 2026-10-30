@@ -99,7 +99,8 @@ test('a note changed since it loaded keeps the editor and the text, and says so'
 });
 
 test('⌘S, or Ctrl+S, in the editor saves', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name === 'phone', 'a phone has no ⌘ or Ctrl key without a keyboard');
+  // A phone has no ⌘ or Ctrl key without a keyboard.
+  test.skip(testInfo.project.name === 'phone');
   const requests = await saves(page, 204);
   await typed(page);
 

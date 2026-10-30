@@ -96,8 +96,9 @@ func (c *Client) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop ends the questions' waits for their answers, so that the CLI gets an error for each,
-// leaves the plans' sessions, which the CLI keeps, and stops the CLI.
+// Stop ends the questions' waits for their answers, each with an error for the CLI, leaves the
+// plans' sessions, which the CLI keeps, and stops the CLI. The SDK sends each error once its
+// handler returns, but closes the connection without waiting for it, so the CLI may miss it.
 func (c *Client) Stop() error {
 	c.stop()
 

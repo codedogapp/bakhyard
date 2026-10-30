@@ -108,10 +108,9 @@ func TestStopEndsTheQuestions(t *testing.T) {
 	}
 
 	next(t, updates)
-
-	if err := client.Stop(); err != nil {
-		t.Fatal(err)
-	}
+	// Only Stop's first step: the SDK sends the error once the handler returns, and the rest of
+	// Stop, which closes the connection, doesn't wait for it. The cleanup stops the client.
+	client.stop()
 
 	if got := fake.replied(t); got != nil {
 		t.Errorf("the CLI got %s, want an error", got)
