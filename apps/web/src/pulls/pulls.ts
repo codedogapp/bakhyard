@@ -45,14 +45,6 @@ export function loadReviews(): Promise<Pulls> {
   return loadSnapshot('/api/pulls/reviews');
 }
 
-/** The PRs' count: "1 PR" or "3 PRs"; none without PRs, which the list itself says. */
-export function pullsNote(count: number): string | undefined {
-  if (count === 0) {
-    return undefined;
-  }
-  return count === 1 ? '1 PR' : `${count} PRs`;
-}
-
 const names = new Intl.ListFormat('en-GB', { type: 'conjunction' });
 
 // The review line's groups, the most urgent first: what I must answer, then whom to remind, then who is done.
