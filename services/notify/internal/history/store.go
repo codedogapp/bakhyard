@@ -38,13 +38,13 @@ LIMIT $2`
 )
 
 // Entry is a time that an alert fired: the alert's name, summary and description, when it
-// started, and when it resolved, zero while it fires.
+// started, and when it resolved, zero while it fires, which its JSON leaves out.
 type Entry struct {
-	Name        string
-	Summary     string
-	Description string
-	StartedAt   time.Time
-	ResolvedAt  time.Time
+	Name        string    `json:"name"`
+	Summary     string    `json:"summary"`
+	Description string    `json:"description"`
+	StartedAt   time.Time `json:"startedAt"`
+	ResolvedAt  time.Time `json:"resolvedAt,omitzero"`
 }
 
 // Store keeps the alerts in notify's database.

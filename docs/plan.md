@@ -210,7 +210,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `alerts-done` | The plan records how the laptop's alerts run, once one has reached the phone, and the user's choice of an Alerts page. The fifth of `homelab-alerts`' steps (decisions 600, 604 and 605) | Done (#224) |
 | `alerts-page-plan` | `homelab-alerts` grows an Alerts page, as the user chose, in seven more steps: notify keeps each alert that Alertmanager posts and lists those that fire and those of the last 30 days; the web's Alerts page shows them; a tap on the push opens the page; and the Home lists the alerts that fire. The sixth of `homelab-alerts`' steps (decisions 605 and 606) | Done (#226) |
 | `alerts-history` | notify keeps each alert that Alertmanager posts in a table of its database, with its name, summary and description, when it fired and when it resolved, until 30 days after it resolved. The seventh of `homelab-alerts`' steps (decisions 606 and 607) | Done (#227) |
-| `alerts-list` | notify's `GET /notify/alerts` lists the alerts that fire and those resolved in the last 30 days. The eighth of `homelab-alerts`' steps (decision 606) | Pending |
+| `alerts-list` | notify's `GET /notify/alerts` lists the alerts that fire and those resolved in the last 30 days. The eighth of `homelab-alerts`' steps (decisions 606 and 608) | Done (#229) |
 | `alerts-page` | The web's Alerts page, at `/alerts`, shows the alerts that fire and those of the last 30 days. The ninth of `homelab-alerts`' steps (decision 606) | Pending |
 | `alerts-push-link` | A tap on an alert's push opens the Alerts page rather than the Home. The tenth of `homelab-alerts`' steps (decision 606) | Pending |
 | `alerts-attention` | notify answers the attention contract with the alerts that fire, and home asks it under the peer name `alerts`, so the Home lists them in "Needs you today". The eleventh of `homelab-alerts`' steps (decision 606) | Pending |
@@ -1407,7 +1407,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `alerts-done`: the plan records how the alerts run on the laptop (decision 604), and the user's choice of an Alerts page (decision 605). Done (#224).
   - `alerts-page-plan`: the plan designs the Alerts page that the user chose, and splits it in steps (decisions 605 and 606). Done (#226).
   - `alerts-history`: notify keeps each alert that Alertmanager posts, until 30 days after it resolved (decisions 606 and 607). Done (#227).
-  - `alerts-list`: notify's `GET /notify/alerts` lists the alerts that fire and those of the last 30 days (decision 606).
+  - `alerts-list`: notify's `GET /notify/alerts` lists the alerts that fire and those of the last 30 days (decisions 606 and 608). Done (#229).
   - `alerts-page`: the web's Alerts page, at `/alerts` (decision 606).
   - `alerts-push-link`: a tap on an alert's push opens the Alerts page (decision 606).
   - `alerts-attention`: notify answers the attention contract with the alerts that fire, so the Home lists them (decision 606).
@@ -2212,6 +2212,9 @@ Decisions 600 to 699 are the alerts session's: `homelab-alerts`.
      - **The first resolve stays**: a later post changes neither whether an alert resolved nor when, so a firing post that comes late can't open it again. Alertmanager repeats a resolved alert's `endsAt` in its group's later posts.
      - **The 30 days**: the write deletes the alerts that resolved more than 30 days before in its own transaction, after the new rows, so a write that fails deletes nothing. An alert that passes 30 days between two posts stays in the table until the next one, and the list leaves it out. The 30 days and the 100 are the store's constants, which its SQL takes as parameters, as nudge's store does.
      - **Known limit**: Postgres's text can't hold a NUL character, so an alert whose summary or description has one fails each write, and its group doesn't push. The rules' annotations (decision 603) have none.
+608. **notify's alerts list** (`alerts-list`, #229): the lead's choices (2026-10-30), for the user to review, within decision 606.
+     - **The JSON**: `{"alerts": […]}`, each alert with its `name`, `summary`, `description`, `startedAt` and, once it resolved, `resolvedAt`, which an alert that fires leaves out. With none, the list is empty rather than null. The names are camelCase, as home's, time's and games' answers are, rather than nudge's and planner's snake_case.
+     - **The times**: RFC 3339, to the microsecond that Postgres keeps, in notify's time zone, as nudge's are, rather than in UTC, as github, pulls and games give those they take from other APIs. Either way they name the same instant, which the page shows in the device's time zone.
 
 Decisions 700 to 799 are the planner session's: the rest of `copilot-planner`.
 
