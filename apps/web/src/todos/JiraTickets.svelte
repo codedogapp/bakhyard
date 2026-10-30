@@ -1,70 +1,25 @@
 <script lang="ts">
 import type { Tickets } from '../jira/tickets';
-import Section from '../shell/Section.svelte';
-import { searchedLabel } from '../shell/snapshot';
-import { ticketsNote } from './labels';
+import PolledSection from '../shell/PolledSection.svelte';
 import TicketStatus from './TicketStatus.svelte';
 
 let { tickets }: { tickets: Tickets } = $props();
 </script>
 
-{#if tickets.kind === 'loaded'}
-  {@const { tickets: list, searched, failure } = tickets.snapshot}
-  <Section title="Jira" accent="tickets" note={list && ticketsNote(list.length)}>
-    {#if failure}
-      <p class="muted">
-        The last search failed: {failure}.
-        {#if list && searched}
-          These tickets are from <time datetime={searched}>{searchedLabel(searched)}</time>.
-        {/if}
-      </p>
-    {/if}
-    {#if list}
-      <div class="card">
-        {#if list.length > 0}
-          <ul class="list">
-            {#each list as ticket}
-              <li>
-                <a class="list-row" href={ticket.url}>
-                  <span class="list-label">{ticket.key}</span>
-                  <span class="list-text"><span class="list-title">{ticket.summary}</span></span>
-                  <span class="list-end"><TicketStatus {ticket} /></span>
-                </a>
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <p class="empty">No open tickets.</p>
-        {/if}
-      </div>
-    {/if}
-  </Section>
-{:else if tickets.kind === 'failed'}
-  <Section title="Jira" accent="tickets">
-    <p class="muted">Couldn't load the tickets.</p>
-  </Section>
-{/if}
-
-<style>
-.muted {
-  margin: 0;
-  color: var(--ink-muted);
-  overflow-wrap: anywhere;
-}
-
-.card {
-  border: 1px solid var(--rule);
-  background: var(--surface);
-  box-shadow: var(--offset) var(--offset) 0 var(--shadow);
-}
-
-.muted + .card {
-  margin-top: 20px;
-}
-
-.empty {
-  margin: 0;
-  padding: 20px;
-  color: var(--ink-muted);
-}
-</style>
+<PolledSection
+  polled={tickets}
+  list={(snapshot) => snapshot.tickets}
+  title="Jira"
+  accent="tickets"
+  noun="ticket"
+  empty="No open tickets."
+  failed="Couldn't load the tickets."
+>
+  {#snippet row(ticket)}
+    <a class="list-row" href={ticket.url}>
+      <span class="list-label">{ticket.key}</span>
+      <span class="list-text"><span class="list-title">{ticket.summary}</span></span>
+      <span class="list-end"><TicketStatus {ticket} /></span>
+    </a>
+  {/snippet}
+</PolledSection>

@@ -27,14 +27,6 @@ export function groupNote(count: number): string {
   return count === 1 ? '1 todo' : `${count} todos`;
 }
 
-/** The Jira tickets' count: "1 ticket" or "3 tickets"; none without tickets, which the list itself says. */
-export function ticketsNote(count: number): string | undefined {
-  if (count === 0) {
-    return undefined;
-  }
-  return count === 1 ? '1 ticket' : `${count} tickets`;
-}
-
 /**
  * What the last add did: "Adding…", "Added", the service's reason or "Add failed"; blank before the first add, as for
  * no status.
