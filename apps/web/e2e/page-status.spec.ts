@@ -35,6 +35,14 @@ const lines: { name: string; path: string; says: string; answer: (page: Page) =>
     },
   },
   {
+    name: 'Planner',
+    path: '/planner',
+    says: "Copilot isn't set up.",
+    answer: async (page) => {
+      await page.route('/api/planner/plans', (route) => route.fulfill({ status: 404 }));
+    },
+  },
+  {
     name: 'Nudge',
     path: '/nudge',
     says: "Couldn't load the questions.",

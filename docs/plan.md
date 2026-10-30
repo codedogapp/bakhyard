@@ -222,6 +222,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-send` | `POST /planner/plans/{id}/messages`, with a body such as `{"text":"Make it a week"}`, sends a follow-up message to a plan, in plan mode like the prompt, so that the agent works the plan out further: 204, or 404 for a plan that the client hasn't started, and 400 for a blank text (decision 414) | Done (#202) |
 | `planner-resume` | The planner's client brings back a plan of an earlier run as a route asks for it: it looks the plan up in the CLI, resumes its session with a new plan's settings, one plan at a time, and holds it until the service stops, so that it reads, streams, and takes answers and follow-ups, with its plan from the plan file in its session's workspace; a plan that the CLI doesn't keep gets a 404, and an error from Copilot a 502, on the answer route too (decision 415) | Done (#203) |
 | `planner-image` | The planner's image: the service with the Copilot CLI that the Copilot SDK names, from the CLI's release, checked against a pinned SHA-256, on distroless's `cc`, for linux/amd64 alone; its package is unpacked at build time, so it runs on a read-only root file system. The images workflow builds it, and `copilot:check` fails until its version is the SDK's and its checksum the release's (decision 416) | Done (#204) |
+| `planner-page` | The Planner page at `/planner` lists the plans, the last updated first, each with the day it last changed and its title on one line, cut to 80 characters, or "Untitled plan"; with Copilot off, and while the gateway doesn't forward to the planner, it says "Copilot isn't set up.". Decision 403's `planner-page` splits in two, so `copilot-planner` has twenty-two steps (decision 417) | In progress |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1317,7 +1318,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `note-page-state`: a note's page keeps its state in a class, `ShownNote`, with no change in behaviour (decision 402). Done (#177).
   - `note-save`: the editor's Save, a `PUT` with `If-Match`, which keeps the user's text on a 412 (decisions 400 to 402). Done (#180).
   - After the answer: the store behind the save, with the §3 conflict rules; new notes get unique names; history and rollback; and the way edits get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151, §12).
-- `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`; its last step needs `vault-edit-sync`'s store. In twenty-one steps (decisions 403, 405, 407, 410 and 413), which start before `vault-edit-sync` ends:
+- `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`; its last step needs `vault-edit-sync`'s store. In twenty-two steps (decisions 403, 405, 407, 410, 413 and 417), which start before `vault-edit-sync` ends:
   - `planner-plan`: this split. Done (#182).
   - `copilot-client`: the planner's client of the Copilot SDK starts a plan in plan mode on claude-opus-5.5, with the tool allowlist and a deny-by-default permission handler (§3), and keeps the plan that `exit_plan_mode` brings. `copilot` is pinned in mise.toml at the CLI version the SDK names, and `mise run copilot:check` fails when they differ (decisions 74 and 404). Done (#185).
   - `planner-api`: the client keeps the plans it starts and reads a plan's conversation from the CLI; `POST /planner/plans` starts a plan from a prompt, and `GET /planner/plans/{id}` answers its conversation and its plan so far (decision 405). Done (#189).
@@ -1334,7 +1335,8 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-image`: the service's image, with the CLI in it (decision 416). Done (#204).
   - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it.
   - `planner-gateway`: the gateway forwards `/api/planner` to `planner`.
-  - `planner-page`: the Planner page lists the plans and starts a new one from a prompt.
+  - `planner-page`: the Planner page lists the plans (decision 417).
+  - `planner-prompt`: the Planner page starts a new plan from a prompt.
   - `planner-chat`: a plan's page shows its conversation as it streams, and sends follow-up messages.
   - `planner-ask`: the agent's questions show in the chat with their choices, and the answers go back.
   - `planner-preview`: the plan shows, rendered.
@@ -1990,6 +1992,13 @@ Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-p
      - **A CLI update**: `COPILOT_SEA_EXTRACT_ONLY` isn't documented. Should a later CLI drop it, the CLI stops the build, since it exits with "No prompt provided" without a terminal; should it move its package, the planner fails to start its CLI. Either shows only after the merge, in the images workflow or in the pod, since a PR's CI builds no image.
      - **Size**: about 236 MB compressed and 480 MB on disk, mostly the CLI twice: its binary, Node.js with the package inside, about 198 MB, and the package unpacked beside it, about 240 MB.
      - **Rejected**: unpacking at run time into a writable volume, which costs every new pod a few seconds and leaves the CLI's code writable; letting the planner pass `COPILOT_PKG_CACHE_HOME` through, an exception to decision 404's rule; the musl build on Alpine, a base image beside distroless; a Renovate rule for the CLI's version, which would bump it past the SDK's.
+417. **The Planner page's list** (`planner-page`): the lead's choices (2026-10-30), for the user to review.
+     - **The split**: decision 403's `planner-page`, the list and a new plan's prompt, comes to about 200 hand-written lines, so it splits in two: `planner-page`, the list; then `planner-prompt`, the form that starts a plan. `copilot-planner` has twenty-two steps.
+     - **Off**: a 404 says that Copilot isn't set up (decision 147), the planner's own, "Copilot is not set up", or the gateway's, for a path that no peer claims, as `/api/planner` is until `planner-gateway`. The page then says "Copilot isn't set up.", with no section. Any other failure says "Couldn't load the plans." in the section.
+     - **The rows**: each has the day its plan last changed, as the Games page's rows have theirs: "Today", "Yesterday" or "17 Oct", in the device's time zone. That label moves to the shell, `shell/day.ts`, for its second user. Then the title, on one line: the CLI's title can be "" or the whole first prompt, so the page collapses its white space, says "Untitled plan" for a blank one, and cuts a long one to 80 characters, at its last space if that's in the second half, with "…". It counts characters, not UTF-16 code units, so it never splits an emoji.
+     - **No links** until `planner-chat` gives a plan its page.
+     - **Loading**: the page loads the list each time it shows, with no polling, since the plans change only as the user works on them.
+     - **Rejected**: cutting the title in CSS, since the standard `line-clamp` is in no stable browser yet and the `-webkit-line-clamp` workaround is deprecated; `PolledSection`, which is made for a poller's snapshot and its age; and one step for both.
 
 Decisions 500 on are the orchestrator's, after 199.
 
