@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 
-import { countLabel, notesSummary, syncLabel } from './labels';
+import { countLabel, notesSummary, saveLabel, syncLabel } from './labels';
+import type { SaveStatus } from './shown.svelte';
 import type { Status } from './state.svelte';
 
 test.each([
@@ -29,4 +30,14 @@ test.each<{ status: Status; want: string }>([
   { status: { kind: 'sync-failed' }, want: 'Sync failed' },
 ])('labels $status.kind as "$want"', ({ status, want }) => {
   expect(syncLabel(status)).toBe(want);
+});
+
+test.each<{ status: SaveStatus; want: string }>([
+  { status: 'idle', want: '' },
+  { status: 'saving', want: 'Saving…' },
+  { status: 'saved', want: 'Saved' },
+  { status: 'changed', want: 'Not saved: the note has changed since it loaded' },
+  { status: 'failed', want: 'Save failed' },
+])('labels the save $status as "$want"', ({ status, want }) => {
+  expect(saveLabel(status)).toBe(want);
 });

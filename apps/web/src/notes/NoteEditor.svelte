@@ -1,12 +1,12 @@
 <script lang="ts">
-import { noteEditor } from './editor';
+import { type EditorPage, noteEditor } from './editor';
 
-// A note's Markdown in the editor, in place of the rendered note. A chunk of its own, with CodeMirror, which loads the
-// first time Edit is pressed.
-let { markdown }: { markdown: string } = $props();
+// A note's Markdown in the editor, in place of the rendered note, and the page that takes its text and saves it. A
+// chunk of its own, with CodeMirror, which loads the first time Edit is pressed.
+let { markdown, page }: { markdown: string; page: EditorPage } = $props();
 </script>
 
-<div class="editor" {@attach noteEditor(markdown)}></div>
+<div class="editor" {@attach noteEditor(markdown, page)}></div>
 
 <style>
 /* CodeMirror's own elements, which Svelte can't scope: a form field's box (decision 112), as tall as the note, with

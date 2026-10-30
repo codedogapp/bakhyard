@@ -1,5 +1,6 @@
 <script lang="ts">
 import PageHead from '../shell/PageHead.svelte';
+import { saveLabel } from './labels';
 import NoteBody from './NoteBody.svelte';
 import { ShownNote } from './shown.svelte';
 import type { NotesState } from './state.svelte';
@@ -21,16 +22,33 @@ $effect(() => {
   <PageHead eyebrow={note.folder}>{note.title}</PageHead>
   <div class="content">
     {#if shown.body.kind === 'loaded'}
-      {#if notes.editable}
+      <!-- The buttons stay while the editor is open, even if a sync says that notes no longer saves. -->
+      {#if notes.editable || shown.editing}
+        <!--
+          Save follows Cancel, so Cancel takes Edit's place, and Shift-Tab from the editor, which comes after them,
+          reaches Save first. aria-disabled, not disabled, so the focus stays on a button while its save runs.
+        -->
         <div class="tools form-row">
-          <button class="form-button" type="button" onclick={(event) => shown.toggle(event.currentTarget)}>
+          <button
+            class="form-button"
+            type="button"
+            aria-disabled={shown.busy}
+            onclick={() => shown.toggle()}
+            {@attach shown.button}
+          >
             {shown.editing ? 'Cancel' : 'Edit'}
           </button>
+          {#if shown.editing}
+            <button class="form-button" type="button" aria-disabled={shown.busy} onclick={() => void shown.save()}>
+              Save
+            </button>
+          {/if}
+          <p class="form-status" role="status">{saveLabel(shown.status)}</p>
         </div>
       {/if}
       {#if shown.editing}
         {#await import('./NoteEditor.svelte') then { default: NoteEditor }}
-          <NoteEditor markdown={shown.body.markdown} />
+          <NoteEditor markdown={shown.body.markdown} page={shown} />
         {:catch}
           <p class="failed">Couldn't load the editor.</p>
         {/await}
