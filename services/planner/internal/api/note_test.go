@@ -30,7 +30,7 @@ func (v *vaultStandIn) Save(_ context.Context, plan string) (string, error) {
 }
 
 // newSavingAPI returns the API of a planner whose plan-1 has plan, which saves plans in vault.
-func newSavingAPI(plan string, vault api.Vault) plannerAPI {
+func newSavingAPI(plan string, vault api.Saver) plannerAPI {
 	planner := &standIn{talk: copilot.Conversation{Plan: plan}}
 
 	return newAPI(api.Door{Planner: planner, Vault: vault})

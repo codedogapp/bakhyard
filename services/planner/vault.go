@@ -16,7 +16,7 @@ const notesTimeout = 30 * time.Second
 
 // vaultClient returns the vault that keeps plans through notes, the peer that serves the Obsidian
 // vault, or nil when BAKHYARD_PEERS lists no notes.
-func vaultClient(getenv func(string) string) (api.Vault, error) {
+func vaultClient(getenv func(string) string) (api.Saver, error) {
 	address, found, err := env.LookupPeer(getenv, "notes")
 	if err != nil || !found {
 		return nil, err
