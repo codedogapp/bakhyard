@@ -10,6 +10,7 @@ import './styles/chip.css';
 import './styles/icon-button.css';
 import './styles/dialog.css';
 import './styles/page.css';
+import './styles/markdown.css';
 
 import App from './App.svelte';
 import { applyChoice, loadChoice } from './shell/theme';

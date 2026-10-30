@@ -36,6 +36,7 @@ const talk: Conversation = {
   messages: [{ id: 'u1', from: 'user', text: 'Plan a trip' }],
   writing: [],
   questions: [],
+  plan: '',
   working: true,
   failure: '',
 };
@@ -68,6 +69,7 @@ test("follows the plan's stream, and shows its conversation, then each change", 
   last().emit('delta', where);
   last().emit('question', city);
   last().emit('answered', city);
+  last().emit('plan', { plan: '# Trip' });
   last().emit('status', { working: false, failure: 'Rate limited' });
 
   expect(shown).toEqual([
@@ -75,7 +77,8 @@ test("follows the plan's stream, and shows its conversation, then each change", 
     { kind: 'loaded', talk: { ...talk, writing: [where] } },
     { kind: 'loaded', talk: { ...talk, writing: [where], questions: [city] } },
     { kind: 'loaded', talk: { ...talk, writing: [where] } },
-    { kind: 'loaded', talk: { ...talk, working: false, failure: 'Rate limited' } },
+    { kind: 'loaded', talk: { ...talk, writing: [where], plan: '# Trip' } },
+    { kind: 'loaded', talk: { ...talk, plan: '# Trip', working: false, failure: 'Rate limited' } },
   ]);
 });
 

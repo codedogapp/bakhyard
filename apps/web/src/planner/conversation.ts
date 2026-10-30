@@ -26,12 +26,13 @@ export interface Question {
 
 /**
  * A plan's conversation as its page shows it: the whole messages, those the agent is still writing, the questions that
- * wait, in the order asked, and its status.
+ * wait, in the order asked, its status, and the plan, as Markdown, once the agent has brought one, or "".
  */
 export interface Conversation extends Status {
   messages: Message[];
   writing: Message[];
   questions: Question[];
+  plan: string;
 }
 
 /** An event of a plan's stream that changes its conversation, by its name, with its data. */
@@ -39,23 +40,25 @@ export type Change =
   | { name: 'conversation'; data: Conversation }
   | { name: 'message' | 'delta'; data: Message }
   | { name: 'question' | 'answered'; data: Question }
+  | { name: 'plan'; data: Pick<Conversation, 'plan'> }
   | { name: 'status'; data: Status };
 
-/** The names of the stream's events that change the conversation; the page leaves the plan to a later step. */
+/** The names of the stream's events that change the conversation. */
 export const changeNames: readonly Change['name'][] = [
   'conversation',
   'message',
   'delta',
   'question',
   'answered',
+  'plan',
   'status',
 ];
 
 /**
  * The conversation after the change: a new conversation replaces it; a whole message joins the messages and leaves
  * those being written; a delta adds its text to the message being written with its ID, or starts one; a question
- * joins those that wait, and one answered leaves them; a status replaces the status. Once the agent has stopped, the
- * conversation keeps neither the messages being written nor the questions, as kept says.
+ * joins those that wait, and one answered leaves them; a plan replaces the plan; a status replaces the status. Once
+ * the agent has stopped, the conversation keeps neither the messages being written nor the questions, as kept says.
  */
 export function changed(talk: Conversation, change: Change): Conversation {
   switch (change.name) {
@@ -73,6 +76,8 @@ export function changed(talk: Conversation, change: Change): Conversation {
       return { ...talk, questions: [...talk.questions, change.data] };
     case 'answered':
       return { ...talk, questions: talk.questions.filter((question) => question.id !== change.data.id) };
+    case 'plan':
+      return { ...talk, plan: change.data.plan };
     case 'status':
       return kept({ ...talk, ...change.data });
   }
