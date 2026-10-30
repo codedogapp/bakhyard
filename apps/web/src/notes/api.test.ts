@@ -15,8 +15,18 @@ test.each([
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ files }));
   vi.stubGlobal('fetch', fetchMock);
 
-  await expect(call()).resolves.toEqual(files);
+  await expect(call()).resolves.toEqual({ files, editable: false });
   expect(fetchMock).toHaveBeenCalledWith(url, { method });
+});
+
+test.each([
+  { name: 'says so', editable: true, want: true },
+  { name: 'says it can not', editable: false, want: false },
+  { name: 'says something else', editable: 'yes', want: false },
+])('takes the vault to save notes when the service $name: $want', async ({ editable, want }) => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json({ files, editable })));
+
+  await expect(fetchNotes()).resolves.toEqual({ files, editable: want });
 });
 
 test.each([
