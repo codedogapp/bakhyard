@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	sdk "github.com/github/copilot-sdk/go"
@@ -25,22 +26,38 @@ func tools() []string {
 // plan is a plan that the agent works out in a session of its own.
 type plan struct {
 	session *sdk.Session
+	// stopped closes as the client stops, which ends the questions' waits for their answers.
+	stopped <-chan struct{}
 
-	mu      sync.Mutex
+	mu sync.Mutex
+	// writing are the messages that the assistant is writing, with their text so far.
+	writing []Message
 	content string
+	// questions are the agent's questions that wait for their answers, in the order asked.
+	questions []waiting
+	// calls are the questions of the agent's ask_user calls that have started and not yet ended.
+	calls     askCalls
+	followers map[chan Update]struct{}
+}
+
+func newPlan(stopped <-chan struct{}) *plan {
+	return &plan{stopped: stopped, calls: askCalls{}, followers: map[chan Update]struct{}{}}
 }
 
 // Plan starts a session that works out a plan for prompt, in plan mode, and returns the
 // session's ID. The agent goes on working after Plan returns.
 func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
-	planned := &plan{}
+	planned := newPlan(c.stopped)
 
 	session, err := c.copilot.CreateSession(ctx, &sdk.SessionConfig{
 		Model:                  model,
 		AvailableTools:         tools(),
 		WorkingDirectory:       c.work,
 		SkipCustomInstructions: new(true),
+		Streaming:              new(true),
+		OnEvent:                planned.see,
 		OnPermissionRequest:    deny,
+		OnUserInputRequest:     planned.ask,
 		OnExitPlanModeRequest:  planned.keep,
 	})
 	if err != nil {
@@ -49,27 +66,32 @@ func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
 
 	planned.session = session
 
-	_, err = session.Send(ctx, sdk.MessageOptions{Prompt: prompt, AgentMode: sdk.AgentModePlan})
+	err = planned.send(ctx, prompt)
 	if err != nil {
 		return "", errors.Join(fmt.Errorf("send the prompt: %w", err), session.Disconnect())
 	}
 
-	c.mu.Lock()
-	c.plans[session.SessionID] = planned
-	c.mu.Unlock()
+	c.hold(session.SessionID, planned)
 
 	return session.SessionID, nil
 }
 
-// text returns the plan that exit_plan_mode brought, or "" while the agent works on it.
-func (p *plan) text() string {
+// snapshot returns what the plan has, short of the messages that the CLI keeps: the messages
+// that the assistant is writing, the questions that wait, and the plan once exit_plan_mode has
+// brought it.
+func (p *plan) snapshot() Conversation {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.content
+	return p.now()
 }
 
-// keep keeps the plan that exit_plan_mode brings, and ends plan mode.
+// now is snapshot, with p.mu held.
+func (p *plan) now() Conversation {
+	return Conversation{Writing: slices.Clone(p.writing), Questions: p.asking(), Plan: p.content}
+}
+
+// keep keeps the plan that exit_plan_mode brings, tells the followers, and ends plan mode.
 func (p *plan) keep(
 	request sdk.ExitPlanModeRequest,
 	_ sdk.ExitPlanModeInvocation,
@@ -78,6 +100,7 @@ func (p *plan) keep(
 	defer p.mu.Unlock()
 
 	p.content = request.PlanContent
+	p.tell(Update{Change: ChangePlan, Plan: request.PlanContent})
 
 	return sdk.ExitPlanModeResult{Approved: true, SelectedAction: exitOnly}, nil
 }
