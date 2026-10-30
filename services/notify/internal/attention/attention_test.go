@@ -29,6 +29,11 @@ func TestListItemsListsTheAlertsThatFire(t *testing.T) {
 			StartedAt:   time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC),
 		},
 		{
+			Fingerprint: "c3d4",
+			Name:        "DiskFull",
+			StartedAt:   time.Date(2026, 10, 20, 9, 30, 0, 0, time.UTC),
+		},
+		{
 			Fingerprint: "e5f6",
 			Name:        "CPUHot",
 			Summary:     "The CPU runs hot",
@@ -43,6 +48,7 @@ func TestListItemsListsTheAlertsThatFire(t *testing.T) {
 		"a1b2@2026-10-30T13:00:00.512304Z | The laptop runs on its battery | Plug it in | " +
 			"SOURCE_UNSPECIFIED | no due",
 		"c3d4@2026-10-30T12:00:00Z | DiskFull |  | SOURCE_UNSPECIFIED | no due",
+		"c3d4@2026-10-20T09:30:00Z | DiskFull |  | SOURCE_UNSPECIFIED | no due",
 	}
 	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("got %q (%v), want %q", got, err, want)
@@ -65,7 +71,7 @@ func TestListItemsFailsWhenTheAlertsCantBeRead(t *testing.T) {
 	}
 }
 
-// list returns the items that a lister of what alerts lists lists, one line each, or its error.
+// list returns, one line each, the items that a Lister lists from what alerts returns, or its error.
 func list(t *testing.T, alerts func(context.Context) ([]history.Entry, error)) ([]string, error) {
 	t.Helper()
 

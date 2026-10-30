@@ -42,9 +42,10 @@ func (l *Lister) ListItems(
 	return attentionv1.ListItemsResponse_builder{Items: items}.Build(), nil
 }
 
-// item returns the attention item of entry, an alert that fires: its summary, or else its name,
-// over its description, with no source, so that it comes from Bakhyard, and no due time. Its ID
-// is the alert's fingerprint and when it started, which tell each time that an alert fired apart.
+// item returns the attention item of entry, an alert that fires. Its title is the alert's summary,
+// or else its name, and its detail the description; it has no source, so it comes from Bakhyard,
+// and no due time. Its ID is the alert's fingerprint and when it started, which tell each time
+// that an alert fired apart.
 func item(entry history.Entry) *attentionv1.Item {
 	return attentionv1.Item_builder{
 		Id:     new(entry.Fingerprint + "@" + entry.StartedAt.UTC().Format(time.RFC3339Nano)),
