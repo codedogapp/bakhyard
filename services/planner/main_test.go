@@ -22,6 +22,7 @@ func TestPlannerServesWithoutCopilot(t *testing.T) {
 
 	// A recorder keeps what the GET handler writes for HEAD; a server would drop it.
 	for _, route := range []struct{ method, target string }{
+		{http.MethodGet, "/planner/plans"},
 		{http.MethodGet, "/planner/plans/x"},
 		{http.MethodHead, "/planner/plans/x"},
 		{http.MethodGet, "/planner/plans/x/events"},

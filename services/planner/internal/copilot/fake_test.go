@@ -220,6 +220,8 @@ func result(method string, named session) any {
 		return map[string]string{"messageId": "message-1"}
 	case "session.getMessages":
 		return jsontext.Value(record)
+	case "session.list":
+		return jsontext.Value(listed)
 	case "session.detach":
 		return map[string]bool{"success": true}
 	default:

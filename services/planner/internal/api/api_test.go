@@ -3,11 +3,9 @@ package api_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"testing"
 
@@ -17,16 +15,22 @@ import (
 	"github.com/codedogapp/bakhyard/services/planner/internal/copilot"
 )
 
-// standIn is a stand-in for Copilot: it starts the plan "plan-1", whose conversation is talk,
-// whose updates come from updates and whose questions take any answer, unless it has a failure,
-// and notes the prompts and the answers it gets and the context that the plan is followed for.
+// standIn is a stand-in for Copilot: it lists plans, starts the plan "plan-1", whose
+// conversation is talk, whose updates come from updates and whose questions take any answer,
+// unless it has a failure, and notes the prompts and the answers it gets and the context that
+// the plan is followed for.
 type standIn struct {
+	plans    []copilot.Entry
 	talk     copilot.Conversation
 	updates  chan copilot.Update
 	failure  error
 	prompts  []string
 	answers  []copilot.Answer
 	followed context.Context
+}
+
+func (s *standIn) Plans(context.Context) ([]copilot.Entry, error) {
+	return s.plans, s.failure
 }
 
 func (s *standIn) Plan(_ context.Context, prompt string) (string, error) {
@@ -94,126 +98,11 @@ func (a plannerAPI) serve(t *testing.T, method, target, body string) *httptest.R
 	return rec
 }
 
-func TestStartingAPlanAnswersItsID(t *testing.T) {
-	fake := &standIn{}
-
-	rec := newPlannerAPI(fake).serve(t, http.MethodPost, "/planner/plans",
-		`{"prompt":"Plan a trip"}`)
-
-	sent := rec.Result().Header.Get("Content-Type")
-	if rec.Code != http.StatusCreated || rec.Body.String() != `{"id":"plan-1"}` ||
-		sent != "application/json" {
-		t.Errorf("got %d %s (%s), want 201 {\"id\":\"plan-1\"} as JSON", rec.Code, rec.Body, sent)
-	}
-
-	if !slices.Equal(fake.prompts, []string{"Plan a trip"}) {
-		t.Errorf("Copilot got %q, want the prompt", fake.prompts)
-	}
-}
-
-func TestStartingAPlanTakesAJSONObjectWithAPrompt(t *testing.T) {
-	refusal := "the body isn't a JSON object with just a prompt\n"
-
-	for body, want := range map[string]string{
-		`{"prompt":"Plan a trip","model":"gpt"}`: refusal,
-		`{"prompt":["Plan a trip"]}`:             refusal,
-		`Plan a trip`:                            refusal,
-		`{"prompt":" \n\t"}`:                     "the prompt is blank\n",
-		`{}`:                                     "the prompt is blank\n",
-	} {
-		fake := &standIn{}
-
-		rec := newPlannerAPI(fake).serve(t, http.MethodPost, "/planner/plans", body)
-		if rec.Code != http.StatusBadRequest || rec.Body.String() != want ||
-			len(fake.prompts) != 0 {
-			t.Errorf("%s: got %d %q and Copilot got %q, want 400 %q and nothing for Copilot",
-				body, rec.Code, rec.Body, fake.prompts, want)
-		}
-	}
-}
-
-func TestStartingAPlanTakesUpTo64KiB(t *testing.T) {
-	prompt := strings.Repeat("a", 64<<10)
-
-	rec := newPlannerAPI(&standIn{}).serve(t, http.MethodPost, "/planner/plans",
-		`{"prompt":"`+prompt+`"}`)
-	if rec.Code != http.StatusRequestEntityTooLarge {
-		t.Errorf("got %d, want 413", rec.Code)
-	}
-}
-
-func TestStartingAPlanFailsWhenCopilotFails(t *testing.T) {
-	planner := newPlannerAPI(&standIn{failure: errors.New("no connection")})
-
-	rec := planner.serve(t, http.MethodPost, "/planner/plans", `{"prompt":"Plan a trip"}`)
-	if rec.Code != http.StatusBadGateway || rec.Body.String() != "Bad Gateway\n" {
-		t.Errorf("got %d %q, want 502 Bad Gateway", rec.Code, rec.Body)
-	}
-
-	logs := planner.logs.String()
-	if !strings.Contains(logs, `msg="start a plan" err="no connection"`) {
-		t.Errorf("logged %q, want the cause", logs)
-	}
-}
-
-func TestReadingAPlanAnswersItsConversation(t *testing.T) {
-	talk := copilot.Conversation{
-		Messages: []copilot.Message{
-			{ID: "1", From: copilot.User, Text: "Plan a trip"},
-			{ID: "m2", From: copilot.Assistant, Text: "Where to?"},
-		},
-		Writing:   []copilot.Message{{ID: "m3", From: copilot.Assistant, Text: "So"}},
-		Questions: []copilot.Question{{ID: "q1", Text: "Which city?", Choices: []string{"Rome"}}},
-		Plan:      "# Plan\n",
-	}
-
-	for _, test := range []struct {
-		talk copilot.Conversation
-		want string
-	}{
-		{talk, `{"messages":[{"id":"1","from":"user","text":"Plan a trip"},` +
-			`{"id":"m2","from":"assistant","text":"Where to?"}],` +
-			`"writing":[{"id":"m3","from":"assistant","text":"So"}],` +
-			`"questions":[{"id":"q1","text":"Which city?","choices":["Rome"],"freeform":false}],` +
-			`"plan":"# Plan\n"}`},
-		{copilot.Conversation{}, `{"messages":[],"writing":[],"questions":[],"plan":""}`},
-	} {
-		rec := newPlannerAPI(&standIn{talk: test.talk}).serve(t, http.MethodGet,
-			"/planner/plans/plan-1", "")
-
-		sent := rec.Result().Header.Get("Content-Type")
-		if rec.Code != http.StatusOK || rec.Body.String() != test.want ||
-			sent != "application/json" {
-			t.Errorf("got %d %s (%s), want 200 %s as JSON", rec.Code, rec.Body, sent, test.want)
-		}
-	}
-}
-
-func TestReadingAnUnknownPlanIsNotFound(t *testing.T) {
-	rec := newPlannerAPI(&standIn{}).serve(t, http.MethodGet, "/planner/plans/plan-2", "")
-	if rec.Code != http.StatusNotFound || rec.Body.String() != "no such plan\n" {
-		t.Errorf("got %d %q, want 404 no such plan", rec.Code, rec.Body)
-	}
-}
-
-func TestReadingAPlanFailsWhenCopilotFails(t *testing.T) {
-	planner := newPlannerAPI(&standIn{failure: errors.New("no connection")})
-
-	rec := planner.serve(t, http.MethodGet, "/planner/plans/plan-1", "")
-	if rec.Code != http.StatusBadGateway || rec.Body.String() != "Bad Gateway\n" {
-		t.Errorf("got %d %q, want 502 Bad Gateway", rec.Code, rec.Body)
-	}
-
-	logs := planner.logs.String()
-	if !strings.Contains(logs, `msg="read a plan" err="no connection"`) {
-		t.Errorf("logged %q, want the cause", logs)
-	}
-}
-
 func TestEachRouteIsNotFoundWithoutCopilot(t *testing.T) {
 	planner := newPlannerAPI(nil)
 
 	for _, route := range []struct{ method, target string }{
+		{http.MethodGet, "/planner/plans"},
 		{http.MethodPost, "/planner/plans"},
 		{http.MethodGet, "/planner/plans/plan-1"},
 		{http.MethodGet, "/planner/plans/plan-1/events"},
@@ -231,8 +120,8 @@ func TestEachRouteTakesOnlyItsMethod(t *testing.T) {
 	planner := newPlannerAPI(&standIn{})
 
 	for _, route := range []struct{ method, target string }{
-		{http.MethodGet, "/planner/plans"},
 		{http.MethodPut, "/planner/plans"},
+		{http.MethodDelete, "/planner/plans"},
 		{http.MethodPost, "/planner/plans/plan-1"},
 		{http.MethodDelete, "/planner/plans/plan-1"},
 		{http.MethodPost, "/planner/plans/plan-1/events"},
