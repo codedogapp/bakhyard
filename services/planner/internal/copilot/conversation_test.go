@@ -30,6 +30,8 @@ func TestConversation(t *testing.T) {
 	want := Conversation{Messages: []Message{
 		{ID: "1", From: User, Text: "Plan a trip"},
 		{ID: "m2", From: Assistant, Text: "Where to?"},
+		{ID: "5", From: Assistant, Text: "Which city?"},
+		{ID: "6", From: User, Text: "Rome"},
 	}}
 	if !reflect.DeepEqual(talk, want) {
 		t.Errorf("Conversation = %+v, want %+v", talk, want)

@@ -85,7 +85,8 @@ func (p *plan) unfollow(updates chan Update) {
 }
 
 // see takes in the session's events: it keeps the text of the messages that the assistant is
-// writing, and tells the followers about it and about each whole message.
+// writing, and tells the followers about it and about each whole message, the agent's questions
+// and the user's answers among them.
 func (p *plan) see(event sdk.SessionEvent) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -98,6 +99,10 @@ func (p *plan) see(event sdk.SessionEvent) {
 	}
 
 	if message, ok := messageOf(event); ok {
+		p.tell(Update{Change: ChangeMessage, Message: message})
+	}
+
+	for _, message := range p.calls.see(event) {
 		p.tell(Update{Change: ChangeMessage, Message: message})
 	}
 }
