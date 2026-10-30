@@ -202,7 +202,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `note-page-state` | A note's page keeps the note it shows, its loading and whether the editor shows in a class of its own, `ShownNote`, in a `.ts` file where the gates can read it, ready for the save's logic; no change in behaviour (decision 402) | Done (#177) |
 | `note-save` | The editor's Save sends the note with `PUT /api/notes/files/<path>` and `If-Match`, the version from the note's `ETag`; a saved note shows at once, and a note changed since gets a 412, which keeps the user's text and says so (decisions 400 to 402) | Done (#180) |
 | `copilot-planner` | The Copilot planner (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one; it starts before `vault-edit-sync` ends, since the rest of that waits on the user's answer (decisions 195 and 403) | In progress |
-| `planner-plan` | `copilot-planner` splits in fourteen steps: the Copilot client, the service, the stream, the agent's questions, resuming, the image, the laptop, the gateway, the page, the chat, the agent's questions in the chat, the plan's preview, and "Save to Obsidian", last, once the vault's store is in; the CLI keeps the plans, with no table of their own, and the conversation streams as server-sent events. The first of `copilot-planner`'s fourteen steps (decision 403) | In review |
+| `planner-plan` | `copilot-planner` splits in fourteen steps: the Copilot client, the service, the stream, the agent's questions, resuming, the image, the laptop, the gateway, the page, the chat, the agent's questions in the chat, the plan's preview, and "Save to Obsidian", last, once the vault's store is in; the CLI keeps the plans, with no table of their own, and the conversation streams as server-sent events. The first of `copilot-planner`'s fourteen steps (decision 403) | Done (#182) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1292,7 +1292,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `note-save`: the editor's Save, a `PUT` with `If-Match`, which keeps the user's text on a 412 (decisions 400 to 402). Done (#180).
   - After the answer: the store behind the save, with the §3 conflict rules; new notes get unique names; history and rollback; and the way edits get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151, §12).
 - `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`; its last step needs `vault-edit-sync`'s store. In fourteen steps (decision 403), which start before `vault-edit-sync` ends:
-  - `planner-plan`: this split.
+  - `planner-plan`: this split. Done (#182).
   - `copilot-client`: the planner's client of the Copilot SDK starts a plan in plan mode on claude-opus-5.5, with the tool allowlist and a deny-by-default permission handler (§3), and keeps the plan that `exit_plan_mode` brings. `copilot` is pinned in mise.toml at the CLI version the SDK names; Renovate must update the two together (decision 74).
   - `planner-service`: a new `planner` service starts a plan from a prompt and answers its messages and its plan so far. The work host's name is a local setting, and the token comes from the Keychain, or a Kubernetes Secret on the laptop (decisions 72, 73 and 85).
   - `planner-stream`: the assistant's text as it comes, and the plan, as server-sent events.
