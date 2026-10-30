@@ -3,6 +3,7 @@ import PageHead from '../shell/PageHead.svelte';
 import Section from '../shell/Section.svelte';
 import { type Chat, followPlan } from './follow';
 import { authorLabel, workLabel } from './labels';
+import ReplyForm from './ReplyForm.svelte';
 
 // The plan's conversation, followed on its stream while the page shows.
 let { id }: { id: string } = $props();
@@ -40,6 +41,7 @@ $effect(() => {
       {/if}
     </div>
     <p class="form-status work" role="status">{workLabel(chat.talk)}</p>
+    <ReplyForm {id} />
   </Section>
 {/if}
 
