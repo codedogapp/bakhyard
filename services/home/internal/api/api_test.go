@@ -53,6 +53,7 @@ func TestHomeGet(t *testing.T) {
 		{ID: "pulls/web#1", Source: screen.SourceBitbucket, Due: at().Add(time.Hour)},
 		{ID: "todos/7", Source: screen.SourceBakhyard},
 		{ID: "todos/WEB-9", Source: screen.SourceJira, Due: at().Add(-time.Hour)},
+		{ID: "github/acme/api#3", Source: screen.SourceGitHub},
 	}
 	sources := []screen.SourceStatus{
 		{App: "todos", State: screen.StateOK},
@@ -80,6 +81,7 @@ func TestHomeGet(t *testing.T) {
 		Items: []item{
 			{ID: "todos/WEB-9", Source: "Jira", Due: "2026-10-18T08:00:00Z", Late: true},
 			{ID: "pulls/web#1", Source: "Bitbucket", Due: "2026-10-18T10:00:00Z"},
+			{ID: "github/acme/api#3", Source: "GitHub"},
 			{ID: "todos/7", Source: "Bakhyard"},
 		},
 		Sources: []source{{App: "todos", State: "ok"}, {App: "pulls", State: "unavailable"}},

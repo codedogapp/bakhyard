@@ -76,6 +76,11 @@ if ! diff -r "${fresh}/internal/gen" internal/gen; then
 fi
 '''
 
+# GitHub's main rather than the local one, which CI's checkout of a PR lacks (decision 208).
+[tasks."proto:breaking"]
+description = "Fail if a protobuf contract breaks its version on main (buf breaking)"
+run = "buf breaking --against 'https://github.com/codedogapp/bakhyard.git#branch=main'"
+
 [tasks."copilot:check"]
 description = "Fail if mise's copilot isn't the CLI version that the Copilot SDK in go.mod names"
 shell = "bash -c"
@@ -121,6 +126,7 @@ depends = [
     "lint:actions",
     "lint:compose",
     "gen:check",
+    "proto:breaking",
     "copilot:check",
     "cover",
     "vuln",
