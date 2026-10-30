@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,6 +17,10 @@ import (
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/planner/internal/api"
 )
+
+// heartbeat is how often a plan's event stream says it is still open: under the idle timeouts of
+// the proxies in between.
+const heartbeat = 25 * time.Second
 
 func main() {
 	readSecret := secrets.New(os.Getenv, keychain.NewReader(keychain.Security).Password)
@@ -37,7 +42,8 @@ func main() {
 }
 
 // routes returns the handler of planner, which serves its API. With Copilot set up, it starts the
-// Copilot CLI, which stops once ctx ends; stopping waits for it.
+// Copilot CLI, which stops once ctx ends; stopping waits for it. The event streams end with ctx
+// too.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
@@ -53,7 +59,7 @@ func routes(
 	// Answer HEAD wherever GET is served.
 	router.Use(middleware.GetHead)
 	health.Register(router)
-	api.Register(router, planner, slog.Default())
+	api.Door{Planner: planner, Logger: slog.Default(), Heartbeat: heartbeat}.Register(ctx, router)
 
 	return router, nil
 }

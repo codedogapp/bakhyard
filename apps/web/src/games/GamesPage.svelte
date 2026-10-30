@@ -1,18 +1,10 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 
+import { dayLabel } from '../shell/day';
 import PageHead from '../shell/PageHead.svelte';
 import PolledSection from '../shell/PolledSection.svelte';
-import {
-  coverImage,
-  foundGames,
-  type Games,
-  loadGames,
-  platformsLabel,
-  playedLabel,
-  playtimeLabel,
-  trophiesLabel,
-} from './games';
+import { coverImage, foundGames, type Games, loadGames, platformsLabel, playtimeLabel, trophiesLabel } from './games';
 
 // The games I played lately (decision 307), loaded each time the page shows; now tells which day is today.
 let { now }: { now: Date } = $props();
@@ -42,7 +34,7 @@ onMount(() => {
   >
     {#snippet row(game)}
       <div class="list-row game">
-        <time class="list-label" datetime={game.lastPlayed}>{playedLabel(game.lastPlayed, now)}</time>
+        <time class="list-label" datetime={game.lastPlayed}>{dayLabel(game.lastPlayed, now)}</time>
         <!-- A background rather than an image: screen readers skip it, since the title names the game, and a cover that fails to load leaves the blank. -->
         <span class="cover" style:background-image={coverImage(game.cover)}></span>
         <span class="list-text">

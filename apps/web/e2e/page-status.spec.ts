@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 
 import { home, tickets } from './demo';
 import { expect, test } from './fixtures';
+import { answerGitHub } from './github';
 import { inkMuted } from './ink';
 import { answerDismissals, answerTickets } from './jira';
 import { answerPulls, answerReviews } from './pulls';
@@ -27,11 +28,29 @@ const lines: { name: string; path: string; says: string; answer: (page: Page) =>
     },
   },
   {
+    name: 'GitHub',
+    path: '/github',
+    says: "GitHub isn't set up.",
+    answer: async (page) => {
+      for (const list of ['mine', 'reviews', 'issues'] as const) {
+        await answerGitHub(page, list, 404);
+      }
+    },
+  },
+  {
     name: 'Games',
     path: '/games',
     says: "Exophase isn't set up.",
     answer: async (page) => {
       await page.route('/api/games/recent', (route) => route.fulfill({ status: 404 }));
+    },
+  },
+  {
+    name: 'Planner',
+    path: '/planner',
+    says: "Copilot isn't set up.",
+    answer: async (page) => {
+      await page.route('/api/planner/plans', (route) => route.fulfill({ status: 404 }));
     },
   },
   {

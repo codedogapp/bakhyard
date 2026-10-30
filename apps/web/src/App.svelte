@@ -2,6 +2,7 @@
 import { tick } from 'svelte';
 
 import GamesPage from './games/GamesPage.svelte';
+import GitHubPage from './github/GitHubPage.svelte';
 import HomePage from './home/HomePage.svelte';
 import { type Feed, pollHome } from './home/poll';
 import { unavailableSources } from './home/sources';
@@ -13,6 +14,7 @@ import AppPage from './pages/AppPage.svelte';
 import MorePage from './pages/MorePage.svelte';
 import NotFound from './pages/NotFound.svelte';
 import SignIn from './pages/SignIn.svelte';
+import PlannerPage from './planner/PlannerPage.svelte';
 import PullsPage from './pulls/PullsPage.svelte';
 import { startClock } from './shell/clock';
 import Header from './shell/Header.svelte';
@@ -77,8 +79,12 @@ $effect(() =>
       <PullsPage />
     {:else if page.kind === 'time'}
       <TimePage />
+    {:else if page.kind === 'github'}
+      <GitHubPage />
     {:else if page.kind === 'games'}
       <GamesPage {now} />
+    {:else if page.kind === 'planner'}
+      <PlannerPage {now} />
     {:else if page.kind === 'nudge'}
       <NudgePage />
     {:else if page.kind === 'app'}

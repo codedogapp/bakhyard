@@ -15,8 +15,14 @@ function answer(url: string): Response {
     case '/api/pulls/mine':
     case '/api/pulls/reviews':
       return Response.json({ pulls: [], searched });
+    case '/api/github/mine':
+    case '/api/github/reviews':
+    case '/api/github/issues':
+      return Response.json({ items: [], searched });
     case '/api/games/recent':
       return Response.json({ games: [], searched });
+    case '/api/planner/plans':
+      return Response.json({ plans: [] });
     case '/api/time/report':
       return Response.json({
         days: [{ date: '2026-10-20', loggedHours: 7.5, missing: false }],
@@ -40,14 +46,14 @@ afterEach(() => {
   history.replaceState(null, '', '/');
 });
 
-test('shows the page at the path it opens on', () => {
-  history.replaceState(null, '', '/planner');
+test('shows the page at the path it opens on', async () => {
+  history.replaceState(null, '', '/github');
   render(App);
 
-  expect(screen.getByRole('heading', { level: 1, name: 'Planner' })).toBeInTheDocument();
-  expect(screen.getByText('Coming soon')).toBeInTheDocument();
-  expect(document.title).toBe('Planner · Bakhyard');
-  expect(screen.getByRole('link', { name: 'Planner', current: 'page' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 1, name: 'GitHub' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { level: 2, name: 'Your PRs' })).toBeInTheDocument();
+  expect(document.title).toBe('GitHub · Bakhyard');
+  expect(screen.getByRole('link', { name: 'GitHub', current: 'page' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'More', current: true })).toBeInTheDocument();
 });
 
@@ -55,7 +61,9 @@ test.each([
   ['/todos', '1 todo on the list.', 'Todos · Bakhyard'],
   ['/pulls', 'No open pull requests.', 'Pull requests · Bakhyard'],
   ['/time', '7h 30m / 40h', 'Time · Bakhyard'],
+  ['/github', 'No open issues.', 'GitHub · Bakhyard'],
   ['/games', 'No games played in the last 14 days.', 'Games · Bakhyard'],
+  ['/planner', 'No plans yet.', 'Planner · Bakhyard'],
 ])('shows the page of the app at %s, with what it loads', async (path, loaded, title) => {
   history.replaceState(null, '', path);
   render(App);
