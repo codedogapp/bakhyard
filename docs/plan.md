@@ -214,7 +214,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-service` | A new `planner` service serves the planner's API on 8091 under `mise run up`. With `BAKHYARD_COPILOT_HOST` set, it starts the Copilot CLI as it starts, in a folder of its own from `BAKHYARD_COPILOT_HOME` and with the token from the Keychain, and stops it before it exits; without it, the API answers 404 "Copilot is not set up" (decision 406) | Done (#192) |
 | `planner-follow` | The planner's client streams a plan's conversation: `Follow` answers the conversation so far, with the text of the messages that the assistant is still writing, then its updates: each piece of the text as it comes, each whole message and the plan. `planner-stream` splits in three, so `copilot-planner` has seventeen steps (decision 407) | Done (#195) |
 | `shared-event-stream` | Nudge's code that sends a page server-sent events moves to the root `internal/eventstream`, for the planner's stream, its second user; nothing changes in behaviour (decision 408) | Done (#196) |
-| `planner-stream` | `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events: the conversation so far, then each piece of the assistant's text, each whole message and the plan, with a heartbeat every 25 s, until the page leaves or the service stops (decision 409) | In progress |
+| `planner-stream` | `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events: the conversation so far, then each piece of the assistant's text, each whole message and the plan, with a heartbeat every 25 s, until the page leaves or the service stops (decision 409) | Done (#197) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1317,7 +1317,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-service`: a new `planner` service serves that API, on 8091 under `mise run up`, and runs the Copilot CLI from its start to its stop. The work host's name is a local setting, and the token comes from the Keychain, or a Kubernetes Secret on the laptop (decisions 72, 73, 85 and 406). Done (#192).
   - `planner-follow`: the client streams a plan's conversation and tells its followers each piece of the assistant's text, each whole message and the plan (decision 407). Done (#195).
   - `shared-event-stream`: nudge's server-sent events move to the root `internal/eventstream`, for the planner's stream, their second user; nothing changes in behaviour (decision 408). Done (#196).
-  - `planner-stream`: `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events, from the conversation so far, with heartbeats, for as long as the page is open (decision 409).
+  - `planner-stream`: `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events, from the conversation so far, with heartbeats, for as long as the page is open (decision 409). Done (#197).
   - `planner-questions`: the agent's questions, with their choices, wait for the user's answer (§3).
   - `planner-resume`: the list of plans, and a follow-up message that resumes a plan, after a restart too.
   - `planner-image`: the service's image, with the CLI in it.
