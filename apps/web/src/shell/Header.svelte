@@ -119,6 +119,13 @@ ul {
   }
 }
 
+/* On tablets the apps' links sit closer, so all ten fit beside the wordmark and the actions down to 981 px. */
+@media (max-width: 1100px) {
+  ul {
+    gap: 24px;
+  }
+}
+
 /* The bottom tab bar takes over the nav here (plan §7). */
 @media (max-width: 980px) {
   /* The hidden nav's empty column still has a gap on each side; at half width they leave the actions room down to 320 px. */

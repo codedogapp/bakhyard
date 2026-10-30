@@ -15,6 +15,7 @@ export type Page =
   | { kind: 'planner' }
   | { kind: 'plan'; id: string }
   | { kind: 'nudge' }
+  | { kind: 'alerts' }
   | { kind: 'app'; app: App }
   | { kind: 'more' }
   | { kind: 'missing' };
@@ -27,12 +28,14 @@ const githubHref = appHref('github');
 const gamesHref = appHref('games');
 const plannerHref = appHref('planner');
 const nudgeHref = appHref('nudge');
+const alertsHref = appHref('alerts');
 
 /**
  * The page at path. The Notes app's path shows the notes, and the paths under it their notes; the Todos app's paths
  * show the todos, the PRs app's my PRs, the Time app's the time report, the GitHub app's my PRs and issues on GitHub,
  * the Games app's the games I played lately, the Planner app's path the plans, and the paths under it their plans, and
- * the Nudge app's the agents' questions; another app's paths show its page, as the nav marks it.
+ * the Nudge app's the agents' questions, and the Alerts app's the laptop's alerts; another app's paths show its page, as
+ * the nav marks it.
  */
 export function pageAt(path: string): Page {
   if (path === '/') {
@@ -64,6 +67,9 @@ export function pageAt(path: string): Page {
   }
   if (isCurrent(nudgeHref, path)) {
     return { kind: 'nudge' };
+  }
+  if (isCurrent(alertsHref, path)) {
+    return { kind: 'alerts' };
   }
   if (isCurrent(moreHref, path)) {
     return { kind: 'more' };
@@ -126,6 +132,8 @@ export function pageTitle(page: Page): string {
       return `Plan · ${siteName}`;
     case 'nudge':
       return `Nudge · ${siteName}`;
+    case 'alerts':
+      return `Alerts · ${siteName}`;
     case 'app':
       return `${page.app.name} · ${siteName}`;
     case 'more':

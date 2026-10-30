@@ -27,6 +27,7 @@ test('lists the apps without a tab of their own as cards, with their counts', ()
     'Games',
     'Planner',
     'Nudge',
+    'Alerts',
   ]);
   expect(screen.getAllByRole('link').map((card) => card.getAttribute('href'))).toEqual([
     '/time',
@@ -34,6 +35,7 @@ test('lists the apps without a tab of their own as cards, with their counts', ()
     '/games',
     '/planner',
     '/nudge',
+    '/alerts',
   ]);
   expect(cardTexts()).toEqual([
     '04 2 items Time Hours logged on the Jira tickets',
@@ -41,6 +43,7 @@ test('lists the apps without a tab of their own as cards, with their counts', ()
     '06 0 items Games Recent games and stats from Exophase',
     '07 0 items Planner Copilot plans saved to the vault',
     '08 0 items Nudge Questions from your agents, answered on your phone',
+    "09 0 items Alerts The laptop's alerts, as they fire and resolve",
   ]);
 });
 
@@ -53,5 +56,6 @@ test('shows the cards without counts before the Home loads', () => {
     '06 Games Recent games and stats from Exophase',
     '07 Planner Copilot plans saved to the vault',
     '08 Nudge Questions from your agents, answered on your phone',
+    "09 Alerts The laptop's alerts, as they fire and resolve",
   ]);
 });

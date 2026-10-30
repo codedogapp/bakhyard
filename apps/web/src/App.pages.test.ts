@@ -23,6 +23,8 @@ function answer(url: string): Response {
       return Response.json({ games: [], searched });
     case '/api/planner/plans':
       return Response.json({ plans: [] });
+    case '/api/notify/alerts':
+      return Response.json({ alerts: [] });
     case '/api/time/report':
       return Response.json({
         days: [{ date: '2026-10-20', loggedHours: 7.5, missing: false }],
@@ -64,6 +66,7 @@ test.each([
   ['/github', 'No open issues.', 'GitHub · Bakhyard'],
   ['/games', 'No games played in the last 14 days.', 'Games · Bakhyard'],
   ['/planner', 'No plans yet.', 'Planner · Bakhyard'],
+  ['/alerts', 'No alerts are firing.', 'Alerts · Bakhyard'],
 ])('shows the page of the app at %s, with what it loads', async (path, loaded, title) => {
   history.replaceState(null, '', path);
   render(App);
