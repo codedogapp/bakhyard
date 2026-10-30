@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { authorLabel, startLabel, titleLabel, workLabel } from './labels';
+import { authorLabel, sendLabel, startLabel, titleLabel, workLabel } from './labels';
 
 const words = (count: number) => Array.from({ length: count }, (_, index) => `word${index}`).join(' ');
 
@@ -33,6 +33,15 @@ test.each([
   { status: { kind: 'failed', reason: "Copilot isn't set up." }, want: "Copilot isn't set up." },
 ] as const)('says $want for a start $status.kind', ({ status, want }) => {
   expect(startLabel(status)).toBe(want);
+});
+
+test.each([
+  { status: { kind: 'idle' }, want: '' },
+  { status: { kind: 'sending' }, want: 'Sending…' },
+  { status: { kind: 'sent' }, want: 'Sent' },
+  { status: { kind: 'failed', reason: 'The message is too long.' }, want: 'The message is too long.' },
+] as const)('says $want for a send $status.kind', ({ status, want }) => {
+  expect(sendLabel(status)).toBe(want);
 });
 
 test.each([

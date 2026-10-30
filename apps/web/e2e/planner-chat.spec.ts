@@ -27,6 +27,11 @@ function rows(page: Page) {
   return group(page, 'The conversation').getByRole('listitem');
 }
 
+/** The line that says whether Copilot works: the conversation's own status, not the reply form's. */
+function work(page: Page) {
+  return group(page, 'The conversation').locator(':scope > [role="status"]');
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
 });
@@ -57,7 +62,7 @@ test("a plan's page shows its conversation as it streams, and that Copilot is wo
   ]);
   // A regex matches the rendered text as it is, so this checks that the line break shows.
   await expect(rows(page).first()).toHaveText(/the docs site\.\nKeep the light one/, { useInnerText: true });
-  await expect(group(page, 'The conversation').getByRole('status')).toHaveText('Copilot is working…');
+  await expect(work(page)).toHaveText('Copilot is working…');
 });
 
 test("a plan's page drops the message that Copilot didn't finish, and says why it stopped", async ({ page }) => {
@@ -73,7 +78,7 @@ test("a plan's page drops the message that Copilot didn't finish, and says why i
   );
   await page.goto(`/planner/${plan.id}`);
 
-  await expect(group(page, 'The conversation').getByRole('status')).toHaveText(`Copilot stopped: ${failure}`);
+  await expect(work(page)).toHaveText(`Copilot stopped: ${failure}`);
   await expect(rows(page)).toHaveCount(4);
 });
 
@@ -104,7 +109,7 @@ test("a plan's page follows the plan again once its stream breaks, as when the p
     await expect(rows(page)).toHaveCount(5, { timeout: 500 });
   }).toPass();
   await expect(rows(page).last()).toHaveText('Copilot Done.');
-  await expect(group(page, 'The conversation').getByRole('status')).toHaveText('');
+  await expect(work(page)).toHaveText('');
 });
 
 test("a plan's long words and a long failure wrap on a narrow screen", async ({ page }) => {
@@ -115,7 +120,7 @@ test("a plan's long words and a long failure wrap on a narrow screen", async ({ 
   await serve(page, opened(never, ['conversation', talk], ['status', { working: false, failure }]));
   await page.goto(`/planner/${plan.id}`);
 
-  await expect(group(page, 'The conversation').getByRole('status')).toHaveText(`Copilot stopped: ${failure}`);
+  await expect(work(page)).toHaveText(`Copilot stopped: ${failure}`);
   await expect(rows(page)).toHaveText([`You Plan ${word}`]);
   const scroll = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(scroll).toBe(0);

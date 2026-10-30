@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/svelte';
+import { act, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import type { Conversation } from './conversation';
@@ -46,6 +46,9 @@ const rows = () =>
     .getAllByRole('listitem')
     .map((row) => row.textContent?.trim());
 
+// The line that says whether Copilot works: the page's status outside the reply form.
+const work = () => screen.getAllByRole('status').find((status) => status.closest('form') === null);
+
 beforeEach(() => {
   vi.stubGlobal('EventSource', FakeEvents);
 });
@@ -64,7 +67,7 @@ test("shows the plan's conversation as it streams, and whether Copilot is workin
   await FakeEvents.last.emit('conversation', talk);
   expect(screen.getByRole('heading', { level: 2, name: 'The conversation' })).toBeInTheDocument();
   expect(rows()).toEqual(['You Plan a trip.\nKeep it short.', 'Copilot Where to?', 'You Rome']);
-  expect(screen.getByRole('status')).toHaveTextContent('Copilot is working…');
+  expect(work()).toHaveTextContent('Copilot is working…');
 
   await FakeEvents.last.emit('delta', { id: 'a2', from: 'assistant', text: 'Rome it is. ' });
   await FakeEvents.last.emit('delta', { id: 'a2', from: 'assistant', text: 'Three days?' });
@@ -72,7 +75,7 @@ test("shows the plan's conversation as it streams, and whether Copilot is workin
 
   await FakeEvents.last.emit('status', { working: false, failure: 'Rate limited' });
   expect(rows()).toHaveLength(3);
-  expect(screen.getByRole('status')).toHaveTextContent('Copilot stopped: Rate limited');
+  expect(work()).toHaveTextContent('Copilot stopped: Rate limited');
 });
 
 test('says when the plan has no message yet', async () => {
@@ -82,7 +85,23 @@ test('says when the plan has no message yet', async () => {
 
   expect(screen.getByText('No messages yet.')).toBeInTheDocument();
   expect(screen.queryByRole('list')).not.toBeInTheDocument();
-  expect(screen.getByRole('status').textContent).toBe('');
+  expect(work()?.textContent).toBe('');
+  expect(screen.getByRole('textbox', { name: 'Reply' })).toBeInTheDocument();
+});
+
+test('offers a reply to the plan once its conversation has loaded', async () => {
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(PlanPage, { props: { id: 'p1' } });
+  expect(screen.queryByRole('textbox', { name: 'Reply' })).not.toBeInTheDocument();
+
+  await FakeEvents.last.emit('conversation', talk);
+  await fireEvent.input(screen.getByRole('textbox', { name: 'Reply' }), { target: { value: 'Make it a week' } });
+  await fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+  expect(await screen.findByText('Sent')).toHaveRole('status');
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans/p1/messages', expect.anything());
+  expect(work()).toHaveTextContent('Copilot is working…');
 });
 
 test("says when the plan doesn't load", async () => {
@@ -92,6 +111,7 @@ test("says when the plan doesn't load", async () => {
 
   expect(screen.getByText("Couldn't load the plan.")).toBeInTheDocument();
   expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox', { name: 'Reply' })).not.toBeInTheDocument();
 });
 
 test("follows another plan from nothing when its ID changes, and the first plan's stream no more", async () => {
