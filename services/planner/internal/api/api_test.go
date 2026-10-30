@@ -17,14 +17,15 @@ import (
 
 // standIn is a stand-in for Copilot: it lists plans, starts the plan "plan-1", whose
 // conversation is talk, whose updates come from updates and whose questions take any answer,
-// unless it has a failure, and notes the prompts and the answers it gets and the context that
-// the plan is followed for.
+// unless it has a failure, and notes the prompts, the messages and the answers it gets and the
+// context that the plan is followed for.
 type standIn struct {
 	plans    []copilot.Entry
 	talk     copilot.Conversation
 	updates  chan copilot.Update
 	failure  error
 	prompts  []string
+	messages []string
 	answers  []copilot.Answer
 	followed context.Context
 }
@@ -71,6 +72,16 @@ func (s *standIn) Answer(id string, answer copilot.Answer) error {
 	return s.failure
 }
 
+func (s *standIn) Send(_ context.Context, id, text string) error {
+	if id != "plan-1" {
+		return copilot.ErrNoPlan
+	}
+
+	s.messages = append(s.messages, text)
+
+	return s.failure
+}
+
 // plannerAPI is the planner's API, with the logs it writes.
 type plannerAPI struct {
 	router http.Handler
@@ -106,6 +117,7 @@ func TestEachRouteIsNotFoundWithoutCopilot(t *testing.T) {
 		{http.MethodPost, "/planner/plans"},
 		{http.MethodGet, "/planner/plans/plan-1"},
 		{http.MethodGet, "/planner/plans/plan-1/events"},
+		{http.MethodPost, "/planner/plans/plan-1/messages"},
 		{http.MethodPost, "/planner/plans/plan-1/questions/q1/answer"},
 	} {
 		rec := planner.serve(t, route.method, route.target, `{"prompt":"Plan a trip"}`)
@@ -125,6 +137,7 @@ func TestEachRouteTakesOnlyItsMethod(t *testing.T) {
 		{http.MethodPost, "/planner/plans/plan-1"},
 		{http.MethodDelete, "/planner/plans/plan-1"},
 		{http.MethodPost, "/planner/plans/plan-1/events"},
+		{http.MethodGet, "/planner/plans/plan-1/messages"},
 		{http.MethodGet, "/planner/plans/plan-1/questions/q1/answer"},
 	} {
 		rec := planner.serve(t, route.method, route.target, "")

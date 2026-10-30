@@ -219,6 +219,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-answers` | `POST /planner/plans/{id}/questions/{question}/answer`, with a body such as `{"text":"Rome"}`, brings the user's answer to a question that waits, as nudge's `POST /nudge/questions/{id}/answer` does: 204, or 404 for a plan or a question that isn't there, and 400 for a blank text or one that isn't one of the choices of a question that takes no other (decision 411) | Done (#199) |
 | `planner-asked` | The agent's questions and the user's answers show among a plan's messages, read from the CLI's record of `ask_user`'s calls: once a call has ended, its question as the assistant's message and its answer as the user's, in `GET /planner/plans/{id}` and as the stream's `message` (decision 412) | Done (#200) |
 | `planner-list` | `GET /planner/plans` lists the plans that the CLI keeps, those of the service's earlier runs among them, the last updated first, as `{"plans":[…]}`: each with its `id`, the CLI's `title` for it, `started_at` and `updated_at`. `planner-resume` splits in three, so `copilot-planner` has twenty-one steps (decision 413) | Done (#201) |
+| `planner-send` | `POST /planner/plans/{id}/messages`, with a body such as `{"text":"Make it a week"}`, sends a follow-up message to a plan, in plan mode like the prompt, so that the agent works the plan out further: 204, or 404 for a plan that the client hasn't started, and 400 for a blank text (decision 414) | Done (#202) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1326,7 +1327,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-answers`: `POST /planner/plans/{id}/questions/{question}/answer` brings the user's answer to a question that waits, as nudge's page answers its questions (decision 411). Done (#199).
   - `planner-asked`: the questions asked and their answers show among a plan's messages, from the CLI's record of `ask_user`'s calls (decision 412). Done (#200).
   - `planner-list`: `GET /planner/plans` lists the plans that the CLI keeps, those of earlier runs among them (decision 413). Done (#201).
-  - `planner-send`: `POST /planner/plans/{id}/messages` sends a follow-up message to a plan.
+  - `planner-send`: `POST /planner/plans/{id}/messages` sends a follow-up message to a plan (decision 414). Done (#202).
   - `planner-resume`: the client brings back a plan of an earlier run as it's asked for, so that it reads, streams, and takes answers and follow-ups, with its plan.
   - `planner-image`: the service's image, with the CLI in it.
   - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it.
@@ -1962,6 +1963,13 @@ Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-p
      - **The entries**: `GET /planner/plans` answers `{"plans":[…]}`, an object, as `GET /notes` answers, with each plan as `{"id","title","started_at","updated_at"}`. The title is the CLI's name for the session, which may be its first prompt, or `""` without one; `updated_at` is when the session's record last changed, from the file's time. The client sorts the plans by it, the last updated first, since the SDK promises no order.
      - **Until `planner-resume`**: a plan of an earlier run shows in the list, but its own routes answer 404, `no such plan`. An error from the CLI gets a 502 and the log `list the plans`, as the other routes' errors do.
      - **Rejected**: the plans that the client has started, which it forgets as the service stops; the CLI's order, which isn't documented; one step for the three, which would be twice a step's size.
+414. **The follow-up message** (`planner-send`): the lead's choices (2026-10-30), for the user to review.
+     - **The route**: `POST /planner/plans/{id}/messages`, with a body such as `{"text":"Make it a week"}`, sends the text to the plan as the user's next message and answers 204, as the answer route does (decision 411); the page sees the message as the stream brings it. The text goes as it comes. The body is the answer's, `{"text"}`, with the same checks: a body that isn't a JSON object with just a text gets a 400, and one over 64 KiB a 413; a blank text gets a 400, `the message is blank`.
+     - **Plan mode**: the message goes in plan mode, as the prompt does and through the same code, so that the agent works the plan out further and brings it again with `exit_plan_mode`, rather than starting on it: `exit_only` has ended plan mode as the plan came (decision 404). While the agent works, the CLI queues the message, the SDK's default delivery, and takes it once the agent's turn is over.
+     - **Errors**: a plan that the client hasn't started, those of earlier runs among them until `planner-resume`, gets a 404, `no such plan`; an error from the CLI gets a 502 and the log `send a message`, as starting a plan does.
+     - **Known gap**: the agent's turn isn't over while one of its questions waits, so a message sent then waits until the question has its answer. `planner-ask`'s page will deal with it.
+     - **Live check**: whether the agent brings a revised plan waits for the work account's token, as the other planner steps' live checks do (decision 403).
+     - **Rejected**: 201 or 202 with the message's ID, which the page doesn't need, since the stream brings the message with the ID that the conversation uses; interjecting the message into the agent's turn (`immediate`), which the SDK marks experimental; the session's current mode, which isn't plan mode once the plan has come.
 
 Decisions 500 on are the orchestrator's, after 199.
 

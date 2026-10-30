@@ -10,7 +10,8 @@ import (
 	"github.com/codedogapp/bakhyard/services/planner/internal/copilot"
 )
 
-// reply is the body of POST /planner/plans/{id}/questions/{question}/answer.
+// reply is the user's text: the body of POST /planner/plans/{id}/questions/{question}/answer, and
+// of POST /planner/plans/{id}/messages.
 type reply struct {
 	Text string `json:"text"`
 }

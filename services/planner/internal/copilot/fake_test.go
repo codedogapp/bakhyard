@@ -39,12 +39,13 @@ type sessionEvent struct {
 // it brings plan, unless it's empty, with exitPlanMode.request, and passes the client's answer to
 // answers.
 type fakeCLI struct {
-	plan, failing string
-	answers       chan jsontext.Value
+	plan    string
+	answers chan jsontext.Value
 
-	mu    sync.Mutex
-	asked map[string]jsontext.Value
-	conn  io.Writer
+	mu      sync.Mutex
+	failing string
+	asked   map[string]jsontext.Value
+	conn    io.Writer
 }
 
 func newFakeCLI(plan, failing string) *fakeCLI {
@@ -108,6 +109,7 @@ func (f *fakeCLI) talk(conn io.ReadWriter) {
 func (f *fakeCLI) answer(request incoming) error {
 	f.mu.Lock()
 	f.asked[request.Method] = request.Params
+	failing := f.failing
 	f.mu.Unlock()
 
 	named, err := sessionOf(request.Params)
@@ -116,7 +118,7 @@ func (f *fakeCLI) answer(request incoming) error {
 	}
 
 	reply := outgoing{ID: request.ID, Result: result(request.Method, named)}
-	if request.Method == f.failing {
+	if request.Method == failing {
 		reply = outgoing{ID: request.ID, Error: &failure{internalError, "failing on purpose"}}
 	}
 
@@ -137,6 +139,14 @@ func (f *fakeCLI) send(message outgoing) error {
 	defer f.mu.Unlock()
 
 	return write(f.conn, message)
+}
+
+// fail makes the fake answer the requests for method from now on with an error.
+func (f *fakeCLI) fail(method string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.failing = method
 }
 
 // replied returns the result of the client's next answer to a request of the fake's, which is

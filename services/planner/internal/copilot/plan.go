@@ -66,7 +66,7 @@ func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
 
 	planned.session = session
 
-	_, err = session.Send(ctx, sdk.MessageOptions{Prompt: prompt, AgentMode: sdk.AgentModePlan})
+	err = planned.send(ctx, prompt)
 	if err != nil {
 		return "", errors.Join(fmt.Errorf("send the prompt: %w", err), session.Disconnect())
 	}
