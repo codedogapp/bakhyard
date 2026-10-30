@@ -23,6 +23,9 @@ var (
 	ErrNotFound = errors.New("no such file in the vault's repository")
 	// ErrChanged says that the file no longer has the blob that it had when it was read.
 	ErrChanged = errors.New("the file has changed since it was read")
+	// ErrRefused says that Gitea refused a commit: another commit took the branch first, or the
+	// bot user can't write to the repository.
+	ErrRefused = errors.New("refused: another commit took the branch first, or the bot can't write")
 )
 
 // Settings say where the vault's repository is, and as whom to reach it.
