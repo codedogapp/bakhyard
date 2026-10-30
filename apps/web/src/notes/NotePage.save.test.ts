@@ -74,6 +74,37 @@ test('says so while a save runs, when Save, Cancel and the editor wait, and when
   expect(view.state.doc.toString()).toBe(typedText);
 });
 
+test('offers to save the text as a new note once the note has changed, then shows the note and says where', async () => {
+  await typed();
+  const post = Promise.withResolvers<Response>();
+  fetchMock
+    .mockResolvedValueOnce(new Response(null, { status: 412 }))
+    .mockReturnValueOnce(post.promise)
+    .mockResolvedValueOnce(new Response(`${markdown}\n- [ ] Sing`, { headers: { ETag: '"3"' } }));
+  await fireEvent.click(button('Save'));
+  const offer = await screen.findByRole('button', { name: 'Save as new note' });
+  expect(screen.getAllByRole('button').map((each) => each.textContent?.trim())).toEqual([
+    'Cancel',
+    'Save',
+    'Save as new note',
+  ]);
+
+  await fireEvent.click(offer);
+  expect(screen.getByRole('status')).toHaveTextContent('Saving…');
+  expect(offer).toHaveAttribute('aria-disabled', 'true');
+  post.resolve(Response.json({ path: 'Daily/To do 1.md' }, { status: 201 }));
+
+  expect(await screen.findByRole('article')).toHaveTextContent('Sing');
+  expect(fetchMock).toHaveBeenNthCalledWith(
+    3,
+    '/api/notes/files/Daily/To%20do.md',
+    expect.objectContaining({ method: 'POST', body: typedText })
+  );
+  expect(screen.getByRole('status')).toHaveTextContent('Saved as “To do 1”');
+  expect(button('Edit')).toHaveFocus();
+  expect(screen.queryByRole('button', { name: 'Save as new note' })).not.toBeInTheDocument();
+});
+
 test('keeps Save and Cancel while the editor is open, when a sync says that notes no longer saves', async () => {
   const { notes } = await typed();
 
