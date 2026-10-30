@@ -19,6 +19,8 @@ function answer(url: string): Response {
     case '/api/github/reviews':
     case '/api/github/issues':
       return Response.json({ items: [], searched });
+    case '/api/games/recent':
+      return Response.json({ games: [], searched });
     case '/api/time/report':
       return Response.json({
         days: [{ date: '2026-10-20', loggedHours: 7.5, missing: false }],
@@ -43,13 +45,13 @@ afterEach(() => {
 });
 
 test('shows the page at the path it opens on', () => {
-  history.replaceState(null, '', '/games');
+  history.replaceState(null, '', '/planner');
   render(App);
 
-  expect(screen.getByRole('heading', { level: 1, name: 'Games' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 1, name: 'Planner' })).toBeInTheDocument();
   expect(screen.getByText('Coming soon')).toBeInTheDocument();
-  expect(document.title).toBe('Games · Bakhyard');
-  expect(screen.getByRole('link', { name: 'Games', current: 'page' })).toBeInTheDocument();
+  expect(document.title).toBe('Planner · Bakhyard');
+  expect(screen.getByRole('link', { name: 'Planner', current: 'page' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'More', current: true })).toBeInTheDocument();
 });
 
@@ -58,6 +60,7 @@ test.each([
   ['/pulls', 'No open pull requests.', 'Pull requests · Bakhyard'],
   ['/time', '7h 30m / 40h', 'Time · Bakhyard'],
   ['/github', 'No open issues.', 'GitHub · Bakhyard'],
+  ['/games', 'No games played in the last 14 days.', 'Games · Bakhyard'],
 ])('shows the page of the app at %s, with what it loads', async (path, loaded, title) => {
   history.replaceState(null, '', path);
   render(App);

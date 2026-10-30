@@ -38,6 +38,14 @@ const lines: { name: string; path: string; says: string; answer: (page: Page) =>
     },
   },
   {
+    name: 'Games',
+    path: '/games',
+    says: "Exophase isn't set up.",
+    answer: async (page) => {
+      await page.route('/api/games/recent', (route) => route.fulfill({ status: 404 }));
+    },
+  },
+  {
     name: 'Nudge',
     path: '/nudge',
     says: "Couldn't load the questions.",

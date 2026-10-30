@@ -38,7 +38,7 @@ test('lists the apps without a tab of their own as cards, with their counts', ()
   expect(cardTexts()).toEqual([
     '04 2 items Time Hours logged on the Jira tickets',
     '05 1 item GitHub PRs, reviews and issues across owners',
-    '06 0 items Games Backloggd and Exophase',
+    '06 0 items Games Recent games and stats from Exophase',
     '07 0 items Planner Copilot plans saved to the vault',
     '08 0 items Nudge Questions from your agents, answered on your phone',
   ]);
@@ -50,7 +50,7 @@ test('shows the cards without counts before the Home loads', () => {
   expect(cardTexts()).toEqual([
     '04 Time Hours logged on the Jira tickets',
     '05 GitHub PRs, reviews and issues across owners',
-    '06 Games Backloggd and Exophase',
+    '06 Games Recent games and stats from Exophase',
     '07 Planner Copilot plans saved to the vault',
     '08 Nudge Questions from your agents, answered on your phone',
   ]);
