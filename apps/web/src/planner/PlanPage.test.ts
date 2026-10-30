@@ -38,6 +38,7 @@ const talk: Conversation = {
   ],
   writing: [],
   questions: [],
+  plan: '',
   working: true,
   failure: '',
 };
@@ -83,7 +84,7 @@ test("shows the plan's conversation as it streams, and whether Copilot is workin
 test('says when the plan has no message yet', async () => {
   render(PlanPage, { props: { id: 'p1' } });
 
-  await FakeEvents.last.emit('conversation', { messages: [], writing: [], questions: [], working: false, failure: '' });
+  await FakeEvents.last.emit('conversation', { ...talk, messages: [], working: false });
 
   expect(screen.getByText('No messages yet.')).toBeInTheDocument();
   expect(screen.queryByRole('list')).not.toBeInTheDocument();

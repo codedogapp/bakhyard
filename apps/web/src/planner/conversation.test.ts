@@ -9,10 +9,11 @@ const talk: Conversation = {
   messages: [prompt],
   writing: [{ id: 'a1', from: 'assistant', text: 'Where' }],
   questions: [city],
+  plan: '# Trip\n\nRome first.',
   working: true,
   failure: '',
 };
-const other: Conversation = { messages: [], writing: [], questions: [days], working: true, failure: '' };
+const other: Conversation = { messages: [], writing: [], questions: [days], plan: '', working: true, failure: '' };
 
 test.each<{ about: string; change: Change; want: Conversation }>([
   { about: 'a new conversation replaces it', change: { name: 'conversation', data: other }, want: other },
@@ -53,12 +54,17 @@ test.each<{ about: string; change: Change; want: Conversation }>([
   },
   { about: "another's answer leaves them as they are", change: { name: 'answered', data: days }, want: talk },
   {
+    about: 'a plan replaces the plan',
+    change: { name: 'plan', data: { plan: '# Trip\n\nParis first.' } },
+    want: { ...talk, plan: '# Trip\n\nParis first.' },
+  },
+  {
     about: 'a status of an agent at work keeps the messages being written and the questions',
     change: { name: 'status', data: { working: true, failure: '' } },
     want: talk,
   },
   {
-    about: 'a status of an agent that stopped drops them, and tells why',
+    about: 'a status of an agent that stopped drops them, keeps the plan, and tells why',
     change: { name: 'status', data: { working: false, failure: 'Rate limited' } },
     want: { ...talk, writing: [], questions: [], working: false, failure: 'Rate limited' },
   },
@@ -92,6 +98,7 @@ test('leaves the conversation it changes as it was', () => {
   changed(talk, { name: 'message', data: { id: 'a1', from: 'assistant', text: 'Where to?' } });
   changed(talk, { name: 'question', data: days });
   changed(talk, { name: 'answered', data: city });
+  changed(talk, { name: 'plan', data: { plan: 'Other' } });
   changed(talk, { name: 'status', data: { working: false, failure: '' } });
 
   expect(talk).toEqual(before);
