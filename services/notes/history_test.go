@@ -38,6 +38,7 @@ func TestNotesNeedsAnHTTPSHistory(t *testing.T) {
 		"https:///me/vault/commits/branch/main",
 		"https://gitea.example/me/vault/commits/branch/main?page=2",
 		"https://gitea.example/me/vault/commits/branch/main#top",
+		" https://gitea.example/me/vault/commits/branch/main",
 	} {
 		_, err := routes(t.Context(),
 			envOf(map[string]string{vaultVar: folder, historyVar: history}), noSecrets(t))

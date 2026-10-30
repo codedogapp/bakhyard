@@ -35,7 +35,7 @@ test('links to the note’s history in the same tab, after Edit, once the note l
   fetchMock.mockReturnValueOnce(answer.promise);
   render(NotePage, { props: { note: toDo, notes: listed(true, history) } });
 
-  expect(screen.queryByRole('link', { name: 'History' })).not.toBeInTheDocument();
+  expect(screen.queryByText('History')).not.toBeInTheDocument();
   answer.resolve(new Response(markdown));
 
   const link = await screen.findByRole('link', { name: 'History' });
@@ -55,7 +55,7 @@ test('hides the history while the editor is open, since leaving would drop its t
   render(NotePage, { props: { note: toDo, notes: listed(true, history) } });
   await fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
 
-  expect(screen.queryByRole('link', { name: 'History' })).not.toBeInTheDocument();
+  expect(screen.queryByText('History')).not.toBeInTheDocument();
   await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.getByRole('link', { name: 'History' })).toBeInTheDocument();
 });
@@ -79,7 +79,7 @@ test.each([
   render(NotePage, { props: { note: toDo, notes: listed(true, history) } });
 
   expect(await screen.findByText(want)).toBeInTheDocument();
-  expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  expect(screen.queryByText('History')).not.toBeInTheDocument();
 });
 
 test('has no row for the tools when notes neither saves notes nor has a history', async () => {
