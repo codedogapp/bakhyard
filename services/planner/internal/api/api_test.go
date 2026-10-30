@@ -17,14 +17,15 @@ import (
 	"github.com/codedogapp/bakhyard/services/planner/internal/copilot"
 )
 
-// standIn is a stand-in for Copilot: it starts the plan "plan-1", whose conversation is talk and
-// whose updates come from updates, unless it has a failure, and notes the prompts it gets and
-// the context that the plan is followed for.
+// standIn is a stand-in for Copilot: it starts the plan "plan-1", whose conversation is talk,
+// whose updates come from updates and whose questions take any answer, unless it has a failure,
+// and notes the prompts and the answers it gets and the context that the plan is followed for.
 type standIn struct {
 	talk     copilot.Conversation
 	updates  chan copilot.Update
 	failure  error
 	prompts  []string
+	answers  []copilot.Answer
 	followed context.Context
 }
 
@@ -54,6 +55,16 @@ func (s *standIn) Follow(
 	talk, err := s.Conversation(ctx, id)
 
 	return talk, s.updates, err
+}
+
+func (s *standIn) Answer(id string, answer copilot.Answer) error {
+	if id != "plan-1" {
+		return copilot.ErrNoPlan
+	}
+
+	s.answers = append(s.answers, answer)
+
+	return s.failure
 }
 
 // plannerAPI is the planner's API, with the logs it writes.
@@ -206,6 +217,7 @@ func TestEachRouteIsNotFoundWithoutCopilot(t *testing.T) {
 		{http.MethodPost, "/planner/plans"},
 		{http.MethodGet, "/planner/plans/plan-1"},
 		{http.MethodGet, "/planner/plans/plan-1/events"},
+		{http.MethodPost, "/planner/plans/plan-1/questions/q1/answer"},
 	} {
 		rec := planner.serve(t, route.method, route.target, `{"prompt":"Plan a trip"}`)
 		if rec.Code != http.StatusNotFound || rec.Body.String() != "Copilot is not set up\n" {
@@ -224,6 +236,7 @@ func TestEachRouteTakesOnlyItsMethod(t *testing.T) {
 		{http.MethodPost, "/planner/plans/plan-1"},
 		{http.MethodDelete, "/planner/plans/plan-1"},
 		{http.MethodPost, "/planner/plans/plan-1/events"},
+		{http.MethodGet, "/planner/plans/plan-1/questions/q1/answer"},
 	} {
 		rec := planner.serve(t, route.method, route.target, "")
 		if rec.Code != http.StatusMethodNotAllowed {
