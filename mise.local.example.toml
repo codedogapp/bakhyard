@@ -30,5 +30,8 @@ BAKHYARD_VAULT = "/Users/you/Documents/Vault"
 # wait for your review and the open issues assigned to you; the token goes into the Keychain.
 # Leave it out to run without GitHub.
 # BAKHYARD_GITHUB_API = "https://api.github.com"
+# The id of the Exophase profile whose games the games service lists, digits only: the
+# playerProfileId in the profile page's source. Leave it out to run without Exophase.
+# BAKHYARD_EXOPHASE_PLAYER = "1234567"
 # The Go tests' own database. Put its role's password in place of <password>.
 BAKHYARD_TEST_DATABASE = "postgres://bakhyard_test:<password>@127.0.0.1:5433/bakhyard_test"

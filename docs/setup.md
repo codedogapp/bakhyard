@@ -25,9 +25,10 @@ cp mise.local.example.toml mise.local.toml
 | `BAKHYARD_BITBUCKET_EMAIL` | pulls | The email of the Atlassian account that owns the Bitbucket token |
 | `BAKHYARD_BITBUCKET_WORKSPACES` | pulls | The slugs of the workspaces to list your open pull requests in, separated by commas |
 | `BAKHYARD_GITHUB_API` | github | GitHub's REST API, `https://api.github.com`, where github searches for your open pull requests, review requests and issues ([below](#github)) |
+| `BAKHYARD_EXOPHASE_PLAYER` | games | The id of the Exophase profile whose games to list, digits only ([below](#exophase)) |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
-The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, notify, nudge, pulls, time and todos to start. Todos and time run without Jira when none of the three Jira settings is set, pulls without Bitbucket when none of the three Bitbucket settings is set, and github without GitHub when `BAKHYARD_GITHUB_API` isn't set.
+The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for notes, notify, nudge, pulls, time and todos to start. Todos and time run without Jira when none of the three Jira settings is set, pulls without Bitbucket when none of the three Bitbucket settings is set, github without GitHub when `BAKHYARD_GITHUB_API` isn't set, and games without Exophase when `BAKHYARD_EXOPHASE_PLAYER` isn't set.
 
 On the Mac, the gateway, todos, pulls, time and github read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`, `github-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
 
@@ -178,6 +179,15 @@ The github service searches GitHub, across every owner that your token reaches, 
 3. In `mise.local.toml`, set `BAKHYARD_GITHUB_API` to `https://api.github.com`, then restart github.
 
 The API's URL must be https, as Jira's must; only a loopback IP address may take http, for a stand-in GitHub in tests. With a URL that isn't https or no token in the Keychain, github exits 1 and says which: `BAKHYARD_GITHUB_API: "…" is not an https URL` or `read the GitHub token: no Keychain item with service bakhyard and account github-token`. `mise run up` runs it on port 8089. Without the setting, `GET /github/mine`, `GET /github/reviews` and `GET /github/issues` answer 404 `GitHub is not set up`. With it, github searches GitHub for each of the three lists as it starts and every 5 minutes after, the latest updated first, and each route answers its list, with when the latest search to succeed began and why the latest search failed, if it did. When GitHub refuses the token, for example once it has expired, each route keeps answering what the last search to succeed found and adds GitHub's answer as its `failure`, such as `search GitHub for my open PRs: 401 Unauthorized`, and github logs `poll GitHub`, `poll GitHub reviews` or `poll GitHub issues` with it. To replace the token, add `-U` to the command in step 2, then restart github.
+
+## Exophase
+
+Games lists the games you played in the last 14 days, the last played first, with each game's platforms, playtime and trophies, from your Exophase profile (decisions 67 and 300 to 303). It reads the games list that your profile page loads, as JSON, with no login. To set it up:
+
+1. Open your profile page on Exophase, show the page's source, and find `window.playerProfileId`: the number it's set to is your profile's id.
+2. In `mise.local.toml`, set `BAKHYARD_EXOPHASE_PLAYER` to that number, such as `1234567`, then restart games.
+
+The id must be digits only; with anything else, games exits 1 and says so: `BAKHYARD_EXOPHASE_PLAYER: "…" is not an Exophase profile id, which is digits only`. Without it, `GET /games/recent` answers 404 `Exophase is not set up`. `mise run up` runs games on port 8090, where `GET /games/recent` answers the games, with when the latest fetch to succeed began and why the latest fetch failed, if it did. Games fetches the list only when asked: the first request waits for the first fetch, and later ones get the list at once, while one that finds it an hour old or more starts a fetch in the background. When a fetch fails, for example while Exophase is down, games keeps answering the last list it got, adds the failure, such as `list my Exophase games: 500 Internal Server Error`, which is also what Exophase answers for an id it doesn't know, `list my Exophase games: 403 Forbidden, a Cloudflare challenge` or, for a profile that isn't public, `list my Exophase games: Exophase has no public profile with this id`, and logs `poll Exophase` with it. The next fetch then waits 5 minutes, and twice as long after each failure in a row, up to 6 hours. The list lives in games' memory, so a restart fetches it again.
 
 ## Run
 

@@ -141,6 +141,19 @@ processes:
       initial_delay_seconds: 1
       period_seconds: 2
 
+  games:
+    <<: *service
+    description: Lists the games I played lately on Exophase
+    command: bin/games
+    environment:
+      - BAKHYARD_LISTEN=tcp://127.0.0.1:8090
+    readiness_probe:
+      http_get:
+        port: 8090
+        path: /healthz
+      initial_delay_seconds: 1
+      period_seconds: 2
+
   gateway:
     <<: *service
     description: "The only way in: /api to the services, everything else to web"
