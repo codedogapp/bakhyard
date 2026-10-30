@@ -13,7 +13,7 @@ interface Snapshot extends Polls {
 const searched = '2026-10-26T00:41:00Z';
 const row = createRawSnippet<[string]>((item) => ({ render: () => `<span>${item()}</span>` }));
 
-function show(polled: Polled<Snapshot>) {
+function show(polled: Polled<Snapshot>, markStale?: boolean) {
   return render(PolledSection<Snapshot, string>, {
     props: {
       polled,
@@ -23,6 +23,7 @@ function show(polled: Polled<Snapshot>) {
       noun: 'issue',
       empty: 'No open issues.',
       failed: "Couldn't load the issues.",
+      markStale,
       row,
     },
   });
@@ -56,4 +57,21 @@ test.each<Snapshot>([
 
   expect(screen.getByText(/^The last search failed/)).toHaveTextContent(/^The last search failed: search: 502\.$/);
   expect(document.querySelector('time')).not.toBeInTheDocument();
+});
+
+test('marks a list from an earlier search with a Stale chip after its count, when asked to', () => {
+  show({ kind: 'loaded', snapshot: { items: ['First'], searched, failure: 'search: 502' } }, true);
+
+  expect(screen.getByText('1 issue')).toContainElement(screen.getByText('Stale'));
+});
+
+test.each<{ snapshot: Snapshot; markStale?: boolean }>([
+  { snapshot: { items: ['First'], searched, failure: 'search: 502' } },
+  { snapshot: { items: ['First'], searched }, markStale: true },
+  { snapshot: { searched, failure: 'search: 502' }, markStale: true },
+  { snapshot: { items: ['First'], failure: 'search: 502' }, markStale: true },
+])('marks no list stale but one from an earlier search, when asked to: %o', ({ snapshot, markStale }) => {
+  show({ kind: 'loaded', snapshot }, markStale);
+
+  expect(screen.queryByText('Stale')).not.toBeInTheDocument();
 });

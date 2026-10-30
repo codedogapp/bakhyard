@@ -17,6 +17,7 @@ let {
   noun,
   empty,
   failed,
+  markStale = false,
   row,
 }: {
   polled: Polled<S>;
@@ -28,6 +29,8 @@ let {
   noun: string;
   empty: string;
   failed: string;
+  /** Whether a list from an earlier search, kept after the latest failed, gets a Stale chip after its count. */
+  markStale?: boolean;
   row: Snippet<[T]>;
 } = $props();
 </script>
@@ -35,7 +38,8 @@ let {
 {#if polled.kind === 'loaded'}
   {@const { searched, failure } = polled.snapshot}
   {@const items = list(polled.snapshot)}
-  <Section {title} {accent} note={items && countLabel(items.length, noun)}>
+  {@const stale = markStale && failure && items && searched}
+  <Section {title} {accent} note={items && countLabel(items.length, noun)} badge={stale ? 'Stale' : undefined}>
     {#if failure}
       <p class="muted">
         The last search failed: {failure}.
