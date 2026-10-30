@@ -241,7 +241,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `homelab-planner` | The homelab repo runs `planner` on the laptop with Copilot: its host from a Secret of settings, its token in a Secret, and a volume for the CLI's home, which keeps the plans; it names `planner` among the gateway's peers, before `planner-gateway` makes the gateway require it (decisions 403 and 701) | Pending |
 | `planner-working` | The planner's client tells whether a plan's agent is working, in the conversation and as the stream's events, from the start of a turn until the CLI says the session is idle, and passes on the session's errors; once the agent stops, a message that it never finished is dropped (decisions 701 and 702) | Done (#214) |
 | `planner-chat` | A plan's page at `/planner/<id>` shows the plan's conversation as it streams: the user's messages, the assistant's text as it comes, and whether the agent is working or why it stopped; a stream that breaks opens again (decisions 701 and 703) | Done (#217) |
-| `planner-open` | Each row of the Planner page's list links to its plan's page, and a new plan's start opens the new plan's page (decisions 418, 703 and 704) | Pending |
+| `planner-open` | Each row of the Planner page's list links to its plan's page, and a new plan's start opens the new plan's page (decisions 418, 703 and 704) | Done (#219) |
 | `planner-gateway` | The gateway forwards `/api/planner` to `planner`, behind both of its locks, once the laptop runs it (decision 403) | Pending |
 | `planner-reply` | A plan's page sends follow-up messages from a field under its conversation (decision 701) | Pending |
 | `planner-ask` | The agent's questions show in a plan's chat with their choices, and with a field for another answer when the agent takes one, and the answers go back (decision 403) | Pending |
@@ -1376,7 +1376,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-prompt`: the Planner page starts a new plan from a prompt (decision 418). Done (#206).
   - `planner-working`: the planner's client tells whether a plan's agent is working, and passes on the session's errors; a message that the agent never finished doesn't stay half-written (decisions 701 and 702). Done (#214).
   - `planner-chat`: a plan's page shows its conversation as it streams, and whether the agent is working (decisions 701 and 703). Done (#217).
-  - `planner-open`: each row of the list, and a new plan's start, lead to a plan's page (decisions 703 and 704).
+  - `planner-open`: each row of the list, and a new plan's start, lead to a plan's page (decisions 703 and 704). Done (#219).
   - `planner-reply`: a plan's page sends follow-up messages (decision 701).
   - `planner-ask`: the agent's questions show in the chat with their choices, and the answers go back.
   - `planner-preview`: the plan shows, rendered.
