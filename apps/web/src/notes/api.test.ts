@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { fetchNote, fetchNotes, fileUrl, saveNote, syncNotes } from './api';
+import { createNote, fetchNote, fetchNotes, fileUrl, saveNote, syncNotes } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -122,4 +122,32 @@ test('fails to save a note when the gateway can not be reached', async () => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
 
   await expect(saveNote('Daily/To do.md', 'Tune', version)).rejects.toThrow('Failed to fetch');
+});
+
+test('makes a new note through the gateway, each name in its path escaped, and gives the path it got', async () => {
+  const fetchMock = vi
+    .fn<typeof fetch>()
+    .mockResolvedValue(Response.json({ path: 'Daily/To do #1? 1.md' }, { status: 201 }));
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(createNote('Daily/To do #1?.md', '# To do\n\n- [ ] Tune\n')).resolves.toBe('Daily/To do #1? 1.md');
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/notes/files/Daily/To%20do%20%231%3F.md', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+    body: '# To do\n\n- [ ] Tune\n',
+  });
+});
+
+test.each([400, 404, 409, 413, 502])('fails when the gateway answers a new note with %i', async (status) => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status })));
+
+  await expect(createNote('Daily/To do.md', 'Tune')).rejects.toThrow(
+    `POST /api/notes/files/Daily/To%20do.md: ${status}`
+  );
+});
+
+test('fails to make a new note when the gateway can not be reached', async () => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
+
+  await expect(createNote('Daily/To do.md', 'Tune')).rejects.toThrow('Failed to fetch');
 });

@@ -73,7 +73,7 @@ test('saves the text if the note is still at its version, then shows it, says so
   fetchMock.mockResolvedValueOnce(answer(204, saved));
 
   const saving = shown.save();
-  expect(shown.status).toBe('saving');
+  expect(shown.status).toEqual({ kind: 'saving' });
   expect(shown.busy).toBe(true);
   await saving;
 
@@ -89,7 +89,7 @@ test('saves the text if the note is still at its version, then shows it, says so
     note: renderNote(ticked, toDo, files),
   });
   expect(shown.editing).toBe(false);
-  expect(shown.status).toBe('saved');
+  expect(shown.status).toEqual({ kind: 'saved' });
   expect(button).toHaveFocus();
 });
 
@@ -99,7 +99,7 @@ test('Edit starts again from the saved text, and the next save sends the version
   await shown.save();
 
   shown.toggle();
-  expect(shown.status).toBe('idle');
+  expect(shown.status).toEqual({ kind: 'idle' });
   shown.edit(`${ticked}\n- [ ] Sing`);
   await shown.save();
 
@@ -118,7 +118,7 @@ test.each([
 
   expect(fetchMock).toHaveBeenCalledOnce();
   expect(shown.editing).toBe(false);
-  expect(shown.status).toBe('idle');
+  expect(shown.status).toEqual({ kind: 'idle' });
   expect(button).toHaveFocus();
 });
 
@@ -128,7 +128,7 @@ test('saves nothing while the editor is closed', async () => {
   await shown.save();
 
   expect(fetchMock).toHaveBeenCalledOnce();
-  expect(shown.status).toBe('idle');
+  expect(shown.status).toEqual({ kind: 'idle' });
 });
 
 test('keeps the editor and its text when the note has changed since it loaded, and the next try sends it again', async () => {
@@ -136,7 +136,7 @@ test('keeps the editor and its text when the note has changed since it loaded, a
   fetchMock.mockResolvedValue(answer(412));
 
   await shown.save();
-  expect(shown.status).toBe('changed');
+  expect(shown.status).toEqual({ kind: 'changed' });
   expect(shown.editing).toBe(true);
   expect(shown.body).toMatchObject({ markdown, version: loaded });
   await shown.save();
@@ -153,7 +153,7 @@ test.each([
 
   await shown.save();
 
-  expect(shown.status).toBe('failed');
+  expect(shown.status).toEqual({ kind: 'failed' });
   expect(shown.editing).toBe(true);
   expect(shown.body).toMatchObject({ markdown, version: loaded });
 });
@@ -172,7 +172,7 @@ test('Cancel and Save wait while a save runs', async () => {
   put.resolve(answer(204, saved));
   await saving;
 
-  expect(shown.status).toBe('saved');
+  expect(shown.status).toEqual({ kind: 'saved' });
 });
 
 test('Cancel drops the last save’s word with the edits', async () => {
@@ -183,7 +183,7 @@ test('Cancel drops the last save’s word with the edits', async () => {
   shown.toggle();
 
   expect(shown.editing).toBe(false);
-  expect(shown.status).toBe('idle');
+  expect(shown.status).toEqual({ kind: 'idle' });
   shown.toggle();
   await shown.save();
   expect(fetchMock).toHaveBeenCalledTimes(2);

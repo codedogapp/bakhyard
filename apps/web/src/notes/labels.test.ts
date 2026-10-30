@@ -33,11 +33,12 @@ test.each<{ status: Status; want: string }>([
 });
 
 test.each<{ status: SaveStatus; want: string }>([
-  { status: 'idle', want: '' },
-  { status: 'saving', want: 'Saving…' },
-  { status: 'saved', want: 'Saved' },
-  { status: 'changed', want: 'Not saved: the note has changed since it loaded' },
-  { status: 'failed', want: 'Save failed' },
-])('labels the save $status as "$want"', ({ status, want }) => {
+  { status: { kind: 'idle' }, want: '' },
+  { status: { kind: 'saving' }, want: 'Saving…' },
+  { status: { kind: 'saved' }, want: 'Saved' },
+  { status: { kind: 'changed' }, want: 'Not saved: the note has changed since it loaded' },
+  { status: { kind: 'kept', path: 'Songs/Riff 1.md' }, want: 'Saved as “Riff 1”' },
+  { status: { kind: 'failed' }, want: 'Save failed' },
+])('labels the save $status.kind as "$want"', ({ status, want }) => {
   expect(saveLabel(status)).toBe(want);
 });
