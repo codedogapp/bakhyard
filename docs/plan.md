@@ -184,6 +184,9 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `github-widgets` | The GitHub widgets (§8.2 Phase 4), by a session of their own in `../bakhyard-github/`, which adds its steps' rows under this one (decision 195) | In progress |
 | `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | In progress |
 | `vault-edit-sync` | Editing the vault from Bakhyard (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one and then does `copilot-planner` (decision 195) | In progress |
+| `vault-plan` | The vault session's first steps: where a save goes waits on the user's answer to §12's question on how edits get back to the Mac, so the version that a save checks and the editor come first; a note's version is the SHA-256 of its bytes, sent as its `ETag`, and a save is a `PUT` that sends it back in `If-Match` (decision 400) | Done (#167) |
+| `note-etag` | notes answers each note with its version as a strong `ETag`, the SHA-256 of its bytes, and a matching `If-None-Match` with a 304 (decision 400) | Planned |
+| `note-editor` | A note's page edits it in a CodeMirror 6 editor and saves it with `PUT /api/notes/files/<path>` and `If-Match`, once `GET /api/notes` says saving is set up; a note changed since gets a 412, and the page keeps the user's text (decision 400) | Planned |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -279,7 +282,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host lap
   - Covers come from IGDB (decision 68): each title is matched once, with a filtered search and an exact-name fallback, and the match is cached.
   - Never fetch or store profile HTML (it contains PII).
 - **Vault reads** (notes service, decisions 71 and 151): the service reads the vault from a directory: in place on the Mac, in development, and on the laptop the checkout that git-sync keeps of Gitea's mirror. There's no file watcher and no polling: the service scans the vault when it starts, when the user presses Sync and, on the laptop, when git-sync has synced a new commit. A scan is a `WalkDir` through an `os.Root`, skipping every folder and file whose name starts with a dot, such as `.git/`, `.obsidian/` and `.DS_Store`, or isn't valid UTF-8, which JSON can't carry and macOS never makes. The index it makes is the list of the vault's regular files, notes and attachments alike; it reads nothing from the notes, so a scan just lists the files again (decision 91). Each scan opens the root again, and the service reads every file it serves through the root of the scan that listed it, which it keeps open until a newer scan replaces that list (decisions 92, 151 and 155). A Sync swaps in the new list whole, and one that fails keeps the old (decision 93).
-- **Vault writes** (notes service, from `vault-edit-sync` in Phase 6, conflict-safe): new notes get unique names; edit only if the mtime/hash is unchanged since the read; temp file + atomic rename; skip notes modified elsewhere in the last few minutes; never touch `.obsidian/`.
+- **Vault writes** (notes service, from `vault-edit-sync` in Phase 6, conflict-safe): new notes get unique names; edit only if its hash is unchanged since the read (decision 400); temp file + atomic rename; skip notes modified elsewhere in the last few minutes; never touch `.obsidian/`.
 - **Auth** (enforced at the gateway; one person, two locks):
   1. **Tailscale identity**, as built in `auth-tailscale` (decision 77):
      - The gateway listens on `127.0.0.1` only; `tailscale serve` adds `Tailscale-User-Login` and replaces copies sent by the client (tested 2026-10-21). It keeps `Host` as the ts.net name, and also sets `X-Forwarded-For` (the client's tailnet IP), `X-Forwarded-Host` and `X-Forwarded-Proto: https`.
@@ -1254,10 +1257,11 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 6: vault edits and Copilot**
 
-- `vault-edit-sync` [notes, web]. Needs `vault-render`. Moved from Phase 2 (decision 69).
-  - CodeMirror 6 editor.
-  - A save API with the §3 conflict rules; new notes get unique names.
-  - History and rollback, and the way edits get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151, §12).
+- `vault-edit-sync` [notes, web]. Needs `vault-render`. Moved from Phase 2 (decision 69). The steps so far (decision 400); the rest follow the user's answer to §12's question on how edits get back to the Mac:
+  - `vault-plan`: this split, a note's version, the SHA-256 of its bytes, and the save, a `PUT` that sends the version back in `If-Match` (decision 400). Done (#167).
+  - `note-etag`: notes answers each note with its version as a strong `ETag`, and a matching `If-None-Match` with a 304 (decision 400).
+  - `note-editor`: a note's page edits it in a CodeMirror 6 editor and saves it with a `PUT`, once `GET /api/notes` says saving is set up (decision 400).
+  - After the answer: the store behind the save, with the §3 conflict rules; new notes get unique names; history and rollback; and the way edits get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151, §12).
 - `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`, `vault-edit-sync`.
   - Chat UI with streaming, plan-mode sessions, resume, and plan preview.
   - The agent's questions shown in the chat, with their choices, and the answers sent back (§3).
@@ -1688,6 +1692,13 @@ Decisions 200 to 299 are the `github-widgets` session's.
 Decisions 300 to 399 are the `games-exophase` session's.
 
 Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-planner`.
+
+400. **Editing notes, the first steps** (`vault-plan`, `note-etag`, `note-editor`): the lead's choices (2026-10-30), for the user to review.
+     - **The order**: where a save goes waits on the user's answer to §12's question on how edits get back to the Mac, which nudge can't ask while the laptop that runs it is offline, and the store's steps, history and rollback wait with it. Two steps don't depend on the answer, so they come first: `note-etag`, the version that a save checks, and `note-editor`, the editor. Each step after the answer gets a decision of its own.
+     - **A note's version**: notes answers a note, a `.md` file, with a strong `ETag`, the SHA-256 of its bytes in hex, which `http.ServeContent` also uses to answer a matching `If-None-Match` with a 304; the page sends it back with a save. A hash of the text rather than the mtime that §3 allowed, since git-sync checks each commit out into a new worktree (decision 151), which gives every file a new mtime on every sync, and since the same text then has the same version on the laptop and in the store, whichever it is. Other files keep `Last-Modified` alone.
+     - **The save**: `PUT /notes/files/<path>`, which the gateway already forwards from `/api/notes/files/<path>`, as it forwards every method, takes the note's whole text, UTF-8, with `If-Match` naming the version read. It answers 204 with the new `ETag`; 412 when the note has changed since; and 428 without `If-Match` (RFC 6585), so no save can skip the check. On a 412 the page keeps the user's text. The rest of its answers, such as its limits, come with the store's step.
+     - **Saving set up or not**: `GET /notes` adds `"editable": true` once a store is set up, and the page shows its Edit button only then, taking the member's absence as false. So the editor can merge before the store, out of sight until the store lands.
+     - **Rejected**: git's blob SHA-1 as the version, which GitHub's and Gitea's contents APIs take to update a file, since gosec refuses `crypto/sha1` (G401, G505), so it would need a `//nolint`, while the store can hash the note it holds before it writes; the mtime and size, for the new worktrees above; a weak `ETag`; a version for every file, which would hash each image on every read for nothing; a JSON body for the save, since the GET answers the bare text.
 
 Decisions 500 on are the orchestrator's, after 199.
 
