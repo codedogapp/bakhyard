@@ -134,19 +134,21 @@ func TestStartingAPlanFailsWhenCopilotFails(t *testing.T) {
 func TestReadingAPlanAnswersItsConversation(t *testing.T) {
 	talk := copilot.Conversation{
 		Messages: []copilot.Message{
-			{From: copilot.User, Text: "Plan a trip"},
-			{From: copilot.Assistant, Text: "Where to?"},
+			{ID: "1", From: copilot.User, Text: "Plan a trip"},
+			{ID: "m2", From: copilot.Assistant, Text: "Where to?"},
 		},
-		Plan: "# Plan\n",
+		Writing: []copilot.Message{{ID: "m3", From: copilot.Assistant, Text: "So"}},
+		Plan:    "# Plan\n",
 	}
 
 	for _, test := range []struct {
 		talk copilot.Conversation
 		want string
 	}{
-		{talk, `{"messages":[{"from":"user","text":"Plan a trip"},` +
-			`{"from":"assistant","text":"Where to?"}],"plan":"# Plan\n"}`},
-		{copilot.Conversation{}, `{"messages":[],"plan":""}`},
+		{talk, `{"messages":[{"id":"1","from":"user","text":"Plan a trip"},` +
+			`{"id":"m2","from":"assistant","text":"Where to?"}],` +
+			`"writing":[{"id":"m3","from":"assistant","text":"So"}],"plan":"# Plan\n"}`},
+		{copilot.Conversation{}, `{"messages":[],"writing":[],"plan":""}`},
 	} {
 		rec := newPlannerAPI(&standIn{talk: test.talk}).serve(t, http.MethodGet,
 			"/planner/plans/plan-1", "")

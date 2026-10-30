@@ -18,6 +18,7 @@ type created struct {
 	AvailableTools         []string `json:"availableTools"`
 	WorkingDirectory       string   `json:"workingDirectory"`
 	SkipCustomInstructions bool     `json:"skipCustomInstructions"`
+	Streaming              bool     `json:"streaming"`
 	RequestPermission      bool     `json:"requestPermission"`
 	RequestExitPlanMode    bool     `json:"requestExitPlanMode"`
 }
@@ -85,7 +86,7 @@ func TestPlan(t *testing.T) {
 		AvailableTools: []string{
 			"ask_user", "view", "glob", "grep", "create", "edit", "exit_plan_mode",
 		},
-		WorkingDirectory: "/work", SkipCustomInstructions: true,
+		WorkingDirectory: "/work", SkipCustomInstructions: true, Streaming: true,
 		RequestPermission: true, RequestExitPlanMode: true,
 	}
 	if planID == "" || !reflect.DeepEqual(session, want) {
