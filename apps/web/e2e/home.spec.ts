@@ -1,7 +1,6 @@
-import type { Page } from '@playwright/test';
-
 import { home } from './demo';
 import { expect, test } from './fixtures';
+import { inkMuted } from './ink';
 
 test('the Home greets the user and lists what needs them', async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
@@ -26,17 +25,6 @@ test('the Home leaves out This week when its answer has no week', async ({ page 
   await expect(page.getByRole('link', { name: 'Day report' })).toHaveCount(0);
   await expect(page.locator('main section').last()).toContainText('Your apps');
 });
-
-// The colour --ink-muted gives text in the page's theme.
-function inkMuted(page: Page) {
-  return page.evaluate(() => {
-    const probe = document.body.appendChild(document.createElement('span'));
-    probe.style.color = 'var(--ink-muted)';
-    const { color } = getComputedStyle(probe);
-    probe.remove();
-    return color;
-  });
-}
 
 test("the Home says the hours are unavailable when home couldn't get the week", async ({ page }, testInfo) => {
   await page.route('/api/home', (route) =>
