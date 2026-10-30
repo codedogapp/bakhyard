@@ -253,7 +253,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-working` | The planner's client tells whether a plan's agent is working, in the conversation and as the stream's events, from the start of a turn until the CLI says the session is idle, and passes on the session's errors; once the agent stops, a message that it never finished is dropped (decisions 701 and 702) | Done (#214) |
 | `planner-chat` | A plan's page at `/planner/<id>` shows the plan's conversation as it streams: the user's messages, the assistant's text as it comes, and whether the agent is working or why it stopped; a stream that breaks opens again (decisions 701 and 703) | Done (#217) |
 | `planner-open` | Each row of the Planner page's list links to its plan's page, and a new plan's start opens the new plan's page (decisions 418, 703 and 704) | Done (#219) |
-| `planner-gateway` | The gateway forwards `/api/planner` to `planner`, behind both of its locks, once the laptop runs it (decision 403) | Pending |
+| `planner-gateway` | The gateway forwards `/api/planner` to `planner`, behind both of its locks, so the Planner page reaches the planner, and a plan's events reach its page as they come. `planner` is one of the gateway's peers, each of which `BAKHYARD_PEERS` must name, and `mise run up` starts the gateway once planner is ready. It follows codedogapp/homelab#47, which names `planner` among the laptop gateway's peers (decisions 403 and 711) | Pending |
 | `planner-reply` | A plan's page sends follow-up messages from a field under its conversation (decisions 701 and 705) | Done (#221) |
 | `planner-ask` | The agent's questions that wait show at the end of a plan's conversation, with their choices, and with a field for another answer when the agent takes one, and the answers go back; while one waits, the reply hides (decisions 403 and 706) | Done (#223) |
 | `planner-preview` | A plan's page shows the plan above the conversation once Copilot has written it, rendered from its Markdown as a note's body is, in a chunk that loads with the first plan; notes and plans share the Markdown styles and the heading rule (decisions 403 and 707) | Done (#225) |
@@ -471,7 +471,7 @@ flowchart LR
 | Service | Role | Listens on | Peers | Grows into (§8.2) |
 | --- | --- | --- | --- | --- |
 | nats | Event bus; JetStream on for later durable flows | `tcp://127.0.0.1:4222`, monitoring `:8222` | | reminders → notify |
-| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, games, github, home, notes, notify, nudge, pulls, time, todos | auth-signin |
+| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, games, github, home, notes, notify, nudge, planner, pulls, time, todos | auth-signin |
 | web | Serves the embedded Svelte build | unix socket | | frontend-shell (PWA parts) |
 | home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner | home-feed |
 | notes | Obsidian vault | unix socket | nats | vault-index, vault-render, vault-edit-sync |
@@ -647,7 +647,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 - Each service has a `description`, a `command` (`bin/<name>`, run with `bash -c` from the repo root) and an `environment` with its `BAKHYARD_LISTEN` and, for the gateway, `BAKHYARD_PEERS` (§4.7).
 - A readiness probe checks each service's `GET /healthz` (§4.7), first 1 s after the start, then every 2 s. A check gets 1 s to answer, and 3 failures in a row fail the probe.
-- The gateway `depends_on` games, github, home, notes, notify, nudge, pulls, time, todos and web with `condition: process_healthy`, so it starts once their probes pass.
+- The gateway `depends_on` games, github, home, notes, notify, nudge, planner, pulls, time, todos and web with `condition: process_healthy`, so it starts once their probes pass.
 - What every service shares sits in an `x-service` YAML anchor, merged into each with `<<: *service`:
   - `availability.restart: always`: a service that exits, or fails its probe, restarts after 1 s, however often it needs to. A service stopped by hand stays stopped.
   - `shutdown.timeout_seconds: 10`: a stop sends SIGTERM to the service's process group, then SIGKILL if it's still running 10 s later. Without the timeout, process-compose never sends SIGKILL, and a hung service never stops. The group holds what a service starts too, such as the planner's Copilot CLI, so a hung CLI never outlives its service (decision 406).
@@ -1385,7 +1385,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-image`: the service's image, with the CLI in it (decision 416). Done (#204).
   - `planner-handover`: the planner session takes over the rest of `copilot-planner`, in nine steps (decisions 700 and 701). Done (#211).
   - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it; the planner's name notes, and it runs in the user's time zone (decision 709).
-  - `planner-gateway`: the gateway forwards `/api/planner` to `planner`.
+  - `planner-gateway`: the gateway forwards `/api/planner` to `planner`, once codedogapp/homelab#47 names it on the laptop (decision 711).
   - `planner-page`: the Planner page lists the plans (decision 417). Done (#205).
   - `planner-prompt`: the Planner page starts a new plan from a prompt (decision 418). Done (#206).
   - `planner-working`: the planner's client tells whether a plan's agent is working, and passes on the session's errors; a message that the agent never finished doesn't stay half-written (decisions 701 and 702). Done (#214).
@@ -2306,6 +2306,13 @@ Decisions 700 to 799 are the planner session's: the rest of `copilot-planner`.
      - **On the Mac**: notes stays read-only unless it's set up for saving (`docs/setup.md`), so a save there gets notes' 405, which the planner answers with 502 and logs.
      - **Known gaps**: a save that takes notes longer than 30 s fails, though Gitea may have made the note by then; the 502 doesn't tell a read-only notes from a failing one, since the planner passes on none of notes' statuses.
      - **Rejected**: the page posting the plan's text, which could save something other than the planner's plan; the web app asking notes itself, which would put the note's name and frontmatter in the browser; answering notes' 405 as "not set up", which would tie the planner to how notes says that it's read-only; remembering a plan's save, so that a second save finds the first note (YAGNI); a `Location` header, since the page needs only the path.
+
+711. **The planner behind the gateway** (`planner-gateway`): the lead's choices (2026-10-30), for the user to review.
+     - **A peer that the gateway requires**: `planner` is the gateway's eleventh peer, each of which `BAKHYARD_PEERS` must name, and the gateway forwards `/api/planner` and every path under it to it, behind the Tailscale identity and the session, without the session's cookie, as every service's API (decision 86).
+     - **After the laptop**: codedogapp/homelab#47 names `planner` among the laptop gateway's peers and lets the gateway reach it, so it merges first, or the gateway's next image wouldn't start there (decision 200's order). Until then this step's PR waits as a draft.
+     - **The stream**: a plan's events reach its page as they come, since Go's reverse proxy flushes an event stream after each write and the gateway's own writer passes the flush on. A test reads the first event through the gateway while the stream stays open, so a middleware that held it back fails it.
+     - **Under `mise run up`**: the gateway waits for planner, as for its other peers, so a planner that exits 1, such as one with a host but no token, keeps the gateway from starting there. The end-to-end gateway names planner where nothing answers, as its other API peers, since the tests answer the planner's API in the browser.
+     - **Rejected**: an optional peer, as notes is the planner's (decision 709), which would hide a missing peer behind the gateway's 404, where a missing API peer stops the gateway at once; a `FlushInterval` on the gateway's proxy, which already flushes event streams; an `/agent/…` path for the planner, since nothing outside the app calls it.
 
 ## 10. Risks
 

@@ -174,7 +174,7 @@ processes:
     command: bin/gateway
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8080
-      - BAKHYARD_PEERS=games=tcp://127.0.0.1:8090,github=tcp://127.0.0.1:8089,home=tcp://127.0.0.1:8081,notes=tcp://127.0.0.1:8083,notify=tcp://127.0.0.1:8086,nudge=tcp://127.0.0.1:8087,pulls=tcp://127.0.0.1:8085,time=tcp://127.0.0.1:8088,todos=tcp://127.0.0.1:8084,web=tcp://127.0.0.1:8082
+      - BAKHYARD_PEERS=games=tcp://127.0.0.1:8090,github=tcp://127.0.0.1:8089,home=tcp://127.0.0.1:8081,notes=tcp://127.0.0.1:8083,notify=tcp://127.0.0.1:8086,nudge=tcp://127.0.0.1:8087,planner=tcp://127.0.0.1:8091,pulls=tcp://127.0.0.1:8085,time=tcp://127.0.0.1:8088,todos=tcp://127.0.0.1:8084,web=tcp://127.0.0.1:8082
       - BAKHYARD_DATABASE=postgres://bakhyard_gateway@127.0.0.1:5433/bakhyard_gateway
     depends_on:
       games:
@@ -188,6 +188,8 @@ processes:
       notify:
         condition: process_healthy
       nudge:
+        condition: process_healthy
+      planner:
         condition: process_healthy
       pulls:
         condition: process_healthy

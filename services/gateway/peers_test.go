@@ -24,6 +24,7 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 	pulls, todos := service("pulls"), service("todos")
 	notify, nudge := service("notify"), service("nudge")
 	games, github, timeService := service("games"), service("github"), service("time")
+	planner := service("planner")
 
 	web := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		t.Errorf("web got %s %s, want nothing", r.Method, r.URL.Path)
@@ -37,6 +38,7 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 		",notes=tcp://" + strings.TrimPrefix(notes.URL, "http://") +
 		",notify=tcp://" + strings.TrimPrefix(notify.URL, "http://") +
 		",nudge=tcp://" + strings.TrimPrefix(nudge.URL, "http://") +
+		",planner=tcp://" + strings.TrimPrefix(planner.URL, "http://") +
 		",pulls=tcp://" + strings.TrimPrefix(pulls.URL, "http://") +
 		",time=tcp://" + strings.TrimPrefix(timeService.URL, "http://") +
 		",todos=tcp://" + strings.TrimPrefix(todos.URL, "http://") +
@@ -63,6 +65,11 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 		{http.MethodPost, "/api/todos", "todos got POST /todos"},
 		{http.MethodGet, "/api/notify/key", "notify got GET /notify/key"},
 		{http.MethodGet, "/api/nudge/state", "nudge got GET /nudge/state"},
+		{http.MethodGet, "/api/planner/plans", "planner got GET /planner/plans"},
+		{
+			http.MethodPost, "/api/planner/plans/p1/note",
+			"planner got POST /planner/plans/p1/note",
+		},
 	} {
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, withSession(signedIn(t, test.method, test.target), token))
@@ -85,7 +92,8 @@ func TestTheGatewayForwardsEachAPIToItsService(t *testing.T) {
 // peerNames returns the names of the gateway's peers, each of which BAKHYARD_PEERS must name.
 func peerNames() []string {
 	return []string{
-		"games", "github", "home", "notes", "notify", "nudge", "pulls", "time", "todos", "web",
+		"games", "github", "home", "notes", "notify", "nudge", "planner", "pulls", "time", "todos",
+		"web",
 	}
 }
 
@@ -113,6 +121,7 @@ func TestTheGatewayNeedsItsPeers(t *testing.T) {
 		withPeers("games"):           {"games"},
 		withPeers("games", "web"):    {"games", "web"},
 		withPeers("github"):          {"github"},
+		withPeers("planner"):         {"planner"},
 		"":                           peerNames(),
 	} {
 		vars, items := gatewayEnv(t, "http://127.0.0.1:2")
