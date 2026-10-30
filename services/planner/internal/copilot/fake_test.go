@@ -4,42 +4,14 @@ import (
 	"bufio"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"fmt"
 	"io"
 	"net"
 	"net/textproto"
-	"strconv"
 	"sync"
 	"testing"
+
+	sdk "github.com/github/copilot-sdk/go"
 )
-
-// incoming is a JSON-RPC 2.0 message from the client: a request if it has a method, else an
-// answer to the fake's request.
-type incoming struct {
-	ID     jsontext.Value `json:"id"`
-	Method string         `json:"method"`
-	Params jsontext.Value `json:"params"`
-	Result jsontext.Value `json:"result"`
-}
-
-// outgoing is a JSON-RPC 2.0 message from the fake.
-type outgoing struct {
-	JSONRPC string         `json:"jsonrpc"`
-	ID      jsontext.Value `json:"id"`
-	Method  string         `json:"method,omitzero"`
-	Params  any            `json:"params,omitzero"`
-	Result  any            `json:"result,omitzero"`
-	Error   *failure       `json:"error,omitzero"`
-}
-
-// internalError is JSON-RPC's code for a server's internal error.
-const internalError = -32603
-
-// failure is a JSON-RPC 2.0 error.
-type failure struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
 
 // exitRequest is the request in which the CLI brings the plan.
 type exitRequest struct {
@@ -55,15 +27,23 @@ type session struct {
 	SessionID string `json:"sessionId"`
 }
 
+// sessionEvent is the notification of an event of a session.
+type sessionEvent struct {
+	SessionID string           `json:"sessionId"`
+	Event     sdk.SessionEvent `json:"event"`
+}
+
 // fakeCLI is a stand-in Copilot CLI that a client reaches over TCP. It answers a plan's requests,
 // with an error for the method in failing, and notes their parameters. Once it has the prompt,
-// it brings plan with exitPlanMode.request, and passes the client's answer to answers.
+// it brings plan, unless it's empty, with exitPlanMode.request, and passes the client's answer to
+// answers.
 type fakeCLI struct {
 	plan, failing string
 	answers       chan jsontext.Value
 
 	mu    sync.Mutex
 	asked map[string]jsontext.Value
+	conn  io.Writer
 }
 
 func newFakeCLI(plan, failing string) *fakeCLI {
@@ -90,6 +70,10 @@ func (f *fakeCLI) serve(t *testing.T) string {
 			return
 		}
 
+		f.mu.Lock()
+		f.conn = conn
+		f.mu.Unlock()
+
 		f.talk(conn)
 		_ = conn.Close()
 	}()
@@ -113,14 +97,14 @@ func (f *fakeCLI) talk(conn io.ReadWriter) {
 			continue
 		}
 
-		if err := f.answer(conn, message); err != nil {
+		if err := f.answer(message); err != nil {
 			return
 		}
 	}
 }
 
 // answer notes request and answers it. After the prompt, it brings the plan.
-func (f *fakeCLI) answer(out io.Writer, request incoming) error {
+func (f *fakeCLI) answer(request incoming) error {
 	f.mu.Lock()
 	f.asked[request.Method] = request.Params
 	f.mu.Unlock()
@@ -135,21 +119,41 @@ func (f *fakeCLI) answer(out io.Writer, request incoming) error {
 		reply = outgoing{ID: request.ID, Error: &failure{internalError, "failing on purpose"}}
 	}
 
-	if err := write(out, reply); err != nil || reply.Error != nil {
+	if err := f.send(reply); err != nil || reply.Error != nil {
 		return err
 	}
 
-	if request.Method != "session.send" {
+	if request.Method != "session.send" || f.plan == "" {
 		return nil
 	}
 
-	return write(out, f.bring(named.SessionID))
+	return f.send(bring(named.SessionID, f.plan))
 }
 
-// bring returns the request that brings the plan to the client of session id.
-func (f *fakeCLI) bring(id string) outgoing {
+// send sends message to the client.
+func (f *fakeCLI) send(message outgoing) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return write(f.conn, message)
+}
+
+// emit sends the client events of session id, as the CLI does while the agent works.
+func (f *fakeCLI) emit(t *testing.T, id string, events ...sdk.SessionEvent) {
+	t.Helper()
+
+	for _, event := range events {
+		notification := outgoing{Method: "session.event", Params: sessionEvent{id, event}}
+		if err := f.send(notification); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// bring returns the request that brings plan to the client of session id.
+func bring(id, plan string) outgoing {
 	request := exitRequest{
-		SessionID: id, Summary: "A plan", PlanContent: f.plan,
+		SessionID: id, Summary: "A plan", PlanContent: plan,
 		Actions:           []string{"autopilot", "interactive", "exit_only"},
 		RecommendedAction: "autopilot",
 	}
@@ -198,44 +202,6 @@ func result(method string, named session) any {
 	default:
 		return map[string]any{}
 	}
-}
-
-// read reads a message from its Content-Length frame.
-func read(reader *textproto.Reader) (incoming, error) {
-	var message incoming
-
-	header, err := reader.ReadMIMEHeader()
-	if err != nil {
-		return message, err
-	}
-
-	length, err := strconv.Atoi(header.Get("Content-Length"))
-	if err != nil {
-		return message, err
-	}
-
-	body := make([]byte, length)
-	if _, err := io.ReadFull(reader.R, body); err != nil {
-		return message, err
-	}
-
-	err = json.Unmarshal(body, &message)
-
-	return message, err
-}
-
-// write writes message in a Content-Length frame.
-func write(out io.Writer, message outgoing) error {
-	message.JSONRPC = "2.0"
-
-	body, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Fprintf(out, "Content-Length: %d\r\n\r\n%s", len(body), body)
-
-	return err
 }
 
 // asks reports whether the client asked for method, and decodes the parameters it last sent

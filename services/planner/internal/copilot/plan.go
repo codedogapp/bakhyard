@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	sdk "github.com/github/copilot-sdk/go"
@@ -26,20 +27,29 @@ func tools() []string {
 type plan struct {
 	session *sdk.Session
 
-	mu      sync.Mutex
-	content string
+	mu sync.Mutex
+	// writing are the messages that the assistant is writing, with their text so far.
+	writing   []Message
+	content   string
+	followers map[chan Update]struct{}
+}
+
+func newPlan() *plan {
+	return &plan{followers: map[chan Update]struct{}{}}
 }
 
 // Plan starts a session that works out a plan for prompt, in plan mode, and returns the
 // session's ID. The agent goes on working after Plan returns.
 func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
-	planned := &plan{}
+	planned := newPlan()
 
 	session, err := c.copilot.CreateSession(ctx, &sdk.SessionConfig{
 		Model:                  model,
 		AvailableTools:         tools(),
 		WorkingDirectory:       c.work,
 		SkipCustomInstructions: new(true),
+		Streaming:              new(true),
+		OnEvent:                planned.see,
 		OnPermissionRequest:    deny,
 		OnExitPlanModeRequest:  planned.keep,
 	})
@@ -61,15 +71,34 @@ func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
 	return session.SessionID, nil
 }
 
-// text returns the plan that exit_plan_mode brought, or "" while the agent works on it.
-func (p *plan) text() string {
+// find returns the plan id, or ErrNoPlan when the client hasn't started that plan.
+func (c *Client) find(id string) (*plan, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	planned, found := c.plans[id]
+	if !found {
+		return nil, ErrNoPlan
+	}
+
+	return planned, nil
+}
+
+// snapshot returns what the plan has, short of the messages that the CLI keeps: the messages
+// that the assistant is writing, and the plan once exit_plan_mode has brought it.
+func (p *plan) snapshot() Conversation {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.content
+	return p.now()
 }
 
-// keep keeps the plan that exit_plan_mode brings, and ends plan mode.
+// now is snapshot, with p.mu held.
+func (p *plan) now() Conversation {
+	return Conversation{Writing: slices.Clone(p.writing), Plan: p.content}
+}
+
+// keep keeps the plan that exit_plan_mode brings, tells the followers, and ends plan mode.
 func (p *plan) keep(
 	request sdk.ExitPlanModeRequest,
 	_ sdk.ExitPlanModeInvocation,
@@ -78,6 +107,7 @@ func (p *plan) keep(
 	defer p.mu.Unlock()
 
 	p.content = request.PlanContent
+	p.tell(Update{Change: ChangePlan, Plan: request.PlanContent})
 
 	return sdk.ExitPlanModeResult{Approved: true, SelectedAction: exitOnly}, nil
 }
