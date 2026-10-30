@@ -68,21 +68,37 @@ export async function startPlan(prompt: string): Promise<Start> {
   }
 }
 
-// What a failed send means, by its status, where the service's own text would say less.
-const sendFailures = new Map([
-  [404, 'Copilot no longer has this plan.'],
-  [413, 'The message is too long.'],
-  [502, "Copilot couldn't take the message."],
-]);
+// What a failed post of a text means: the reasons for the statuses whose own text would say less, and what the text
+// is, for the others.
+interface Failures {
+  what: 'message' | 'answer';
+  reasons: Map<number, string>;
+}
 
-/**
- * Sends the text, as typed, to the plan with the ID, as its page's path holds it, as the user's next message (decision
- * 414). The failure is the reason to show the user, or none once the planner has the message: for a 404, a 413 or a
- * 502, what it means; for any other answer, the service's reason or its status.
- */
-export async function sendMessage(id: string, text: string): Promise<string | undefined> {
+const messageFailures: Failures = {
+  what: 'message',
+  reasons: new Map([
+    [404, 'Copilot no longer has this plan.'],
+    [413, 'The message is too long.'],
+    [502, "Copilot couldn't take the message."],
+  ]),
+};
+
+const answerFailures: Failures = {
+  what: 'answer',
+  reasons: new Map([
+    [404, 'Copilot no longer waits for this question.'],
+    [413, 'The answer is too long.'],
+    [502, "Copilot couldn't take the answer."],
+  ]),
+};
+
+// Posts the text, as typed, as the body {"text"} that the planner's message and answer routes take. The failure is the
+// reason to show the user, or none once the planner has the text: by its status, as failures has it, or else the
+// service's reason or the status.
+async function postText(path: string, text: string, failures: Failures): Promise<string | undefined> {
   try {
-    const response = await fetch(`${url}/${id}/messages`, {
+    const response = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
@@ -90,9 +106,25 @@ export async function sendMessage(id: string, text: string): Promise<string | un
     if (response.status === 204) {
       return undefined;
     }
-    const failure = sendFailures.get(response.status);
-    return failure ?? ((await response.text()).trim() || `The message wasn't sent (${response.status}).`);
+    const reason = failures.reasons.get(response.status);
+    return reason ?? ((await response.text()).trim() || `The ${failures.what} wasn't sent (${response.status}).`);
   } catch {
-    return "The message wasn't sent: the planner isn't reachable.";
+    return `The ${failures.what} wasn't sent: the planner isn't reachable.`;
   }
+}
+
+/**
+ * Sends the text, as typed, to the plan with the ID, as its page's path holds it, as the user's next message (decision
+ * 414). The failure is the reason to show the user, or none once the planner has the message.
+ */
+export function sendMessage(id: string, text: string): Promise<string | undefined> {
+  return postText(`${url}/${id}/messages`, text, messageFailures);
+}
+
+/**
+ * Sends the text, as typed, as the answer to the question of the plan with the ID, as its page's path holds it
+ * (decision 411). The failure is the reason to show the user, or none once the planner has the answer.
+ */
+export function sendAnswer(id: string, question: string, text: string): Promise<string | undefined> {
+  return postText(`${url}/${id}/questions/${encodeURIComponent(question)}/answer`, text, answerFailures);
 }

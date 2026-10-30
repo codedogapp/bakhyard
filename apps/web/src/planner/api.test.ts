@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { loadPlans, type Plan, sendMessage, startPlan } from './api';
+import { loadPlans, type Plan, sendAnswer, sendMessage, startPlan } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -139,4 +139,48 @@ test.each([
   answer(response);
 
   expect(await sendMessage('p1', 'Make it a week')).toBe(want);
+});
+
+test('sends the text as typed as the answer to the question, whose ID it escapes', async () => {
+  const fetchMock = answer(new Response(null, { status: 204 }));
+
+  expect(await sendAnswer('a%2Fb', 'q/1', ' Rome\n')).toBeUndefined();
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans/a%2Fb/questions/q%2F1/answer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"text":" Rome\\n"}',
+  });
+});
+
+test.each([
+  {
+    name: 'a question that no longer waits',
+    response: new Response('no such question\n', { status: 404 }),
+    want: 'Copilot no longer waits for this question.',
+  },
+  {
+    name: 'an answer over 64 KiB',
+    response: new Response('Request Entity Too Large\n', { status: 413 }),
+    want: 'The answer is too long.',
+  },
+  {
+    name: 'an error from Copilot',
+    response: new Response('Bad Gateway\n', { status: 502 }),
+    want: "Copilot couldn't take the answer.",
+  },
+  {
+    name: 'a refusal',
+    response: new Response('the answer is not one of the choices\n', { status: 400 }),
+    want: 'the answer is not one of the choices',
+  },
+  { name: 'another answer', response: new Response('', { status: 500 }), want: "The answer wasn't sent (500)." },
+  {
+    name: 'a broken connection',
+    response: new Error('offline'),
+    want: "The answer wasn't sent: the planner isn't reachable.",
+  },
+])('says why an answer failed on $name', async ({ response, want }) => {
+  answer(response);
+
+  expect(await sendAnswer('p1', 'q1', 'Rome')).toBe(want);
 });

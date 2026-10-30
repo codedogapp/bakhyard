@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import type { Conversation } from '../src/planner/conversation';
+import type { Conversation, Question } from '../src/planner/conversation';
 
 /** A made-up conversation of the demo's newest plan, as its stream first sends it while the agent works. */
 export const conversation: Conversation = {
@@ -15,8 +15,17 @@ export const conversation: Conversation = {
     },
   ],
   writing: [],
+  questions: [],
   working: true,
   failure: '',
+};
+
+/** A made-up question of the agent's in that conversation, which waits for the user's answer. */
+export const question: Question = {
+  id: '6f1c2b9e-3d4a-4e5f-8a7b-9c0d1e2f3a4b',
+  text: "Should the theme follow the system's setting, or have a toggle of its own?",
+  choices: ['Follow the system', 'Add a toggle'],
+  freeform: true,
 };
 
 /** A stream's body: each event with its data, after the time the browser should wait before it opens it again. */

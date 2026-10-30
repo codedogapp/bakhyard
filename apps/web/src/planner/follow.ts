@@ -6,7 +6,7 @@ export type Chat = { kind: 'loading' | 'failed' } | { kind: 'loaded'; talk: Conv
 /** How long a plan's page waits to open its stream again once the browser has given up on it. */
 export const reopenMs = 5_000;
 
-const empty: Conversation = { messages: [], writing: [], working: false, failure: '' };
+const empty: Conversation = { messages: [], writing: [], questions: [], working: false, failure: '' };
 
 /**
  * Follows the stream of the plan id and calls show with what its page shows: the conversation as it changes, or failed
