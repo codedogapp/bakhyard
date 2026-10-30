@@ -1,6 +1,6 @@
 import { sendMessage } from './api';
 
-/** How the reply's last send went: none yet, sending, sent, or failed, with the reason to show. */
+/** How a reply's or an answer's last send went: none yet, sending, sent, or failed, with the reason to show. */
 export type SendStatus = { kind: 'idle' | 'sending' | 'sent' } | { kind: 'failed'; reason: string };
 
 /** A plan's reply: its text as typed, and how its last send went. */

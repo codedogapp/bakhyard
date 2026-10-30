@@ -35,6 +35,7 @@ class FakeEvents {
 const talk: Conversation = {
   messages: [{ id: 'u1', from: 'user', text: 'Plan a trip' }],
   writing: [],
+  questions: [],
   working: true,
   failure: '',
 };
@@ -60,13 +61,20 @@ afterEach(() => {
 test("follows the plan's stream, and shows its conversation, then each change", () => {
   expect(last().url).toBe('/api/planner/plans/p1/events');
 
+  const where = { id: 'a1', from: 'assistant', text: 'Where' } as const;
+  const city = { id: 'q1', text: 'Which city?', choices: [], freeform: true };
+
   last().emit('conversation', talk);
-  last().emit('delta', { id: 'a1', from: 'assistant', text: 'Where' });
+  last().emit('delta', where);
+  last().emit('question', city);
+  last().emit('answered', city);
   last().emit('status', { working: false, failure: 'Rate limited' });
 
   expect(shown).toEqual([
     { kind: 'loaded', talk },
-    { kind: 'loaded', talk: { ...talk, writing: [{ id: 'a1', from: 'assistant', text: 'Where' }] } },
+    { kind: 'loaded', talk: { ...talk, writing: [where] } },
+    { kind: 'loaded', talk: { ...talk, writing: [where], questions: [city] } },
+    { kind: 'loaded', talk: { ...talk, writing: [where] } },
     { kind: 'loaded', talk: { ...talk, working: false, failure: 'Rate limited' } },
   ]);
 });

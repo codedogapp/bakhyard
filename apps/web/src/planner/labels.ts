@@ -1,4 +1,4 @@
-import type { Author, Status } from './conversation';
+import type { Author, Conversation } from './conversation';
 import type { StartStatus } from './prompt.svelte';
 import type { SendStatus } from './reply.svelte';
 
@@ -39,7 +39,7 @@ export function startLabel(status: StartStatus): string {
   }
 }
 
-/** The reply's status line: "Sending…", "Sent", why the send failed, or nothing before the first. */
+/** A reply's or an answer's status line: "Sending…", "Sent", why the send failed, or nothing before the first. */
 export function sendLabel(status: SendStatus): string {
   switch (status.kind) {
     case 'sending':
@@ -58,10 +58,16 @@ export function authorLabel(from: Author): string {
   return from === 'user' ? 'You' : 'Copilot';
 }
 
-/** A plan's status line: "Copilot is working…", why the agent stopped, or nothing once it stopped without an error. */
-export function workLabel(status: Status): string {
-  if (status.working) {
+/**
+ * A plan's status line: "Copilot waits for your answer." while one of its questions waits, "Copilot is working…", why
+ * the agent stopped, or nothing once it stopped without an error.
+ */
+export function workLabel(talk: Conversation): string {
+  if (talk.questions.length > 0) {
+    return 'Copilot waits for your answer.';
+  }
+  if (talk.working) {
     return 'Copilot is working…';
   }
-  return status.failure === '' ? '' : `Copilot stopped: ${status.failure}`;
+  return talk.failure === '' ? '' : `Copilot stopped: ${talk.failure}`;
 }
