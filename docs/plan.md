@@ -184,7 +184,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `github-widgets` | The GitHub widgets (§8.2 Phase 4), by a session of their own in `../bakhyard-github/`, which adds its steps' rows under this one (decision 195) | In progress |
 | `shared-web-link` | The Bitbucket client's check that a PR's page is an https URL moves to a package of its own, `internal/weblink`, for the GitHub client, its second user; nothing changes in behaviour. The first of `github-widgets`' seven steps (decisions 200 and 201) | Done (#171) |
 | `github-client` | A client of GitHub's search, in the new `github` service's folder, finds my open PRs, the PRs that wait for my review or one of my teams', and the open issues assigned to me, across every owner, in repositories that aren't archived, the latest updated first, as the user whose classic PAT it holds. It reads up to ten pages of 100, lists each item once, and fails the whole search on a bad answer or one that GitHub marks incomplete. Nothing calls it yet. The second of `github-widgets`' seven steps (decisions 200, 202 and 203) | Done (#173) |
-| `github-service` | A new `github` service polls the three searches as it starts and every 5 minutes after, and answers them at `GET /github/mine`, `GET /github/reviews` and `GET /github/issues`; without GitHub's settings it answers 404. `mise run up` runs it on port 8089 and the Gitea workflow builds its image. The third of `github-widgets`' seven steps (decision 200) | Pending |
+| `github-service` | A new `github` service polls the three searches as it starts and every 5 minutes after, and answers them at `GET /github/mine`, `GET /github/reviews` and `GET /github/issues`; without GitHub's setting it answers 404. `mise run up` runs it on port 8089 and the Gitea workflow builds its image. The third of `github-widgets`' seven steps (decisions 200 and 204) | Done (#176) |
 | `homelab-github` | The homelab repo runs the `github` service on the laptop, with the token in a Secret, and names it among the gateway's and home's peers, before `github-gateway` makes the gateway require it. The fourth of `github-widgets`' seven steps (decision 200) | Pending |
 | `github-gateway` | The gateway forwards `/api/github` to the `github` service, behind both of its locks. The fifth of `github-widgets`' seven steps (decision 200) | Pending |
 | `github-page` | The app shows the three lists, on a page of their own at `/github` or beside Bitbucket's on the PRs page, as the user chooses. The sixth of `github-widgets`' seven steps (decision 200) | Pending |
@@ -331,6 +331,7 @@ MacBook ────┼── HTTPS (tailnet) ──▶ Bakhyard on the host lap
 | todos | `todos` (+ `jira_key`), `dismissals` (`jira_key`) |
 | time | none of its own: the worklogs stay in Jira |
 | pulls | `pr_state` (PR id, snooze, nudged at), with the snoozes (decision 175) |
+| github | none: the lists stay in memory (decision 204) |
 | notify | `push_subscriptions` |
 | planner | `copilot_sessions` (id, title, status, note_path) |
 | games | none: the games list, the covers' matches and the Twitch token stay in memory (decision 300) |
@@ -1251,10 +1252,10 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 4: GitHub**
 
-- `github-widgets` [github]. Needs `frontend-shell`. Seven steps (decisions 200 to 203):
+- `github-widgets` [github]. Needs `frontend-shell`. Seven steps (decisions 200 to 204):
   - `shared-web-link`: the Bitbucket client's check that a PR's page is an https URL moves to the root `internal/weblink`, for the GitHub client; nothing changes in behaviour (decision 201). Done (#171).
   - `github-client`: a client of GitHub's search finds my open PRs, the PRs that wait for my review or my teams', and the open issues assigned to me, across every owner, through a classic PAT with `repo` and `read:org` (decisions 202 and 203). Done (#173).
-  - `github-service`: the `github` service polls the three searches every 5 minutes, within search's 30 requests a minute, and answers them at `GET /github/mine`, `/github/reviews` and `/github/issues`.
+  - `github-service`: the `github` service polls the three searches every 5 minutes, within search's 30 requests a minute, and answers them at `GET /github/mine`, `/github/reviews` and `/github/issues`, or 404 without its setting (decision 204). Done (#176).
   - `homelab-github`: the laptop runs the service, with its token in a Secret, before the gateway requires it.
   - `github-gateway`: the gateway forwards `/api/github` to the service.
   - `github-page`: the lists in the app, where the user chooses: a page of their own at `/github`, or beside Bitbucket's on the PRs page.
@@ -1729,6 +1730,12 @@ Decisions 200 to 299 are the `github-widgets` session's.
      - **An item**: its number, title, repository (`owner/name`, from `repository_url`, since search results hold no `repository`), page on GitHub if it's an `https` URL (decision 201), draft flag, and when it was opened and last updated, in UTC: the fields and JSON names of the `pulls` service's PRs, without the reviewers, so the app can show both alike.
      - **Failures**: an answer that isn't a 200, isn't JSON or is over 4 MiB, a page marked `incomplete_results` (the search ran out of time and may have missed some), and an item without a repository each fail the whole search, so the poller keeps its last list (decision 122). The errors say which search failed, such as "search GitHub for my review requests: 401 Unauthorized", or "read GitHub's answer", and never hold the token.
      - **Rejected**: following the `Link` header, which would need a check of its host; sorting in the client, which would only repeat GitHub's order; showing part of a search that timed out.
+204. **The `github` service** (`github-service`): the lead's choices (2026-10-30), for the user to review. The `github` service, in `services/github`, is built as `pulls` is (decision 146): it searches GitHub with the client of decision 203 as it starts and every 5 minutes after (§3's polling defaults), through `poll.Poller` (decision 135), keeps the lists in memory with no database, and listens on 127.0.0.1:8089 under `mise run up` (decision 195).
+     - **Three pollers**, one per search, logged as `poll GitHub`, `poll GitHub reviews` and `poll GitHub issues`, so a search that fails keeps its own last list while the others go on, and the log says which failed. A round of the three makes at most 30 requests, within search's 30 a minute (decision 203).
+     - **The routes**: `GET /github/mine`, `/github/reviews` and `/github/issues` each answer their poller's snapshot through its own handler (decision 145), `{"items":[…],"searched":"…"}`, with `failure` when the latest search failed, so the app's loader of a snapshot reads all three alike (decision 147). The key is `items` for all three, since issues aren't PRs.
+     - **The setting**: `BAKHYARD_GITHUB_API`, `https://api.github.com`, which must be https, or http to a loopback IP address (`env.SecureURL`, decision 144), so that a stand-in can take GitHub's place in tests. Without it, GitHub is off: the routes answer 404 `GitHub is not set up`, and the token isn't read. With it, the service reads the token `github-token` (decision 202), and exits 1 without it, as pulls does without Bitbucket's.
+     - **Later steps**: the gateway's forward of `/api/github`, after the laptop runs the service (decision 200), and the attention contract, with `github-attention`.
+     - **Rejected**: GitHub's address fixed in the code, with GitHub on whenever the token exists, which no stand-in could replace and which would turn a missing token into a silent "not set up"; one poller for the three searches, whose one failure would hide the lists that succeeded; `pulls` as the key, which issues aren't.
 
 Decisions 300 to 399 are the `games-exophase` session's.
 
