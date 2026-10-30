@@ -2,6 +2,7 @@ package copilot
 
 import (
 	"encoding/json/v2"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -49,10 +50,29 @@ func started(t *testing.T, fake *fakeCLI) *Client {
 	return client
 }
 
+// answer returns the client's answer to the request that brings the plan.
+func answer(t *testing.T, fake *fakeCLI) sdk.ExitPlanModeResult {
+	t.Helper()
+
+	var result sdk.ExitPlanModeResult
+
+	select {
+	case got := <-fake.answers:
+		if err := json.Unmarshal(got, &result); err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("no answer to exitPlanMode.request")
+	}
+
+	return result
+}
+
 func TestPlan(t *testing.T) {
 	fake := newFakeCLI("# Plan\n\n1. Pack.\n", "")
+	client := started(t, fake)
 
-	plan, err := started(t, fake).Plan(t.Context(), "Plan a trip")
+	planID, err := client.Plan(t.Context(), "Plan a trip")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,41 +81,32 @@ func TestPlan(t *testing.T) {
 	fake.asks(t, "session.create", &session)
 
 	want := created{
-		SessionID: plan.ID(), Model: "claude-opus-5.5",
+		SessionID: planID, Model: "claude-opus-5.5",
 		AvailableTools: []string{
 			"ask_user", "view", "glob", "grep", "create", "edit", "exit_plan_mode",
 		},
 		WorkingDirectory: "/work", SkipCustomInstructions: true,
 		RequestPermission: true, RequestExitPlanMode: true,
 	}
-	if plan.ID() == "" || !reflect.DeepEqual(session, want) {
+	if planID == "" || !reflect.DeepEqual(session, want) {
 		t.Errorf("session.create = %+v, want %+v", session, want)
 	}
 
 	var prompt sent
 	fake.asks(t, "session.send", &prompt)
 
-	if want := (sent{plan.ID(), "Plan a trip", "plan"}); prompt != want {
+	if want := (sent{planID, "Plan a trip", "plan"}); prompt != want {
 		t.Errorf("session.send = %+v, want %+v", prompt, want)
 	}
 
-	var answer sdk.ExitPlanModeResult
-
-	select {
-	case got := <-fake.answers:
-		if err := json.Unmarshal(got, &answer); err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("no answer to exitPlanMode.request")
+	exitOnly := sdk.ExitPlanModeResult{Approved: true, SelectedAction: "exit_only"}
+	if got := answer(t, fake); got != exitOnly {
+		t.Errorf("answer = %+v, want %+v", got, exitOnly)
 	}
 
-	if want := (sdk.ExitPlanModeResult{Approved: true, SelectedAction: "exit_only"}); answer != want {
-		t.Errorf("answer = %+v, want %+v", answer, want)
-	}
-
-	if got := plan.Content(); got != "# Plan\n\n1. Pack.\n" {
-		t.Errorf("Content = %q, want the plan that exit_plan_mode brought", got)
+	talk, err := client.Conversation(t.Context(), planID)
+	if err != nil || talk.Plan != "# Plan\n\n1. Pack.\n" {
+		t.Errorf("Conversation = %+v, %v, want the plan that exit_plan_mode brought", talk, err)
 	}
 }
 
@@ -111,13 +122,22 @@ func TestPlanFails(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.failing, func(t *testing.T) {
 			fake := newFakeCLI("", test.failing)
+			client := started(t, fake)
 
-			if _, err := started(t, fake).Plan(t.Context(), "Plan a trip"); err == nil {
-				t.Fatal("Plan succeeded")
+			if planID, err := client.Plan(t.Context(), "Plan a trip"); err == nil || planID != "" {
+				t.Fatalf("Plan = %q, %v, want an error", planID, err)
 			}
 
 			if left := fake.asks(t, "session.detach", nil); left != test.left {
 				t.Errorf("left the session: %t, want %t", left, test.left)
+			}
+
+			var session created
+			fake.asks(t, "session.create", &session)
+
+			_, err := client.Conversation(t.Context(), session.SessionID)
+			if !errors.Is(err, ErrNoPlan) {
+				t.Errorf("Conversation = %v, want ErrNoPlan for the failed plan", err)
 			}
 		})
 	}

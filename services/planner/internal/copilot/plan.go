@@ -22,17 +22,18 @@ func tools() []string {
 	return []string{"ask_user", "view", "glob", "grep", "create", "edit", "exit_plan_mode"}
 }
 
-// Plan is a plan that the agent works out in a session of its own.
-type Plan struct {
-	id      string
+// plan is a plan that the agent works out in a session of its own.
+type plan struct {
+	session *sdk.Session
+
 	mu      sync.Mutex
 	content string
 }
 
-// Plan starts a session that works out a plan for prompt, in plan mode. The agent goes on
-// working after Plan returns.
-func (c *Client) Plan(ctx context.Context, prompt string) (*Plan, error) {
-	plan := &Plan{}
+// Plan starts a session that works out a plan for prompt, in plan mode, and returns the
+// session's ID. The agent goes on working after Plan returns.
+func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
+	planned := &plan{}
 
 	session, err := c.copilot.CreateSession(ctx, &sdk.SessionConfig{
 		Model:                  model,
@@ -40,29 +41,28 @@ func (c *Client) Plan(ctx context.Context, prompt string) (*Plan, error) {
 		WorkingDirectory:       c.work,
 		SkipCustomInstructions: new(true),
 		OnPermissionRequest:    deny,
-		OnExitPlanModeRequest:  plan.keep,
+		OnExitPlanModeRequest:  planned.keep,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("start a session: %w", err)
+		return "", fmt.Errorf("start a session: %w", err)
 	}
 
-	plan.id = session.SessionID
+	planned.session = session
 
 	_, err = session.Send(ctx, sdk.MessageOptions{Prompt: prompt, AgentMode: sdk.AgentModePlan})
 	if err != nil {
-		return nil, errors.Join(fmt.Errorf("send the prompt: %w", err), session.Disconnect())
+		return "", errors.Join(fmt.Errorf("send the prompt: %w", err), session.Disconnect())
 	}
 
-	return plan, nil
+	c.mu.Lock()
+	c.plans[session.SessionID] = planned
+	c.mu.Unlock()
+
+	return session.SessionID, nil
 }
 
-// ID returns the ID of the plan's session.
-func (p *Plan) ID() string {
-	return p.id
-}
-
-// Content returns the plan that exit_plan_mode brought, or "" while the agent works on it.
-func (p *Plan) Content() string {
+// text returns the plan that exit_plan_mode brought, or "" while the agent works on it.
+func (p *plan) text() string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -70,7 +70,7 @@ func (p *Plan) Content() string {
 }
 
 // keep keeps the plan that exit_plan_mode brings, and ends plan mode.
-func (p *Plan) keep(
+func (p *plan) keep(
 	request sdk.ExitPlanModeRequest,
 	_ sdk.ExitPlanModeInvocation,
 ) (sdk.ExitPlanModeResult, error) {
