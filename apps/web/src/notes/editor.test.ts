@@ -1,7 +1,7 @@
 import { EditorView } from '@codemirror/view';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 
-import { noteEditor } from './editor';
+import { type EditorPage, noteEditor } from './editor';
 
 const markdown = ['---', 'tags: [guitar]', '---', '# To do', '', '- [ ] Tune'].join('\n');
 
@@ -9,11 +9,16 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+// The editor's note page, which notes the text and the saves, with no save running.
+function notePage(): EditorPage {
+  return { edit: vi.fn(), save: vi.fn(), busy: false };
+}
+
 // An element on the page with the editor in it, and the attachment's cleanup.
-function attached(text: string) {
+function attached(text: string, page = notePage()) {
   const host = document.createElement('div');
   document.body.append(host);
-  const cleanup = noteEditor(text)(host);
+  const cleanup = noteEditor(text, page)(host);
   return { host, cleanup };
 }
 
@@ -87,4 +92,42 @@ test('goes with the element', () => {
   (cleanup as () => void)();
 
   expect(host).toBeEmptyDOMElement();
+});
+
+test('tells the page its text after each change, and only then', () => {
+  const page = notePage();
+  const { host } = attached('Tune', page);
+  const view = EditorView.findFromDOM(host)!;
+
+  view.dispatch({ selection: { anchor: 2 } });
+  expect(page.edit).not.toHaveBeenCalled();
+  view.dispatch({ changes: { from: 4, insert: ' it' }, userEvent: 'input.type' });
+
+  expect(page.edit).toHaveBeenCalledExactlyOnceWith('Tune it');
+});
+
+// jsdom's platform isn't a Mac's, so CodeMirror takes Ctrl for the key, as it takes ⌘ on a Mac.
+test('Ctrl+S saves, and keeps the browser from saving the page', () => {
+  const page = notePage();
+  const { host } = attached('Tune', page);
+  const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true });
+
+  EditorView.findFromDOM(host)!.contentDOM.dispatchEvent(event);
+
+  expect(page.save).toHaveBeenCalledOnce();
+  expect(event.defaultPrevented).toBe(true);
+});
+
+test('takes no change while a save runs', () => {
+  const page = { ...notePage(), busy: true };
+  const { host } = attached('Tune', page);
+  const view = EditorView.findFromDOM(host)!;
+
+  view.dispatch({ changes: { from: 4, insert: ' it' }, userEvent: 'input.type' });
+  expect(view.state.doc.toString()).toBe('Tune');
+  expect(page.edit).not.toHaveBeenCalled();
+  page.busy = false;
+  view.dispatch({ changes: { from: 4, insert: ' it' }, userEvent: 'input.type' });
+
+  expect(view.state.doc.toString()).toBe('Tune it');
 });
