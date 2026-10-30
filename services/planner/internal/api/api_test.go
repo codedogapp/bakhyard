@@ -151,8 +151,9 @@ func TestReadingAPlanAnswersItsConversation(t *testing.T) {
 			{ID: "1", From: copilot.User, Text: "Plan a trip"},
 			{ID: "m2", From: copilot.Assistant, Text: "Where to?"},
 		},
-		Writing: []copilot.Message{{ID: "m3", From: copilot.Assistant, Text: "So"}},
-		Plan:    "# Plan\n",
+		Writing:   []copilot.Message{{ID: "m3", From: copilot.Assistant, Text: "So"}},
+		Questions: []copilot.Question{{ID: "q1", Text: "Which city?", Choices: []string{"Rome"}}},
+		Plan:      "# Plan\n",
 	}
 
 	for _, test := range []struct {
@@ -161,8 +162,10 @@ func TestReadingAPlanAnswersItsConversation(t *testing.T) {
 	}{
 		{talk, `{"messages":[{"id":"1","from":"user","text":"Plan a trip"},` +
 			`{"id":"m2","from":"assistant","text":"Where to?"}],` +
-			`"writing":[{"id":"m3","from":"assistant","text":"So"}],"plan":"# Plan\n"}`},
-		{copilot.Conversation{}, `{"messages":[],"writing":[],"plan":""}`},
+			`"writing":[{"id":"m3","from":"assistant","text":"So"}],` +
+			`"questions":[{"id":"q1","text":"Which city?","choices":["Rome"],"freeform":false}],` +
+			`"plan":"# Plan\n"}`},
+		{copilot.Conversation{}, `{"messages":[],"writing":[],"questions":[],"plan":""}`},
 	} {
 		rec := newPlannerAPI(&standIn{talk: test.talk}).serve(t, http.MethodGet,
 			"/planner/plans/plan-1", "")

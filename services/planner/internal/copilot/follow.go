@@ -21,6 +21,10 @@ const (
 	ChangeMessage Change = "message"
 	// ChangePlan is the plan, which exit_plan_mode has brought.
 	ChangePlan Change = "plan"
+	// ChangeQuestion is a question of the agent's, which waits for the user's answer.
+	ChangeQuestion Change = "question"
+	// ChangeAnswered is a question that has had its answer, and no longer waits.
+	ChangeAnswered Change = "answered"
 )
 
 // Update is a change to a plan's conversation.
@@ -30,6 +34,8 @@ type Update struct {
 	Message Message
 	// Plan is the plan, for ChangePlan.
 	Plan string
+	// Question is the question, for ChangeQuestion and ChangeAnswered.
+	Question Question
 }
 
 // Follow returns the conversation of the plan id so far, as Conversation does, and its updates

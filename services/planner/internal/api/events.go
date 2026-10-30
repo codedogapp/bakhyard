@@ -17,10 +17,11 @@ type planned struct {
 
 // events streams the conversation of the plan in the path: first the conversation so far, as
 // GET /planner/plans/{id} answers it, then each piece of the assistant's text (delta), each whole
-// message (message) and the plan (plan) as they come. The stream lasts until the page leaves or
-// the service stops, or until the plan's updates end, after which the page's EventSource
-// connects again. HEAD gets the stream's headers alone: a stream would hold its connection, and
-// the next request on it would wait.
+// message (message), each question of the agent's that waits for the user's answer (question)
+// and each that has had it (answered), and the plan (plan) as they come. The stream lasts until
+// the page leaves or the service stops, or until the plan's updates end, after which the page's
+// EventSource connects again. HEAD gets the stream's headers alone: a stream would hold its
+// connection, and the next request on it would wait.
 func (d Door) events(stopping context.Context, w http.ResponseWriter, r *http.Request) {
 	talk, updates, ok := d.follow(w, r)
 	if !ok {
@@ -91,6 +92,8 @@ func send(stream eventstream.Stream, talk copilot.Conversation, update copilot.U
 		return nil
 	case update.Change == copilot.ChangePlan:
 		return stream.Send(string(update.Change), planned{Plan: update.Plan})
+	case update.Change == copilot.ChangeQuestion, update.Change == copilot.ChangeAnswered:
+		return stream.Send(string(update.Change), update.Question)
 	default:
 		return stream.Send(string(update.Change), update.Message)
 	}

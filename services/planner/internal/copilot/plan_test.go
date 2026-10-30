@@ -5,7 +5,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
 	sdk "github.com/github/copilot-sdk/go"
 	"github.com/github/copilot-sdk/go/rpc"
@@ -20,6 +19,7 @@ type created struct {
 	SkipCustomInstructions bool     `json:"skipCustomInstructions"`
 	Streaming              bool     `json:"streaming"`
 	RequestPermission      bool     `json:"requestPermission"`
+	RequestUserInput       bool     `json:"requestUserInput"`
 	RequestExitPlanMode    bool     `json:"requestExitPlanMode"`
 }
 
@@ -56,14 +56,8 @@ func answer(t *testing.T, fake *fakeCLI) sdk.ExitPlanModeResult {
 	t.Helper()
 
 	var result sdk.ExitPlanModeResult
-
-	select {
-	case got := <-fake.answers:
-		if err := json.Unmarshal(got, &result); err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("no answer to exitPlanMode.request")
+	if err := json.Unmarshal(fake.replied(t), &result); err != nil {
+		t.Fatal(err)
 	}
 
 	return result
@@ -87,7 +81,7 @@ func TestPlan(t *testing.T) {
 			"ask_user", "view", "glob", "grep", "create", "edit", "exit_plan_mode",
 		},
 		WorkingDirectory: "/work", SkipCustomInstructions: true, Streaming: true,
-		RequestPermission: true, RequestExitPlanMode: true,
+		RequestPermission: true, RequestUserInput: true, RequestExitPlanMode: true,
 	}
 	if planID == "" || !reflect.DeepEqual(session, want) {
 		t.Errorf("session.create = %+v, want %+v", session, want)
