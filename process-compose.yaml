@@ -160,6 +160,7 @@ processes:
     command: bin/planner
     environment:
       - BAKHYARD_LISTEN=tcp://127.0.0.1:8091
+      - BAKHYARD_PEERS=notes=tcp://127.0.0.1:8083
     readiness_probe:
       http_get:
         port: 8091
