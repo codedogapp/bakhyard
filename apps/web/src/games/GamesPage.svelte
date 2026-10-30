@@ -1,9 +1,10 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 
+import { dayLabel } from '../shell/day';
 import PageHead from '../shell/PageHead.svelte';
 import PolledSection from '../shell/PolledSection.svelte';
-import { foundGames, type Games, loadGames, platformsLabel, playedLabel, playtimeLabel, trophiesLabel } from './games';
+import { coverImage, foundGames, type Games, loadGames, platformsLabel, playtimeLabel, trophiesLabel } from './games';
 
 // The games I played lately (decision 307), loaded each time the page shows; now tells which day is today.
 let { now }: { now: Date } = $props();
@@ -32,8 +33,10 @@ onMount(() => {
     markStale
   >
     {#snippet row(game)}
-      <div class="list-row">
-        <time class="list-label" datetime={game.lastPlayed}>{playedLabel(game.lastPlayed, now)}</time>
+      <div class="list-row game">
+        <time class="list-label" datetime={game.lastPlayed}>{dayLabel(game.lastPlayed, now)}</time>
+        <!-- A background rather than an image: screen readers skip it, since the title names the game, and a cover that fails to load leaves the blank. -->
+        <span class="cover" style:background-image={coverImage(game.cover)}></span>
         <span class="list-text">
           <span class="list-title">{game.title}</span>
           <span class="list-detail">{platformsLabel(game.platforms)}</span>
@@ -50,3 +53,29 @@ onMount(() => {
     {/snippet}
   </PolledSection>
 {/if}
+
+<style>
+/* The cover gets a column between the day and the title (decision 308). */
+.game {
+  grid-template-areas: "label cover text end";
+  grid-template-columns: 120px 48px 1fr auto;
+}
+
+/* IGDB's 264 by 374 px cover, scaled to the height of a title over two detail lines; a blank when the game has none. */
+.cover {
+  grid-area: cover;
+  width: 48px;
+  height: 68px;
+  border: 1px solid var(--rule);
+  background: var(--fill) center / cover;
+}
+
+@media (max-width: 700px) {
+  .game {
+    grid-template-areas:
+      "label label end"
+      "cover text text";
+    grid-template-columns: 48px 1fr auto;
+  }
+}
+</style>

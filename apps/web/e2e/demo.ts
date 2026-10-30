@@ -1,7 +1,7 @@
-import type { Snapshot as RecentGames } from '../src/games/games';
 import type { Home } from '../src/home/api';
 import type { Snapshot } from '../src/jira/tickets';
 import type { State } from '../src/nudge/nudge';
+import type { Plan } from '../src/planner/api';
 import type { Snapshot as Pulls } from '../src/pulls/pulls';
 import type { Report } from '../src/time/report';
 import type { Todo } from '../src/todos/api';
@@ -159,6 +159,35 @@ export const nudge: State = {
   ],
 };
 
+/** A made-up user's plans at the tests' time, the last updated first: one from today, one from yesterday, one older. */
+export const plans: Plan[] = [
+  {
+    id: '3d9f2a71-6c4e-4b8a-9f15-0e7c2d5b8a46',
+    title: 'Add a dark theme to the docs site',
+    started_at: '2026-10-20T23:55:00Z',
+    updated_at: '2026-10-21T00:32:00Z',
+  },
+  {
+    id: 'a8e14c25-7b3f-4d69-8c02-5f9b6e1d3a70',
+    title: 'Move the nightly backups to object storage',
+    started_at: '2026-10-20T09:10:00Z',
+    updated_at: '2026-10-20T12:40:00Z',
+  },
+  {
+    id: 'e6b07d48-2f5a-4c91-b3e8-7a4d0c9f6b12',
+    title: 'Split the settings page into tabs',
+    started_at: '2026-10-16T02:00:00Z',
+    updated_at: '2026-10-17T03:15:00Z',
+  },
+  {
+    id: '5c2e8b19-d47a-4f03-9e6b-81a3f0c7d254',
+    title:
+      "Plan how to move the team's wiki to the docs site.\n\nKeep the old links working, move the images, and say which pages can go.",
+    started_at: '2026-10-12T01:00:00Z',
+    updated_at: '2026-10-12T02:30:00Z',
+  },
+];
+
 /** A made-up user's time report at the tests' time: the last 7 days, with nothing logged on the Friday or the weekend. */
 export const report: Report = {
   days: [
@@ -172,36 +201,4 @@ export const report: Report = {
   ],
   week: { loggedHours: 15.75, targetHours: 40 },
   searched: '2026-10-21T00:38:00Z',
-};
-
-/**
- * The games a made-up user played in the last 14 days, the last played first, as the games service found them ten
- * minutes before the tests' time: one game today, one yesterday on a Nintendo console, which has no trophies, one with
- * every trophy, and one with no playtime.
- */
-export const games: RecentGames = {
-  games: [
-    {
-      title: 'Moon Garden',
-      platforms: ['PS5'],
-      lastPlayed: '2026-10-21T00:05:00Z',
-      playtimeMinutes: 754,
-      trophies: { earned: 31, total: 52, percent: 59.6 },
-    },
-    { title: 'Tower Climb', platforms: ['Switch'], lastPlayed: '2026-10-20T12:30:00Z', playtimeMinutes: 1290 },
-    {
-      title: 'Harbour Lights',
-      platforms: ['PS4', 'PS5'],
-      lastPlayed: '2026-10-17T10:00:00Z',
-      playtimeMinutes: 2475,
-      trophies: { earned: 40, total: 40, percent: 100 },
-    },
-    {
-      title: 'Sky Rally',
-      platforms: ['PC'],
-      lastPlayed: '2026-10-12T09:00:00Z',
-      trophies: { earned: 3, total: 35, percent: 8.57 },
-    },
-  ],
-  searched: '2026-10-21T00:31:00Z',
 };

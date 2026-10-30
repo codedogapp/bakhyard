@@ -1,10 +1,10 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
 import {
+  coverImage,
   foundGames,
   loadGames,
   platformsLabel,
-  playedLabel,
   playtimeLabel,
   type Snapshot,
   trophiesLabel,
@@ -41,24 +41,16 @@ test.each<{ name: string; snapshot: Snapshot; want?: Snapshot['games'] }>([
   expect(foundGames(snapshot)).toEqual(want);
 });
 
-// The tests run in Tokyo, 9 hours ahead of UTC, where 31 October begins at 2026-10-30T15:00:00Z.
 test.each([
-  { lastPlayed: '2026-10-30T15:00:00Z', want: 'Today' },
-  { lastPlayed: '2026-10-31T00:40:00Z', want: 'Today' },
-  { lastPlayed: '2026-10-30T14:59:59Z', want: 'Yesterday' },
-  { lastPlayed: '2026-10-29T15:00:00Z', want: 'Yesterday' },
-  { lastPlayed: '2026-10-29T14:59:59Z', want: '29 Oct' },
-  { lastPlayed: '2026-10-17T03:00:00Z', want: '17 Oct' },
-  { lastPlayed: '2026-11-01T01:00:00Z', want: '1 Nov' },
-])('says I last played a game at $lastPlayed on "$want"', ({ lastPlayed, want }) => {
-  expect(playedLabel(lastPlayed, new Date('2026-10-31T09:41:00+09:00'))).toBe(want);
-});
-
-test('names the day across the turn of a month and a year', () => {
-  expect(playedLabel('2026-12-31T03:00:00Z', new Date('2027-01-01T09:00:00+09:00'))).toBe('Yesterday');
-  expect(playedLabel('2026-12-30T03:00:00Z', new Date('2027-01-01T09:00:00+09:00'))).toBe('30 Dec');
-  // At 05:00 on New Year's Day in Tokyo, while UTC is still on the old year's last day.
-  expect(playedLabel('2026-12-31T20:00:00Z', new Date('2027-01-01T10:00:00+09:00'))).toBe('Today');
+  { cover: undefined, want: undefined },
+  {
+    cover: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1abc.jpg',
+    want: 'url("https://images.igdb.com/igdb/image/upload/t_cover_big/co1abc.jpg")',
+  },
+  // A quote or a backslash would end or bend the CSS string, so they're escaped.
+  { cover: 'https://example.com/a"b\\c.jpg', want: 'url("https://example.com/a\\"b\\\\c.jpg")' },
+])('draws the cover $cover as the background image $want', ({ cover, want }) => {
+  expect(coverImage(cover)).toBe(want);
 });
 
 test.each([
