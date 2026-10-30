@@ -198,6 +198,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `twitch-token` | The `games` service gets a Twitch app token for IGDB with the client credentials grant, keeps it in memory until 9 tenths of its life, asks Twitch one request at a time, and forgets a token that IGDB refuses. The fifth of `games-exophase`'s eleven steps (decision 304) | Done (#181) |
 | `igdb-search` | The `games` service's IGDB client finds a title's cover: the top result of a search filtered to main games, expansions, remakes, remasters, expanded games and ports, or a game named exactly the title when the top result has another name; it asks one request at a time, at least 250 ms apart, and with a new token once when IGDB refuses one. The sixth of `games-exophase`'s eleven steps (decision 305) | Done (#183) |
 | `games-covers` | Each game in the `games` service's answer carries its IGDB cover when `BAKHYARD_TWITCH_CLIENT_ID` and the Keychain's `twitch-client-secret` are set: each title's cover, or that IGDB has none, is kept a week, the first failure stops the asking until the next fetch, and a missing cover never fails the list. The seventh of `games-exophase`'s eleven steps (decision 306) | Done (#186) |
+| `games-gateway` | The gateway forwards `/api/games` to the `games` service, behind both of its locks, so the app reaches the games I played lately at `GET /api/games/recent`. `games` is one of the gateway's peers, each of which `BAKHYARD_PEERS` must name, and `mise run up` starts the gateway once games is ready. The ninth of `games-exophase`'s eleven steps (decision 300) | In progress |
 | `vault-edit-sync` | Editing the vault from Bakhyard (§8.2 Phase 6), by the vault session in `../bakhyard-vault/`, which adds its steps' rows under this one and then does `copilot-planner` (decision 195) | In progress |
 | `vault-plan` | The vault session's first steps: where a save goes waits on the user's answer to §12's question on how edits get back to the Mac, so the version that a save checks and the editor come first; a note's version is the SHA-256 of its bytes, sent as its `ETag`, and a save is a `PUT` that sends it back in `If-Match` (decision 400) | Done (#167) |
 | `note-etag` | notes answers each note with its version as a strong `ETag`, the SHA-256 of its bytes, and a matching `If-None-Match` with a 304 (decision 400) | Done (#169) |
@@ -416,7 +417,7 @@ flowchart LR
 | Service | Role | Listens on | Peers | Grows into (§8.2) |
 | --- | --- | --- | --- | --- |
 | nats | Event bus; JetStream on for later durable flows | `tcp://127.0.0.1:4222`, monitoring `:8222` | | reminders → notify |
-| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home, notes, notify, nudge, pulls, time, todos | auth-signin |
+| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, games, home, notes, notify, nudge, pulls, time, todos | auth-signin |
 | web | Serves the embedded Svelte build | unix socket | | frontend-shell (PWA parts) |
 | home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner | home-feed |
 | notes | Obsidian vault | unix socket | nats | vault-index, vault-render, vault-edit-sync |
@@ -592,7 +593,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 - Each service has a `description`, a `command` (`bin/<name>`, run with `bash -c` from the repo root) and an `environment` with its `BAKHYARD_LISTEN` and, for the gateway, `BAKHYARD_PEERS` (§4.7).
 - A readiness probe checks each service's `GET /healthz` (§4.7), first 1 s after the start, then every 2 s. A check gets 1 s to answer, and 3 failures in a row fail the probe.
-- The gateway `depends_on` home, notes, notify, nudge, pulls, time, todos and web with `condition: process_healthy`, so it starts once their probes pass.
+- The gateway `depends_on` games, home, notes, notify, nudge, pulls, time, todos and web with `condition: process_healthy`, so it starts once their probes pass.
 - What every service shares sits in an `x-service` YAML anchor, merged into each with `<<: *service`:
   - `availability.restart: always`: a service that exits, or fails its probe, restarts after 1 s, however often it needs to. A service stopped by hand stays stopped.
   - `shutdown.timeout_seconds: 10`: a stop sends SIGTERM to the service's process group, then SIGKILL if it's still running 10 s later. Without the timeout, process-compose never sends SIGKILL, and a hung service never stops.
@@ -1283,7 +1284,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `twitch-token`: the service gets a Twitch app token for IGDB, keeps it and renews it before it expires (decision 304). Done (#181).
   - `igdb-search`: the service's IGDB client finds a title's cover with a filtered search and an exact-name fallback (decisions 68 and 305), within IGDB's 4 requests a second. Done (#183).
   - `games-covers`: each game in the answer carries its IGDB cover; each title is matched once and the match kept for a week (decision 306). Done (#186).
-  - `homelab-games`: in the homelab repo, `games` runs on the laptop with its settings and secret, and the gateway's peers name it.
+  - `homelab-games`: done (codedogapp/homelab#44). In the homelab repo, `games` runs on the laptop with its settings and secret, and the gateway's peers name it.
   - `games-gateway`: the gateway forwards `/api/games` to `games`.
   - `games-page`: the Games page lists the games, and marks them stale when the latest fetch failed (decision 67); the Games card's description in the app becomes §7's.
   - `games-page-covers`: the Games page shows each game's cover.
