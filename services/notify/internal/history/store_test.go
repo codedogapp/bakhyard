@@ -56,6 +56,7 @@ func resolved(found alert.Alert, ended time.Time) alert.Alert {
 // entry returns the entry that the store keeps for found.
 func entry(found alert.Alert) history.Entry {
 	return history.Entry{
+		Fingerprint: found.Fingerprint,
 		Name:        found.Labels["alertname"],
 		Summary:     found.Annotations["summary"],
 		Description: found.Annotations["description"],
@@ -78,8 +79,9 @@ func expect(t *testing.T, store *history.Store, want ...history.Entry) {
 
 	got, err := store.List(t.Context())
 	if err != nil || !slices.EqualFunc(got, want, func(a, b history.Entry) bool {
-		return a.Name == b.Name && a.Summary == b.Summary && a.Description == b.Description &&
-			a.StartedAt.Equal(b.StartedAt) && a.ResolvedAt.Equal(b.ResolvedAt)
+		return a.Fingerprint == b.Fingerprint && a.Name == b.Name && a.Summary == b.Summary &&
+			a.Description == b.Description && a.StartedAt.Equal(b.StartedAt) &&
+			a.ResolvedAt.Equal(b.ResolvedAt)
 	}) {
 		t.Errorf("listed %+v (%v), want %+v", got, err, want)
 	}

@@ -31,15 +31,17 @@ ON CONFLICT (fingerprint, started_at) DO UPDATE SET name = EXCLUDED.name,
 	// pruneSQL forgets the alerts that resolved more than $1 seconds ago.
 	pruneSQL = `DELETE FROM alerts WHERE resolved_at < now() - make_interval(secs => $1)`
 	// listSQL reads the alerts that fire or resolved in the last $1 seconds, at most $2 of them.
-	listSQL = `SELECT name, summary, description, started_at, resolved_at FROM alerts
+	listSQL = `SELECT fingerprint, name, summary, description, started_at, resolved_at FROM alerts
 WHERE resolved_at IS NULL OR resolved_at >= now() - make_interval(secs => $1)
 ORDER BY resolved_at IS NULL DESC, started_at DESC, fingerprint
 LIMIT $2`
 )
 
-// Entry is a time that an alert fired: the alert's name, summary and description, when it
-// started, and when it resolved, zero while it fires, which its JSON leaves out.
+// Entry is a time that an alert fired: the alert's fingerprint, name, summary and description,
+// when it started, and when it resolved, zero while it fires. Its JSON leaves out the fingerprint,
+// and the time it resolved while it fires.
 type Entry struct {
+	Fingerprint string    `json:"-"`
 	Name        string    `json:"name"`
 	Summary     string    `json:"summary"`
 	Description string    `json:"description"`
@@ -99,8 +101,8 @@ func (s *Store) List(ctx context.Context) ([]Entry, error) {
 			resolved *time.Time
 		)
 
-		err := row.Scan(&entry.Name, &entry.Summary, &entry.Description, &entry.StartedAt,
-			&resolved)
+		err := row.Scan(&entry.Fingerprint, &entry.Name, &entry.Summary, &entry.Description,
+			&entry.StartedAt, &resolved)
 		if resolved != nil {
 			entry.ResolvedAt = *resolved
 		}
