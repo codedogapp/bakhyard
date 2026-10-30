@@ -30,7 +30,7 @@ func TestEveryResponseCarriesTheSecurityHeaders(t *testing.T) {
 	t.Cleanup(web.Close)
 
 	vars, items := gatewayEnv(t, web.URL)
-	vars["BAKHYARD_PEERS"] = "home=tcp://127.0.0.1:1" +
+	vars["BAKHYARD_PEERS"] = "github=tcp://127.0.0.1:1,home=tcp://127.0.0.1:1" +
 		",notes=tcp://" + strings.TrimPrefix(notes.URL, "http://") +
 		",notify=tcp://127.0.0.1:1,nudge=tcp://127.0.0.1:1" +
 		",pulls=tcp://127.0.0.1:1,time=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1" +

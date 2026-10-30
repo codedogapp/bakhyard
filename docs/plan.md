@@ -186,7 +186,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `github-client` | A client of GitHub's search, in the new `github` service's folder, finds my open PRs, the PRs that wait for my review or one of my teams', and the open issues assigned to me, across every owner, in repositories that aren't archived, the latest updated first, as the user whose classic PAT it holds. It reads up to ten pages of 100, lists each item once, and fails the whole search on a bad answer or one that GitHub marks incomplete. Nothing calls it yet. The second of `github-widgets`' seven steps (decisions 200, 202 and 203) | Done (#173) |
 | `github-service` | A new `github` service polls the three searches as it starts and every 5 minutes after, and answers them at `GET /github/mine`, `GET /github/reviews` and `GET /github/issues`; without GitHub's setting it answers 404. `mise run up` runs it on port 8089 and the Gitea workflow builds its image. The third of `github-widgets`' seven steps (decisions 200 and 204) | Done (#176) |
 | `homelab-github` | The homelab repo runs the `github` service on the laptop, with the token in a Secret, and names it among the gateway's and home's peers, before `github-gateway` makes the gateway require it. The fourth of `github-widgets`' seven steps (decision 200) | Pending |
-| `github-gateway` | The gateway forwards `/api/github` to the `github` service, behind both of its locks. The fifth of `github-widgets`' seven steps (decision 200) | Pending |
+| `github-gateway` | The gateway forwards `/api/github` to the `github` service, behind both of its locks, so the app reaches my three lists at `GET /api/github/mine`, `GET /api/github/reviews` and `GET /api/github/issues`. `github` is one of the gateway's peers, each of which `BAKHYARD_PEERS` must name, and `mise run up` starts the gateway once github is ready. The fifth of `github-widgets`' seven steps (decision 200) | In review |
 | `github-page` | The app shows the three lists, on a page of their own at `/github` or beside Bitbucket's on the PRs page, as the user chooses. The sixth of `github-widgets`' seven steps (decision 200) | Pending |
 | `github-attention` | The `github` service answers the attention contract, so the Home's "Needs you" lists what the user chooses of the review requests, the issues assigned to me and my PRs. The last of `github-widgets`' seven steps (decision 200) | Pending |
 | `games-exophase` | The games widgets from Exophase (§8.2 Phase 5), by a session of their own in `../bakhyard-games/`, which adds its steps' rows under this one (decision 195) | In progress |
@@ -406,7 +406,7 @@ flowchart LR
 | Service | Role | Listens on | Peers | Grows into (§8.2) |
 | --- | --- | --- | --- | --- |
 | nats | Event bus; JetStream on for later durable flows | `tcp://127.0.0.1:4222`, monitoring `:8222` | | reminders → notify |
-| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, home, notes, notify, nudge, pulls, time, todos | auth-signin |
+| gateway | The only way in: `/api` to the services, everything else to web | `tcp://127.0.0.1:8080`; ops on an admin unix socket | web, github, home, notes, notify, nudge, pulls, time, todos | auth-signin |
 | web | Serves the embedded Svelte build | unix socket | | frontend-shell (PWA parts) |
 | home | Builds the Home screen from every app | unix socket | nats, time, notes, todos, pulls, github, games, planner | home-feed |
 | notes | Obsidian vault | unix socket | nats | vault-index, vault-render, vault-edit-sync |
@@ -582,7 +582,7 @@ Streaming handlers watch an app-lifetime context, so open streams end promptly.
 
 - Each service has a `description`, a `command` (`bin/<name>`, run with `bash -c` from the repo root) and an `environment` with its `BAKHYARD_LISTEN` and, for the gateway, `BAKHYARD_PEERS` (§4.7).
 - A readiness probe checks each service's `GET /healthz` (§4.7), first 1 s after the start, then every 2 s. A check gets 1 s to answer, and 3 failures in a row fail the probe.
-- The gateway `depends_on` home, notes, notify, nudge, pulls, time, todos and web with `condition: process_healthy`, so it starts once their probes pass.
+- The gateway `depends_on` github, home, notes, notify, nudge, pulls, time, todos and web with `condition: process_healthy`, so it starts once their probes pass.
 - What every service shares sits in an `x-service` YAML anchor, merged into each with `<<: *service`:
   - `availability.restart: always`: a service that exits, or fails its probe, restarts after 1 s, however often it needs to. A service stopped by hand stays stopped.
   - `shutdown.timeout_seconds: 10`: a stop sends SIGTERM to the service's process group, then SIGKILL if it's still running 10 s later. Without the timeout, process-compose never sends SIGKILL, and a hung service never stops.

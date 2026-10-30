@@ -215,12 +215,10 @@ func gatewayEnv(t *testing.T, webURL string) (vars, items map[string]string) {
 
 	schema := databasetest.NewSchema(t)
 	vars = map[string]string{
-		"BAKHYARD_PEERS": "home=tcp://127.0.0.1:1,notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1" +
-			",nudge=tcp://127.0.0.1:1,pulls=tcp://127.0.0.1:1" +
-			",time=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1,web=tcp://" + strings.TrimPrefix(
-			webURL,
-			"http://",
-		),
+		"BAKHYARD_PEERS": "github=tcp://127.0.0.1:1,home=tcp://127.0.0.1:1" +
+			",notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1,nudge=tcp://127.0.0.1:1" +
+			",pulls=tcp://127.0.0.1:1,time=tcp://127.0.0.1:1,todos=tcp://127.0.0.1:1" +
+			",web=tcp://" + strings.TrimPrefix(webURL, "http://"),
 		"BAKHYARD_TAILSCALE_LOGIN":  testLogin,
 		"BAKHYARD_HOST":             testHost,
 		"BAKHYARD_GOOGLE_CLIENT_ID": "client",
