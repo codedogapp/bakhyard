@@ -247,7 +247,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-gateway` | The gateway forwards `/api/planner` to `planner`, behind both of its locks, once the laptop runs it (decision 403) | Pending |
 | `planner-reply` | A plan's page sends follow-up messages from a field under its conversation (decisions 701 and 705) | Done (#221) |
 | `planner-ask` | The agent's questions that wait show at the end of a plan's conversation, with their choices, and with a field for another answer when the agent takes one, and the answers go back; while one waits, the reply hides (decisions 403 and 706) | Done (#223) |
-| `planner-preview` | A plan's page shows the plan above the conversation once Copilot has written it, rendered from its Markdown as a note's body is, in a chunk that loads with the first plan; notes and plans share the Markdown styles and the heading rule (decisions 403 and 707) | Pending |
+| `planner-preview` | A plan's page shows the plan above the conversation once Copilot has written it, rendered from its Markdown as a note's body is, in a chunk that loads with the first plan; notes and plans share the Markdown styles and the heading rule (decisions 403 and 707) | Done (#225) |
 | `planner-save` | "Save to Obsidian" writes the plan to `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, written by the service, once `vault-edit-sync`'s `note-store` and `note-new` are in (§3, decision 403) | Pending |
 
 After these: the product phases (§8.2), each split into steps.
@@ -1381,7 +1381,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-open`: each row of the list, and a new plan's start, lead to a plan's page (decisions 703 and 704). Done (#219).
   - `planner-reply`: a plan's page sends follow-up messages (decisions 701 and 705). Done (#221).
   - `planner-ask`: the agent's questions show in the chat with their choices, and the answers go back (decisions 403 and 706). Done (#223).
-  - `planner-preview`: the plan shows above the conversation, rendered as a note's body is (decisions 403 and 707).
+  - `planner-preview`: the plan shows above the conversation, rendered as a note's body is (decisions 403 and 707). Done (#225).
   - `planner-save`: "Save to Obsidian" writes `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, written by the service, once `vault-edit-sync`'s store and new notes' unique names are in.
   - No credit cap (decision 75). Each plan's credits could show from `Usage.GetMetrics`, which is experimental (§10).
 
