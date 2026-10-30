@@ -6,14 +6,18 @@ import (
 	"net/http"
 	"os"
 
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1/attentionv1connect"
 	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/github/internal/api"
+	"github.com/codedogapp/bakhyard/services/github/internal/attention"
 )
 
 func main() {
@@ -29,8 +33,8 @@ func main() {
 	}
 }
 
-// routes returns the handler of github, which serves its API. With GitHub set up, it searches
-// GitHub in the background until ctx ends.
+// routes returns the handler of github, which serves its API and its side of the attention
+// contract. With GitHub set up, it searches GitHub in the background until ctx ends.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
@@ -48,6 +52,11 @@ func routes(
 
 	mine, reviews, issues := poll(ctx, client, slog.Default())
 	api.Register(router, mine, reviews, issues)
+
+	attentionServer := connect.NewServer()
+	attentionv1connect.RegisterAttentionServiceHandler(attentionServer,
+		attention.NewLister(mine, reviews, issues))
+	connecthttp.Mount(router, attentionServer)
 
 	return router, nil
 }

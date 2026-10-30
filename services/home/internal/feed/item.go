@@ -29,6 +29,8 @@ func source(source attentionv1.Source) screen.Source {
 	switch source {
 	case attentionv1.Source_SOURCE_BITBUCKET:
 		return screen.SourceBitbucket
+	case attentionv1.Source_SOURCE_GITHUB:
+		return screen.SourceGitHub
 	case attentionv1.Source_SOURCE_JIRA:
 		return screen.SourceJira
 	default:
