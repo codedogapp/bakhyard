@@ -15,6 +15,7 @@ func TestTheOpenGatewayLetsEveryRequestThrough(t *testing.T) {
 		{http.MethodGet, "/api/github/mine", "github got GET /github/mine"},
 		{http.MethodGet, "/api/home", "home got GET /home"},
 		{http.MethodGet, "/api/notes/files/Inbox.md", "notes got GET /notes/files/Inbox.md"},
+		{http.MethodGet, "/api/planner/plans", "planner got GET /planner/plans"},
 		{http.MethodGet, "/api/pulls/mine", "pulls got GET /pulls/mine"},
 		{http.MethodGet, "/api/time/report", "time got GET /time/report"},
 		{http.MethodPost, "/api/todos", "todos got POST /todos"},

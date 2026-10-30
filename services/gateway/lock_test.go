@@ -32,6 +32,7 @@ func TestTheGatewayNeedsASessionForTheAPIOnly(t *testing.T) {
 		{http.MethodPost, "/api/home", http.StatusUnauthorized},
 		{http.MethodGet, "/api/notes", http.StatusUnauthorized},
 		{http.MethodGet, "/api/notes/files/Inbox.md", http.StatusUnauthorized},
+		{http.MethodGet, "/api/planner/plans", http.StatusUnauthorized},
 		{http.MethodGet, "/api/pulls/mine", http.StatusUnauthorized},
 		{http.MethodGet, "/api/time/report", http.StatusUnauthorized},
 		{http.MethodGet, "/api/todos", http.StatusUnauthorized},
@@ -73,12 +74,14 @@ func TestTheGatewayKeepsTheSessionFromTheServices(t *testing.T) {
 	}
 	home, pulls, todos, web := service("home"), service("pulls"), service("todos"), service("web")
 	games, github, timeService := service("games"), service("github"), service("time")
+	planner := service("planner")
 
 	vars, items := gatewayEnv(t, web.URL)
 	vars["BAKHYARD_PEERS"] = "games=tcp://" + strings.TrimPrefix(games.URL, "http://") +
 		",github=tcp://" + strings.TrimPrefix(github.URL, "http://") +
 		",home=tcp://" + strings.TrimPrefix(home.URL, "http://") +
 		",notes=tcp://127.0.0.1:1,notify=tcp://127.0.0.1:1,nudge=tcp://127.0.0.1:1" +
+		",planner=tcp://" + strings.TrimPrefix(planner.URL, "http://") +
 		",pulls=tcp://" + strings.TrimPrefix(pulls.URL, "http://") +
 		",time=tcp://" + strings.TrimPrefix(timeService.URL, "http://") +
 		",todos=tcp://" + strings.TrimPrefix(todos.URL, "http://") +
@@ -94,6 +97,7 @@ func TestTheGatewayKeepsTheSessionFromTheServices(t *testing.T) {
 		{"/api/games/recent", "games", true},
 		{"/api/github/mine", "github", true},
 		{"/api/home", "home", true},
+		{"/api/planner/plans", "planner", true},
 		{"/api/pulls/mine", "pulls", true},
 		{"/api/time/report", "time", true},
 		{"/api/todos", "todos", true},
