@@ -61,6 +61,19 @@ test('shows no plan till Copilot brings one, then the plan, rendered, above the 
   expect(screen.getByRole('article')).toHaveTextContent(/^Trip\s*Book the train$/);
 });
 
+test('offers to save the plan in the vault once there is one, above it', async () => {
+  render(PlanPage, { props: { id: 'p1' } });
+  await FakeEvents.last.emit('conversation', talk);
+  await vi.dynamicImportSettled();
+  expect(screen.queryByRole('button', { name: 'Save to Obsidian' })).not.toBeInTheDocument();
+
+  await FakeEvents.last.emit('plan', { plan: trip });
+
+  const plan = await screen.findByRole('article');
+  const button = screen.getByRole('button', { name: 'Save to Obsidian' });
+  expect(button.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
 test('shows the plan that came before the page opened', async () => {
   render(PlanPage, { props: { id: 'p1' } });
 
