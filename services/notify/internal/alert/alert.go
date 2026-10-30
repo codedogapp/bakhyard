@@ -24,8 +24,8 @@ const (
 const (
 	// fallbackTitle titles a group whose alerts share neither a summary nor a name.
 	fallbackTitle = "Alerts"
-	// home is the path that a tap on the push opens, since the app has no page for alerts.
-	home = "/"
+	// alertsPage is the path that a tap on the push opens: the Alerts page (decision 606).
+	alertsPage = "/alerts"
 )
 
 // ErrInvalid means that a webhook isn't a group of alerts that fire or have resolved.
@@ -54,9 +54,9 @@ type Alert struct {
 	Fingerprint string `json:"fingerprint"`
 }
 
-// Message words g's push, which opens the Home. Its title is the summary that g's alerts share,
-// or else their name, after "Resolved: " once g has resolved. While g fires, its body has a line
-// for each alert that fires, the alert's description, or else its summary or name.
+// Message words g's push, which opens the Alerts page. Its title is the summary that g's alerts
+// share, or else their name, after "Resolved: " once g has resolved. While g fires, its body has
+// a line for each alert that fires, the alert's description, or else its summary or name.
 func (g Group) Message() (push.Message, error) {
 	if len(g.Alerts) == 0 || (g.Status != Firing && g.Status != Resolved) {
 		return push.Message{}, ErrInvalid
@@ -64,10 +64,10 @@ func (g Group) Message() (push.Message, error) {
 
 	title := cmp.Or(g.CommonAnnotations["summary"], g.CommonLabels["alertname"], fallbackTitle)
 	if g.Status == Resolved {
-		return push.Message{Title: "Resolved: " + title, URL: home}, nil
+		return push.Message{Title: "Resolved: " + title, URL: alertsPage}, nil
 	}
 
-	return push.Message{Title: title, Body: g.firing(), URL: home}, nil
+	return push.Message{Title: title, Body: g.firing(), URL: alertsPage}, nil
 }
 
 // firing lists g's alerts that fire, a line each, and then how many alerts Alertmanager left out.

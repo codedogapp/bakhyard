@@ -32,7 +32,10 @@ func group(status alert.Status, alerts ...alert.Alert) alert.Group {
 }
 
 func TestMessageWordsThePush(t *testing.T) {
-	const summary = "A filesystem is nearly full"
+	const (
+		summary = "A filesystem is nearly full"
+		page    = "/alerts"
+	)
 
 	nameless := group(alert.Firing, diskFull(alert.Firing, "/"))
 	nameless.CommonLabels, nameless.CommonAnnotations = nil, nil
@@ -47,22 +50,22 @@ func TestMessageWordsThePush(t *testing.T) {
 		{
 			"firing",
 			group(alert.Firing, diskFull(alert.Firing, "/"), diskFull(alert.Firing, "/data")),
-			push.Message{Title: summary, Body: "/ is 91% full\n/data is 91% full", URL: "/"},
+			push.Message{Title: summary, Body: "/ is 91% full\n/data is 91% full", URL: page},
 		},
 		{
 			"resolved",
 			group(alert.Resolved, diskFull(alert.Resolved, "/"), diskFull(alert.Resolved, "/data")),
-			push.Message{Title: "Resolved: " + summary, URL: "/"},
+			push.Message{Title: "Resolved: " + summary, URL: page},
 		},
 		{
 			"a resolved alert left out of a firing group's body",
 			group(alert.Firing, diskFull(alert.Resolved, "/"), diskFull(alert.Firing, "/data")),
-			push.Message{Title: summary, Body: "/data is 91% full", URL: "/"},
+			push.Message{Title: summary, Body: "/data is 91% full", URL: page},
 		},
 		{
 			"the alerts that Alertmanager left out",
 			truncated,
-			push.Message{Title: summary, Body: "/ is 91% full\nand 3 more", URL: "/"},
+			push.Message{Title: summary, Body: "/ is 91% full\nand 3 more", URL: page},
 		},
 		{
 			"the name when the alerts share no summary",
@@ -71,12 +74,12 @@ func TestMessageWordsThePush(t *testing.T) {
 				CommonLabels: map[string]string{"alertname": "DiskFull"},
 				Alerts:       []alert.Alert{diskFull(alert.Resolved, "/")},
 			},
-			push.Message{Title: "Resolved: DiskFull", URL: "/"},
+			push.Message{Title: "Resolved: DiskFull", URL: page},
 		},
 		{
 			"a title when the alerts share neither",
 			nameless,
-			push.Message{Title: "Alerts", Body: "/ is 91% full", URL: "/"},
+			push.Message{Title: "Alerts", Body: "/ is 91% full", URL: page},
 		},
 		{
 			"an alert's summary or name when it has no description",
@@ -92,7 +95,7 @@ func TestMessageWordsThePush(t *testing.T) {
 					Labels: map[string]string{"alertname": "DiskFull"},
 				},
 			),
-			push.Message{Title: summary, Body: "/ is nearly full\nDiskFull", URL: "/"},
+			push.Message{Title: summary, Body: "/ is nearly full\nDiskFull", URL: page},
 		},
 	}
 
