@@ -12,6 +12,7 @@ func TestTheOpenGatewayLetsEveryRequestThrough(t *testing.T) {
 
 	for _, test := range []struct{ method, target, want string }{
 		{http.MethodGet, "/api/games/recent", "games got GET /games/recent"},
+		{http.MethodGet, "/api/github/mine", "github got GET /github/mine"},
 		{http.MethodGet, "/api/home", "home got GET /home"},
 		{http.MethodGet, "/api/notes/files/Inbox.md", "notes got GET /notes/files/Inbox.md"},
 		{http.MethodGet, "/api/pulls/mine", "pulls got GET /pulls/mine"},
