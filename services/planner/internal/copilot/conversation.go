@@ -25,7 +25,8 @@ const (
 // Message is a message of a plan's conversation.
 type Message struct {
 	// ID is the ID of the user's message's event, or of the assistant's message, which the pieces
-	// of its text name as they come.
+	// of its text name as they come. A question of the agent's has the ID of the event that
+	// starts its ask_user call, and the user's answer the ID of the event that ends it.
 	ID   string `json:"id"`
 	From Author `json:"from"`
 	Text string `json:"text"`
@@ -81,14 +82,19 @@ func (p *plan) read(ctx context.Context, talk Conversation) (Conversation, error
 	return talk, nil
 }
 
-// messages returns the messages in events, in their order.
+// messages returns the messages in events, in their order, the agent's questions and the
+// user's answers among them.
 func messages(events []sdk.SessionEvent) []Message {
 	var list []Message
+
+	calls := askCalls{}
 
 	for _, event := range events {
 		if message, ok := messageOf(event); ok {
 			list = append(list, message)
 		}
+
+		list = append(list, calls.see(event)...)
 	}
 
 	return list

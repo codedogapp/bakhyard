@@ -35,11 +35,13 @@ type plan struct {
 	content string
 	// questions are the agent's questions that wait for their answers, in the order asked.
 	questions []waiting
+	// calls are the questions of the agent's ask_user calls that have started and not yet ended.
+	calls     askCalls
 	followers map[chan Update]struct{}
 }
 
 func newPlan(stopped <-chan struct{}) *plan {
-	return &plan{stopped: stopped, followers: map[chan Update]struct{}{}}
+	return &plan{stopped: stopped, calls: askCalls{}, followers: map[chan Update]struct{}{}}
 }
 
 // Plan starts a session that works out a plan for prompt, in plan mode, and returns the
