@@ -216,6 +216,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `shared-event-stream` | Nudge's code that sends a page server-sent events moves to the root `internal/eventstream`, for the planner's stream, its second user; nothing changes in behaviour (decision 408) | Done (#196) |
 | `planner-stream` | `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events: the conversation so far, then each piece of the assistant's text, each whole message and the plan, with a heartbeat every 25 s, until the page leaves or the service stops (decision 409) | Done (#197) |
 | `planner-questions` | The planner's client relays the agent's questions: each waits, with its choices, until `Answer` brings the user's answer or the service stops; `GET /planner/plans/{id}` answers those that wait as `questions`, and the stream sends `question` and `answered`. `planner-questions` splits in three, so `copilot-planner` has nineteen steps (decision 410) | Done (#198) |
+| `planner-answers` | `POST /planner/plans/{id}/questions/{question}/answer`, with a body such as `{"text":"Rome"}`, brings the user's answer to a question that waits, as nudge's `POST /nudge/questions/{id}/answer` does: 204, or 404 for a plan or a question that isn't there, and 400 for a blank text or one that isn't one of the choices of a question that takes no other (decision 411) | In progress |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1320,7 +1321,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `shared-event-stream`: nudge's server-sent events move to the root `internal/eventstream`, for the planner's stream, their second user; nothing changes in behaviour (decision 408). Done (#196).
   - `planner-stream`: `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events, from the conversation so far, with heartbeats, for as long as the page is open (decision 409). Done (#197).
   - `planner-questions`: the planner's client relays the agent's questions, each of which waits, with its choices, for the user's answer; the conversation and its stream show those that wait (§3, decision 410). Done (#198).
-  - `planner-answers`: `POST /planner/plans/{id}/answers` brings the user's answer to a question that waits.
+  - `planner-answers`: `POST /planner/plans/{id}/questions/{question}/answer` brings the user's answer to a question that waits, as nudge's page answers its questions (decision 411).
   - `planner-asked`: the questions asked and their answers show among a plan's messages, from the CLI's record.
   - `planner-resume`: the list of plans, and a follow-up message that resumes a plan, after a restart too.
   - `planner-image`: the service's image, with the CLI in it.
@@ -1943,6 +1944,10 @@ Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-p
      - **The record**: the CLI sends its `user_input.requested` and `user_input.completed` events only as they happen and never records them. Its record has the `ask_user` tool's call, with the question and its choices, and the call's result, `User selected: …` or `User responded: …`, from which `planner-asked` reads the questions asked and their answers.
      - **Known gap**: a question that the CLI takes back, after an abort, waits until it's answered or the service stops, since the handler gets no context. `planner-chat`'s idle and error states will deal with it.
      - **Rejected**: `ask_user`'s elicitation variant, which asks through a JSON Schema form and gets no context or ID either; the session's `HandlePendingUserInput`, which is experimental, as decision 405 turned down `session.plan.read`; one step for the three, which would be twice a step's size.
+411. **The route for the answers** (`planner-answers`): the lead's choices (2026-10-30), for the user to review.
+     - **The route**: `POST /planner/plans/{id}/questions/{question}/answer`, with the answer's text in the body, `{"text":"…"}`, as nudge's page answers a question with `POST /nudge/questions/{id}/answer`. It answers 204, since the page learns the rest from the stream's `answered`. The text goes to the agent as it comes, as the prompt does.
+     - **Refusals**: a plan that the planner hasn't started and a question that doesn't wait both get a 404 with the reason, `no such plan` or `no such question`, as nudge's question that has gone does; the question is gone either way. A text that isn't one of the choices of a question that takes no other gets a 400, `the answer is not one of the choices`, and so does a blank text, `the answer is blank`, which the route turns down, as `POST /planner/plans` does a blank prompt. Any other error gets a 500 and the log `answer a question`; the client gives none today.
+     - **Rejected**: `POST /planner/plans/{id}/answers` with the question's ID in the body, as §8.2 first had it, since nudge names the question in the path; a 409 for a question that has had its answer, which the client can't tell from one never asked, as it forgets a question once answered; the answer over the event stream, which only sends.
 
 Decisions 500 on are the orchestrator's, after 199.
 
