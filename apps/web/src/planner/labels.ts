@@ -1,3 +1,5 @@
+import type { StartStatus } from './prompt.svelte';
+
 /** The most characters of a plan's title that its row shows. */
 const titleLength = 80;
 
@@ -19,4 +21,18 @@ export function titleLabel(title: string): string {
   const cut = characters.slice(0, titleLength + 1).join('');
   const space = cut.lastIndexOf(' ');
   return `${space > cut.length / 2 ? cut.slice(0, space) : characters.slice(0, titleLength).join('')}…`;
+}
+
+/** The prompt's status line: "Starting…", "Started", why the start failed, or nothing before the first. */
+export function startLabel(status: StartStatus): string {
+  switch (status.kind) {
+    case 'starting':
+      return 'Starting…';
+    case 'started':
+      return 'Started';
+    case 'failed':
+      return status.reason;
+    default:
+      return '';
+  }
 }
