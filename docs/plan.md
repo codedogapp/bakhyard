@@ -215,7 +215,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-follow` | The planner's client streams a plan's conversation: `Follow` answers the conversation so far, with the text of the messages that the assistant is still writing, then its updates: each piece of the text as it comes, each whole message and the plan. `planner-stream` splits in three, so `copilot-planner` has seventeen steps (decision 407) | Done (#195) |
 | `shared-event-stream` | Nudge's code that sends a page server-sent events moves to the root `internal/eventstream`, for the planner's stream, its second user; nothing changes in behaviour (decision 408) | Done (#196) |
 | `planner-stream` | `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events: the conversation so far, then each piece of the assistant's text, each whole message and the plan, with a heartbeat every 25 s, until the page leaves or the service stops (decision 409) | Done (#197) |
-| `planner-questions` | The planner's client relays the agent's questions: each waits, with its choices, until `Answer` brings the user's answer or the service stops; `GET /planner/plans/{id}` answers those that wait as `questions`, and the stream sends `question` and `answered`. `planner-questions` splits in three, so `copilot-planner` has nineteen steps (decision 410) | In progress |
+| `planner-questions` | The planner's client relays the agent's questions: each waits, with its choices, until `Answer` brings the user's answer or the service stops; `GET /planner/plans/{id}` answers those that wait as `questions`, and the stream sends `question` and `answered`. `planner-questions` splits in three, so `copilot-planner` has nineteen steps (decision 410) | Done (#198) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1319,7 +1319,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-follow`: the client streams a plan's conversation and tells its followers each piece of the assistant's text, each whole message and the plan (decision 407). Done (#195).
   - `shared-event-stream`: nudge's server-sent events move to the root `internal/eventstream`, for the planner's stream, their second user; nothing changes in behaviour (decision 408). Done (#196).
   - `planner-stream`: `GET /planner/plans/{id}/events` streams a plan's conversation as server-sent events, from the conversation so far, with heartbeats, for as long as the page is open (decision 409). Done (#197).
-  - `planner-questions`: the planner's client relays the agent's questions, each of which waits, with its choices, for the user's answer; the conversation and its stream show those that wait (§3, decision 410).
+  - `planner-questions`: the planner's client relays the agent's questions, each of which waits, with its choices, for the user's answer; the conversation and its stream show those that wait (§3, decision 410). Done (#198).
   - `planner-answers`: `POST /planner/plans/{id}/answers` brings the user's answer to a question that waits.
   - `planner-asked`: the questions asked and their answers show among a plan's messages, from the CLI's record.
   - `planner-resume`: the list of plans, and a follow-up message that resumes a plan, after a restart too.
