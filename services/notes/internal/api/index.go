@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/codedogapp/bakhyard/services/notes/internal/vault"
@@ -77,6 +79,17 @@ func (idx *index) lists(name string) bool {
 	defer idx.mu.RUnlock()
 
 	return idx.latest.listed[name]
+}
+
+// takes reports whether the latest scan lists a file at name in any case, which the Mac's disk
+// takes for the same name (decision 423).
+func (idx *index) takes(name string) bool {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	return slices.ContainsFunc(idx.latest.files, func(file string) bool {
+		return strings.EqualFold(file, name)
+	})
 }
 
 // open opens the file name through the root of the latest scan, and fails with fs.ErrNotExist

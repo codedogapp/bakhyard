@@ -87,16 +87,18 @@ func TestTheListSaysWhetherNotesAreSaved(t *testing.T) {
 	}
 }
 
-func TestWithAStoreAFileTakesGetAndPut(t *testing.T) {
+func TestWithAStoreAFileTakesGetPutAndPost(t *testing.T) {
 	router, _ := routerWith(t, vaultWith(t, "Inbox.md").Name(), storeWith("Inbox.md"))
 
-	for _, method := range []string{http.MethodPost, http.MethodPatch, http.MethodDelete} {
+	for _, method := range []string{http.MethodPatch, http.MethodDelete} {
 		rec := serve(router,
 			httptest.NewRequestWithContext(t.Context(), method, "/notes/files/Inbox.md", nil))
 
 		allow := slices.Sorted(slices.Values(rec.Header().Values("Allow")))
-		if rec.Code != http.StatusMethodNotAllowed || !slices.Equal(allow, []string{"GET", "PUT"}) {
-			t.Errorf("%s: got %d, Allow %q; want 405, Allow GET and PUT", method, rec.Code, allow)
+		if rec.Code != http.StatusMethodNotAllowed ||
+			!slices.Equal(allow, []string{"GET", "POST", "PUT"}) {
+			t.Errorf("%s: got %d, Allow %q; want 405, Allow GET, POST and PUT", method, rec.Code,
+				allow)
 		}
 	}
 }

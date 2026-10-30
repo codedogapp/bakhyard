@@ -19,16 +19,20 @@ import (
 )
 
 // fakeStore is a vault's repository in memory, which takes an update only in place of the blob it
-// holds, as Gitea does, and fails as told.
+// holds, and a new file only at a name it doesn't hold, in that very case, as Gitea does, and fails
+// as told.
 type fakeStore struct {
 	files map[string]gitea.File
-	// commits counts the updates it took.
+	// commits counts the updates and new files it took.
 	commits int
-	// readFails and updateFails, when set, are the errors that Read and Update return.
-	readFails, updateFails error
-	// race, when set, is another commit, which beats the next update to the branch, so that Gitea
-	// refuses the update.
+	// readFails, updateFails and createFails, when set, are the errors that Read, Update and
+	// Create return.
+	readFails, updateFails, createFails error
+	// race, when set, is another commit, which beats the next update or new file to the branch, so
+	// that Gitea refuses it.
 	race func(*fakeStore)
+	// tried lists the names that Create was asked for, in order.
+	tried []string
 }
 
 // storeWith returns a store that holds the files names, each with text(name), as vaultWith's
@@ -75,6 +79,31 @@ func (s *fakeStore) Update(_ context.Context, name, blob string, content []byte)
 
 	if file.Blob != blob {
 		return gitea.ErrChanged
+	}
+
+	s.commits++
+	s.files[name] = gitea.File{Text: content, Blob: fmt.Sprintf("blob %d", s.commits)}
+
+	return nil
+}
+
+func (s *fakeStore) Create(_ context.Context, name string, content []byte) error {
+	s.tried = append(s.tried, name)
+
+	if s.race != nil {
+		race := s.race
+		s.race = nil
+		race(s)
+
+		return gitea.ErrRefused
+	}
+
+	if s.createFails != nil {
+		return s.createFails
+	}
+
+	if _, ok := s.files[name]; ok {
+		return gitea.ErrTaken
 	}
 
 	s.commits++
