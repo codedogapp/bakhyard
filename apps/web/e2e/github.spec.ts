@@ -1,9 +1,36 @@
+import type { Locator } from '@playwright/test';
+
 import type { Item } from '../src/github/github';
 import { chipLooks } from './chips';
-import { home } from './demo';
+import { home, pulls, reviewRequests } from './demo';
 import { expect, test } from './fixtures';
 import { answerAllGitHub, answerGitHub, githubIssues, githubMine, githubReviews } from './github';
 import { group } from './groups';
+import { answerPulls, answerReviews, mine } from './pulls';
+
+/** How a row and its label, title, first detail line and chip look; null for a part it lacks. */
+function rowLooks(row: Locator) {
+  return row.evaluate((element) => {
+    const parts = ['.list-label', '.list-title', '.list-detail', '.chip'].map((part) => element.querySelector(part));
+    const looks = [
+      'display',
+      'grid-template-columns',
+      'padding-top',
+      'padding-left',
+      'column-gap',
+      'color',
+      'font-family',
+      'font-size',
+      'font-weight',
+      'line-height',
+      'letter-spacing',
+      'text-transform',
+    ];
+    return [element, ...parts].map(
+      (part) => part && looks.map((name) => getComputedStyle(part).getPropertyValue(name))
+    );
+  });
+}
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
@@ -53,6 +80,36 @@ test('a row takes me to the issue on GitHub', async ({ page }) => {
 
   await expect(page).toHaveURL('https://github.com/acme/cli/issues/88');
   await expect(page).toHaveTitle('acme/cli #88');
+});
+
+test('the GitHub page loads its lists again each time it shows', async ({ page }) => {
+  let issues = githubIssues;
+  await answerGitHub(page, 'mine', githubMine);
+  await answerGitHub(page, 'reviews', githubReviews);
+  await page.route('/api/github/issues', (route) => route.fulfill({ json: issues }));
+  await page.goto('/github');
+  await expect(group(page, 'Assigned issues').getByText('2 issues')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Home', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Good morning, Alex.' })).toBeVisible();
+  // The github service finds an issue closed while the page is away.
+  issues = { ...githubIssues, items: githubIssues.items?.slice(1) };
+  await page.goBack();
+
+  await expect(group(page, 'Assigned issues').getByText('1 issue')).toBeVisible();
+  await expect(group(page, 'Assigned issues').getByRole('link')).toHaveCount(1);
+});
+
+test("a draft PR's row looks as one on the PRs page", async ({ page }) => {
+  await answerPulls(page, pulls);
+  await answerReviews(page, reviewRequests);
+  await page.goto('/pulls');
+  const pull = await rowLooks(mine(page).getByRole('link', { name: /^#41 / }));
+  expect(pull).not.toContain(null);
+
+  await answerAllGitHub(page);
+  await page.goto('/github');
+  expect(await rowLooks(group(page, 'Your PRs').getByRole('link', { name: /^#12 / }))).toEqual(pull);
 });
 
 test('a long title, repo or failure wraps on a narrow screen', async ({ page }) => {

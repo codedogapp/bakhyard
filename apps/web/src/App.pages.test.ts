@@ -15,6 +15,10 @@ function answer(url: string): Response {
     case '/api/pulls/mine':
     case '/api/pulls/reviews':
       return Response.json({ pulls: [], searched });
+    case '/api/github/mine':
+    case '/api/github/reviews':
+    case '/api/github/issues':
+      return Response.json({ items: [], searched });
     case '/api/time/report':
       return Response.json({
         days: [{ date: '2026-10-20', loggedHours: 7.5, missing: false }],
@@ -53,6 +57,7 @@ test.each([
   ['/todos', '1 todo on the list.', 'Todos · Bakhyard'],
   ['/pulls', 'No open pull requests.', 'Pull requests · Bakhyard'],
   ['/time', '7h 30m / 40h', 'Time · Bakhyard'],
+  ['/github', 'No open issues.', 'GitHub · Bakhyard'],
 ])('shows the page of the app at %s, with what it loads', async (path, loaded, title) => {
   history.replaceState(null, '', path);
   render(App);

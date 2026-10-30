@@ -123,20 +123,19 @@ test("says that GitHub isn't set up when every list answers 404, with no section
   expect(heads()).toEqual([]);
 });
 
-test.each<{ list: List; head: string; emptyText: string; failedText: string }>([
-  {
-    list: 'mine',
-    head: 'Your PRs',
-    emptyText: 'No open pull requests.',
-    failedText: "Couldn't load the pull requests.",
-  },
-  {
-    list: 'reviews',
-    head: 'Review requests',
-    emptyText: 'No pull requests to review.',
-    failedText: "Couldn't load the review requests.",
-  },
-  { list: 'issues', head: 'Assigned issues', emptyText: 'No open issues.', failedText: "Couldn't load the issues." },
+test('leaves out only the section of a list that answers 404 when the others load', async () => {
+  answer({ mine: off, reviews: loaded(reviews), issues: loaded(issues) });
+  render(GitHubPage);
+
+  expect(await screen.findByText('The build fails on Windows')).toBeInTheDocument();
+  await vi.waitFor(() => expect(heads()).toEqual(['Review requests', 'Assigned issues']));
+  expect(screen.queryByText("GitHub isn't set up.")).not.toBeInTheDocument();
+});
+
+test.each<{ list: List; head: string; emptyText: string }>([
+  { list: 'mine', head: 'Your PRs', emptyText: 'No open pull requests.' },
+  { list: 'reviews', head: 'Review requests', emptyText: 'No pull requests to review.' },
+  { list: 'issues', head: 'Assigned issues', emptyText: 'No open issues.' },
 ])('says when the $list list is empty, in its section', async ({ list, head, emptyText }) => {
   answer({
     mine: loaded(mine),
