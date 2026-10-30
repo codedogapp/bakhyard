@@ -218,6 +218,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-questions` | The planner's client relays the agent's questions: each waits, with its choices, until `Answer` brings the user's answer or the service stops; `GET /planner/plans/{id}` answers those that wait as `questions`, and the stream sends `question` and `answered`. `planner-questions` splits in three, so `copilot-planner` has nineteen steps (decision 410) | Done (#198) |
 | `planner-answers` | `POST /planner/plans/{id}/questions/{question}/answer`, with a body such as `{"text":"Rome"}`, brings the user's answer to a question that waits, as nudge's `POST /nudge/questions/{id}/answer` does: 204, or 404 for a plan or a question that isn't there, and 400 for a blank text or one that isn't one of the choices of a question that takes no other (decision 411) | Done (#199) |
 | `planner-asked` | The agent's questions and the user's answers show among a plan's messages, read from the CLI's record of `ask_user`'s calls: once a call has ended, its question as the assistant's message and its answer as the user's, in `GET /planner/plans/{id}` and as the stream's `message` (decision 412) | Done (#200) |
+| `planner-list` | `GET /planner/plans` lists the plans that the CLI keeps, those of the service's earlier runs among them, the last updated first, as `{"plans":[…]}`: each with its `id`, the CLI's `title` for it, `started_at` and `updated_at`. `planner-resume` splits in three, so `copilot-planner` has twenty-one steps (decision 413) | In progress |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1313,7 +1314,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `note-page-state`: a note's page keeps its state in a class, `ShownNote`, with no change in behaviour (decision 402). Done (#177).
   - `note-save`: the editor's Save, a `PUT` with `If-Match`, which keeps the user's text on a 412 (decisions 400 to 402). Done (#180).
   - After the answer: the store behind the save, with the §3 conflict rules; new notes get unique names; history and rollback; and the way edits get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151, §12).
-- `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`; its last step needs `vault-edit-sync`'s store. In nineteen steps (decisions 403, 405, 407 and 410), which start before `vault-edit-sync` ends:
+- `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`; its last step needs `vault-edit-sync`'s store. In twenty-one steps (decisions 403, 405, 407, 410 and 413), which start before `vault-edit-sync` ends:
   - `planner-plan`: this split. Done (#182).
   - `copilot-client`: the planner's client of the Copilot SDK starts a plan in plan mode on claude-opus-5.5, with the tool allowlist and a deny-by-default permission handler (§3), and keeps the plan that `exit_plan_mode` brings. `copilot` is pinned in mise.toml at the CLI version the SDK names, and `mise run copilot:check` fails when they differ (decisions 74 and 404). Done (#185).
   - `planner-api`: the client keeps the plans it starts and reads a plan's conversation from the CLI; `POST /planner/plans` starts a plan from a prompt, and `GET /planner/plans/{id}` answers its conversation and its plan so far (decision 405). Done (#189).
@@ -1324,7 +1325,9 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-questions`: the planner's client relays the agent's questions, each of which waits, with its choices, for the user's answer; the conversation and its stream show those that wait (§3, decision 410). Done (#198).
   - `planner-answers`: `POST /planner/plans/{id}/questions/{question}/answer` brings the user's answer to a question that waits, as nudge's page answers its questions (decision 411). Done (#199).
   - `planner-asked`: the questions asked and their answers show among a plan's messages, from the CLI's record of `ask_user`'s calls (decision 412). Done (#200).
-  - `planner-resume`: the list of plans, and a follow-up message that resumes a plan, after a restart too.
+  - `planner-list`: `GET /planner/plans` lists the plans that the CLI keeps, those of earlier runs among them (decision 413).
+  - `planner-send`: `POST /planner/plans/{id}/messages` sends a follow-up message to a plan.
+  - `planner-resume`: the client brings back a plan of an earlier run as it's asked for, so that it reads, streams, and takes answers and follow-ups, with its plan.
   - `planner-image`: the service's image, with the CLI in it.
   - `homelab-planner`: in the homelab repo, `planner` runs on the laptop with its settings, its Secret and a volume for its sessions, and the gateway's peers name it.
   - `planner-gateway`: the gateway forwards `/api/planner` to `planner`.
@@ -1954,6 +1957,11 @@ Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-p
      - **The messages**: once a call has ended, its question joins a plan's messages as the assistant's, with the ID of the event that starts the call, followed by its answer as the user's, without the CLI's words and with the ID of the event that ends the call. A call that ends without an answer, skipped or failed, brings the question alone. The choices stay out, since the answer tells which one the user took.
      - **When**: as the call ends, not as it starts, since until then the question waits under `questions`, and as a message too it would show twice; the SDK's request names no call, so the question that waits can't be tied to its call. The stream sends both as `message` as the call ends, so the plan remembers the calls that have started until they end, and `GET /planner/plans/{id}` reads them from the record in the same way.
      - **Rejected**: a kind of message of their own, which the chat doesn't need, as the question reads as the assistant's and the answer as the user's; the question read from the call's end, whose telemetry repeats it, since the telemetry isn't documented.
+413. **The list of plans** (`planner-list`): the lead's choices (2026-10-30), for the user to review. Decision 403's `planner-resume` splits in three, since the list, the follow-up message and bringing back a plan come to about 300 hand-written lines: `planner-list`, the list; `planner-send`, a follow-up message to a plan that the client has; then `planner-resume`, which brings back a plan of an earlier run as it's asked for. `copilot-planner` has twenty-one steps.
+     - **The list**: the CLI's list of its sessions, the SDK's `ListSessions`, since the CLI keeps the plans (decision 403), and its folder holds the planner's sessions alone. So the list takes no filter, which would lose the plans if the work folder moved. The CLI leaves out a session without a record, which a plan has once its prompt is sent. A spike on CLI 1.0.105, with copies of local sessions and without a token, so at no cost, saw what the CLI answers.
+     - **The entries**: `GET /planner/plans` answers `{"plans":[…]}`, an object, as `GET /notes` answers, with each plan as `{"id","title","started_at","updated_at"}`. The title is the CLI's name for the session, which may be its first prompt, or `""` without one; `updated_at` is when the session's record last changed, from the file's time. The client sorts the plans by it, the last updated first, since the SDK promises no order.
+     - **Until `planner-resume`**: a plan of an earlier run shows in the list, but its own routes answer 404, `no such plan`. An error from the CLI gets a 502 and the log `list the plans`, as the other routes' errors do.
+     - **Rejected**: the plans that the client has started, which it forgets as the service stops; the CLI's order, which isn't documented; one step for the three, which would be twice a step's size.
 
 Decisions 500 on are the orchestrator's, after 199.
 

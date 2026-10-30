@@ -17,6 +17,9 @@ const notSetUp = "Copilot is not set up"
 
 // Planner works out plans with Copilot, as a copilot.Client does.
 type Planner interface {
+	// Plans returns the plans, those of the planner's earlier runs among them, the last updated
+	// first.
+	Plans(ctx context.Context) ([]copilot.Entry, error)
 	// Plan starts a plan for prompt and returns its ID.
 	Plan(ctx context.Context, prompt string) (string, error)
 	// Conversation returns the conversation of the plan id so far, or copilot.ErrNoPlan when
@@ -41,13 +44,15 @@ type Door struct {
 	Heartbeat time.Duration
 }
 
-// Register serves the plans on router: POST /planner/plans starts a plan (start),
+// Register serves the plans on router: GET /planner/plans lists them (list),
+// POST /planner/plans starts a plan (start),
 // GET /planner/plans/{id} answers its conversation so far (conversation),
 // GET /planner/plans/{id}/events streams it (events), and
 // POST /planner/plans/{id}/questions/{question}/answer answers one of its questions that wait
 // (answer). stopping ends when the service is told to stop, and ends the event streams with it.
 // Other methods get 405.
 func (d Door) Register(stopping context.Context, router chi.Router) {
+	router.Get("/planner/plans", list(d.Planner, d.Logger))
 	router.Post("/planner/plans", start(d.Planner, d.Logger))
 	router.Get("/planner/plans/{id}", conversation(d.Planner, d.Logger))
 	router.Get("/planner/plans/{id}/events", func(w http.ResponseWriter, r *http.Request) {
