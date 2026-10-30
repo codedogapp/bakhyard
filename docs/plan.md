@@ -212,7 +212,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `alerts-history` | notify keeps each alert that Alertmanager posts in a table of its database, with its name, summary and description, when it fired and when it resolved, until 30 days after it resolved. The seventh of `homelab-alerts`' steps (decisions 606 and 607) | Done (#227) |
 | `alerts-list` | notify's `GET /notify/alerts` lists the alerts that fire and those resolved in the last 30 days. The eighth of `homelab-alerts`' steps (decisions 606 and 608) | Done (#229) |
 | `alerts-page` | The web's Alerts page, at `/alerts`, shows the alerts that fire and those of the last 30 days. The ninth of `homelab-alerts`' steps (decisions 606 and 609) | Done (#232) |
-| `alerts-push-link` | A tap on an alert's push opens the Alerts page rather than the Home. The tenth of `homelab-alerts`' steps (decision 606) | Pending |
+| `alerts-push-link` | A tap on an alert's push opens the Alerts page rather than the Home. The tenth of `homelab-alerts`' steps (decision 606) | Done (#PRNUM) |
 | `alerts-attention` | notify answers the attention contract with the alerts that fire, and home asks it under the peer name `alerts`, so the Home lists them in "Needs you today". The eleventh of `homelab-alerts`' steps (decision 606) | Pending |
 | `homelab-alerts-home` | In the homelab repo, home asks notify for its items, as the peer `alerts`, and a NetworkPolicy lets it. The twelfth of `homelab-alerts`' steps (decision 606) | Pending |
 | `alerts-page-done` | The plan records the Alerts page at work, once a live alert has shown on the page and the Home. The thirteenth of `homelab-alerts`' steps (decision 606) | Pending |
@@ -1411,7 +1411,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `alerts-history`: notify keeps each alert that Alertmanager posts, until 30 days after it resolved (decisions 606 and 607). Done (#227).
   - `alerts-list`: notify's `GET /notify/alerts` lists the alerts that fire and those of the last 30 days (decisions 606 and 608). Done (#229).
   - `alerts-page`: the web's Alerts page, at `/alerts` (decisions 606 and 609). Done (#232).
-  - `alerts-push-link`: a tap on an alert's push opens the Alerts page (decision 606).
+  - `alerts-push-link`: a tap on an alert's push opens the Alerts page (decision 606). Done (#PRNUM).
   - `alerts-attention`: notify answers the attention contract with the alerts that fire, so the Home lists them (decision 606).
   - `homelab-alerts-home`: in the homelab repo, home asks notify for its items (decision 606).
   - `alerts-page-done`: the plan records the Alerts page at work, after a live check (decision 606).
