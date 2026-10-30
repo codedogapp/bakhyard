@@ -1,3 +1,4 @@
+import type { Author, Status } from './conversation';
 import type { StartStatus } from './prompt.svelte';
 
 /** The most characters of a plan's title that its row shows. */
@@ -35,4 +36,17 @@ export function startLabel(status: StartStatus): string {
     default:
       return '';
   }
+}
+
+/** Who wrote a message, as its row says: "You" or "Copilot". */
+export function authorLabel(from: Author): string {
+  return from === 'user' ? 'You' : 'Copilot';
+}
+
+/** A plan's status line: "Copilot is working…", why the agent stopped, or nothing once it stopped without an error. */
+export function workLabel(status: Status): string {
+  if (status.working) {
+    return 'Copilot is working…';
+  }
+  return status.failure === '' ? '' : `Copilot stopped: ${status.failure}`;
 }
