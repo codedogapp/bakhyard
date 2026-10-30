@@ -11,6 +11,9 @@ let { id }: { id: string } = $props();
 
 let chat = $state.raw<Chat>({ kind: 'loading' });
 
+// Apart from the rest of the chat, so the plan renders again only when it changes, not with each piece of a message.
+const plan = $derived(chat.kind === 'loaded' ? chat.talk.plan : '');
+
 // Another plan's page starts from nothing, rather than show this plan's conversation until its own comes.
 $effect(() => {
   chat = { kind: 'loading' };
@@ -21,6 +24,16 @@ $effect(() => {
 </script>
 
 <PageHead>Plan</PageHead>
+{#if plan}
+  {#await import('./render') then { renderPlan }}
+    <article class="plan">
+      <!-- Sanitized HTML, with no raw HTML from the plan (render.ts). -->
+      <div class="markdown">{@html renderPlan(plan)}</div>
+    </article>
+  {:catch}
+    <p class="page-status">Couldn't show the plan.</p>
+  {/await}
+{/if}
 {#if chat.kind === 'failed'}
   <p class="page-status">Couldn't load the plan.</p>
 {:else if chat.kind === 'loaded'}
@@ -55,6 +68,16 @@ $effect(() => {
 {/if}
 
 <style>
+/* The plan, in a note's body text (§7), with a section's space under it. */
+.plan {
+  padding: 0 var(--page-padding) 64px;
+}
+
+/* Obsidian's readable line length, as a note's. */
+.markdown {
+  max-width: 700px;
+}
+
 .card {
   border: 1px solid var(--rule);
   background: var(--surface);
@@ -81,5 +104,11 @@ $effect(() => {
   margin: 0;
   padding: 20px;
   color: var(--ink-muted);
+}
+
+@media (max-width: 700px) {
+  .plan {
+    padding-bottom: 48px;
+  }
 }
 </style>

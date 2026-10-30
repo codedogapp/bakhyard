@@ -52,7 +52,7 @@ test.each([
   expect(authorLabel(from)).toBe(want);
 });
 
-const quiet: Conversation = { messages: [], writing: [], questions: [], working: false, failure: '' };
+const quiet: Conversation = { messages: [], writing: [], questions: [], plan: '', working: false, failure: '' };
 const city = { id: 'q1', text: 'Which city?', choices: [], freeform: true };
 
 test.each<{ about: string; talk: Partial<Conversation>; want: string }>([

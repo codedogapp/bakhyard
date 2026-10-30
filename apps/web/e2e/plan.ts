@@ -16,9 +16,30 @@ export const conversation: Conversation = {
   ],
   writing: [],
   questions: [],
+  plan: '',
   working: true,
   failure: '',
 };
+
+/** A made-up plan for that conversation, as the agent writes one: a title, then its sections. */
+export const themePlan = [
+  '# Dark theme for the docs site',
+  '',
+  '## Approach',
+  'Add a dark palette beside the light one, and let `prefers-color-scheme` choose between them.',
+  '',
+  '## Steps',
+  '- [ ] Move the colours into custom properties in `styles/colours.css`',
+  '- [ ] Add the dark palette',
+  '- [ ] Give the code blocks a dark theme',
+  '- [ ] Draw the diagrams with `currentColor`',
+  '',
+  '## Files',
+  '| File | Change |',
+  '| :--- | :--- |',
+  '| `styles/colours.css` | Both palettes |',
+  '| `styles/code.css` | The dark code theme |',
+].join('\n');
 
 /** A made-up question of the agent's in that conversation, which waits for the user's answer. */
 export const question: Question = {

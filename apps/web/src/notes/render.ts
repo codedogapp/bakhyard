@@ -1,6 +1,6 @@
 import 'katex/dist/katex.min.css';
 
-import type { Heading, Nodes, Root } from 'mdast';
+import type { Root } from 'mdast';
 import { toString as plainText } from 'mdast-util-to-string';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize, { defaultSchema, type Options as Schema } from 'rehype-sanitize';
@@ -13,6 +13,7 @@ import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
 
+import { headingsIn, shiftHeadings } from '../markdown/headings';
 import { type Finder, finder, headingId, linkTo } from './links';
 import { noteProperties, type Property } from './properties';
 import type { Note } from './tree';
@@ -88,17 +89,6 @@ function dropTitle(tree: Root, title: string) {
   }
 }
 
-// Moves every heading one level down when an H1 is left, so the head's h1 is the page's only one; an h6 stays an h6.
-function shiftHeadings(tree: Root) {
-  const headings = headingsIn(tree);
-  if (!headings.some((heading) => heading.depth === 1)) {
-    return;
-  }
-  for (const heading of headings) {
-    heading.depth = Math.min(heading.depth + 1, 6) as Heading['depth'];
-  }
-}
-
 // Gives each heading an ID from its text, for the links to it, unless an earlier heading has that ID: a link leads to
 // the first, as in Obsidian.
 function nameHeadings(tree: Root) {
@@ -110,11 +100,4 @@ function nameHeadings(tree: Root) {
       heading.data = { hProperties: { id } };
     }
   }
-}
-
-function headingsIn(node: Nodes): Heading[] {
-  if (node.type === 'heading') {
-    return [node];
-  }
-  return 'children' in node ? node.children.flatMap(headingsIn) : [];
 }
