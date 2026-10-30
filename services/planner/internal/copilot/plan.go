@@ -71,24 +71,9 @@ func (c *Client) Plan(ctx context.Context, prompt string) (string, error) {
 		return "", errors.Join(fmt.Errorf("send the prompt: %w", err), session.Disconnect())
 	}
 
-	c.mu.Lock()
-	c.plans[session.SessionID] = planned
-	c.mu.Unlock()
+	c.hold(session.SessionID, planned)
 
 	return session.SessionID, nil
-}
-
-// find returns the plan id, or ErrNoPlan when the client hasn't started that plan.
-func (c *Client) find(id string) (*plan, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	planned, found := c.plans[id]
-	if !found {
-		return nil, ErrNoPlan
-	}
-
-	return planned, nil
 }
 
 // snapshot returns what the plan has, short of the messages that the CLI keeps: the messages

@@ -1,6 +1,7 @@
 package copilot
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"uuid"
@@ -44,11 +45,10 @@ type waiting struct {
 }
 
 // Answer hands answer to its question of the plan id, which then no longer waits. It returns
-// ErrNoPlan when the client hasn't started that plan, ErrNoQuestion when the question doesn't
-// wait, and ErrNotAChoice when the answer isn't one of the choices of a question that takes no
-// other.
-func (c *Client) Answer(id string, answer Answer) error {
-	planned, err := c.find(id)
+// ErrNoPlan when the CLI keeps no such plan, ErrNoQuestion when the question doesn't wait, and
+// ErrNotAChoice when the answer isn't one of the choices of a question that takes no other.
+func (c *Client) Answer(ctx context.Context, id string, answer Answer) error {
+	planned, err := c.find(ctx, id)
 	if err != nil {
 		return err
 	}

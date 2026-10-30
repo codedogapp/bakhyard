@@ -13,7 +13,7 @@ import (
 // message returns the handler of POST /planner/plans/{id}/messages, which sends the body's text to
 // the plan as the user's next message, and answers 204. A body that isn't a JSON object with just
 // a text, or a blank text, gets a 400 with the reason, and a body over 64 KiB a 413. A plan that
-// the planner hasn't started gets a 404, and an error from Copilot a 502, whose cause logger gets.
+// the planner doesn't keep gets a 404, and an error from Copilot a 502, whose cause logger gets.
 func message(planner Planner, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if planner == nil {

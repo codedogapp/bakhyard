@@ -87,17 +87,16 @@ func TestAnsweringAQuestionSaysWhyItCannot(t *testing.T) {
 	}
 }
 
-func TestAnsweringAQuestionFailsOnAnyOtherError(t *testing.T) {
-	planner := newPlannerAPI(&standIn{failure: errors.New("broken")})
+func TestAnsweringAQuestionFailsWhenCopilotFails(t *testing.T) {
+	planner := newPlannerAPI(&standIn{failure: errors.New("no connection")})
 
 	rec := planner.serve(t, http.MethodPost, answerTarget, `{"text":"Rome"}`)
-	if rec.Code != http.StatusInternalServerError ||
-		rec.Body.String() != "Internal Server Error\n" {
-		t.Errorf("got %d %q, want 500 Internal Server Error", rec.Code, rec.Body)
+	if rec.Code != http.StatusBadGateway || rec.Body.String() != "Bad Gateway\n" {
+		t.Errorf("got %d %q, want 502 Bad Gateway", rec.Code, rec.Body)
 	}
 
 	logs := planner.logs.String()
-	if !strings.Contains(logs, `msg="answer a question" err=broken`) {
+	if !strings.Contains(logs, `msg="answer a question" err="no connection"`) {
 		t.Errorf("logged %q, want the cause", logs)
 	}
 }

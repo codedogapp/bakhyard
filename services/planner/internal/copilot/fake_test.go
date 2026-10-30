@@ -37,21 +37,23 @@ type sessionEvent struct {
 // fakeCLI is a stand-in Copilot CLI that a client reaches over TCP. It answers a plan's requests,
 // with an error for the method in failing, and notes their parameters. Once it has the prompt,
 // it brings plan, unless it's empty, with exitPlanMode.request, and passes the client's answer to
-// answers.
+// answers. It keeps the plan of an earlier run, earlier, whose session's workspace is workspace.
 type fakeCLI struct {
-	plan    string
-	answers chan jsontext.Value
+	plan      string
+	workspace string
+	answers   chan jsontext.Value
 
 	mu      sync.Mutex
 	failing string
-	asked   map[string]jsontext.Value
-	conn    io.Writer
+	// asked are the parameters of each method's requests, in the order sent.
+	asked map[string][]jsontext.Value
+	conn  io.Writer
 }
 
 func newFakeCLI(plan, failing string) *fakeCLI {
 	return &fakeCLI{
 		plan: plan, failing: failing,
-		answers: make(chan jsontext.Value, 1), asked: map[string]jsontext.Value{},
+		answers: make(chan jsontext.Value, 1), asked: map[string][]jsontext.Value{},
 	}
 }
 
@@ -108,7 +110,7 @@ func (f *fakeCLI) talk(conn io.ReadWriter) {
 // answer notes request and answers it. After the prompt, it brings the plan.
 func (f *fakeCLI) answer(request incoming) error {
 	f.mu.Lock()
-	f.asked[request.Method] = request.Params
+	f.asked[request.Method] = append(f.asked[request.Method], request.Params)
 	failing := f.failing
 	f.mu.Unlock()
 
@@ -117,7 +119,7 @@ func (f *fakeCLI) answer(request incoming) error {
 		return err
 	}
 
-	reply := outgoing{ID: request.ID, Result: result(request.Method, named)}
+	reply := outgoing{ID: request.ID, Result: f.result(request.Method, named)}
 	if request.Method == failing {
 		reply = outgoing{ID: request.ID, Error: &failure{internalError, "failing on purpose"}}
 	}
@@ -199,60 +201,28 @@ func sessionOf(params jsontext.Value) (session, error) {
 	return named, err
 }
 
-// record is the CLI's record of a plan's session: the user's prompt, a message that the CLI adds,
-// a message of the assistant that only calls a tool, one with text, and the agent's question
-// through ask_user, which the user answered with one of its choices.
-const record = `{"events": [
-	{"id": "1", "parentId": null, "timestamp": "2026-01-02T03:04:05Z", "type": "user.message",
-		"data": {"content": "Plan a trip"}},
-	{"id": "2", "parentId": "1", "timestamp": "2026-01-02T03:04:06Z", "type": "user.message",
-		"data": {"content": "Mind the plan", "source": "system"}},
-	{"id": "3", "parentId": "2", "timestamp": "2026-01-02T03:04:07Z",
-		"type": "assistant.message", "data": {"messageId": "m1", "content": ""}},
-	{"id": "4", "parentId": "3", "timestamp": "2026-01-02T03:04:08Z",
-		"type": "assistant.message", "data": {"messageId": "m2", "content": "Where to?"}},
-	{"id": "5", "parentId": "4", "timestamp": "2026-01-02T03:04:09Z",
-		"type": "tool.execution_start", "data": {"toolCallId": "call-1", "toolName": "ask_user",
-			"arguments": {"question": "Which city?", "choices": ["Rome", "Paris"]}}},
-	{"id": "6", "parentId": "5", "timestamp": "2026-01-02T03:04:10Z",
-		"type": "tool.execution_complete", "data": {"toolCallId": "call-1", "success": true,
-			"result": {"content": "User selected: Rome", "detailedContent": "User selected: Rome"}}}
-]}`
-
-// result returns the CLI's answer to a request for method in session.
-func result(method string, named session) any {
-	switch method {
-	case "connect":
-		return map[string]any{"ok": true, "protocolVersion": 3, "version": "1.0.105"}
-	case "session.create":
-		return map[string]string{"sessionId": named.SessionID, "workspacePath": "/workspace"}
-	case "session.send":
-		return map[string]string{"messageId": "message-1"}
-	case "session.getMessages":
-		return jsontext.Value(record)
-	case "session.list":
-		return jsontext.Value(listed)
-	case "session.detach":
-		return map[string]bool{"success": true}
-	default:
-		return map[string]any{}
-	}
-}
-
 // asks reports whether the client asked for method, and decodes the parameters it last sent
 // into params.
 func (f *fakeCLI) asks(t *testing.T, method string, params any) bool {
 	t.Helper()
 
 	f.mu.Lock()
-	sent, found := f.asked[method]
+	sent := f.asked[method]
 	f.mu.Unlock()
 
-	if found && params != nil {
-		if err := json.Unmarshal(sent, params); err != nil {
+	if len(sent) > 0 && params != nil {
+		if err := json.Unmarshal(sent[len(sent)-1], params); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	return found
+	return len(sent) > 0
+}
+
+// times returns how many requests for method the client has sent.
+func (f *fakeCLI) times(method string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return len(f.asked[method])
 }

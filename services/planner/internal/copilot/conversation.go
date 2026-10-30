@@ -9,7 +9,7 @@ import (
 	sdk "github.com/github/copilot-sdk/go"
 )
 
-// ErrNoPlan means that the client hasn't started a plan with the ID asked for.
+// ErrNoPlan means that the CLI keeps no plan with the ID asked for.
 var ErrNoPlan = errors.New("no such plan")
 
 // Author is who wrote a message of a plan's conversation.
@@ -43,9 +43,9 @@ type Conversation struct {
 }
 
 // Conversation returns the conversation of the plan id so far, from the CLI's record and the
-// messages being written, or ErrNoPlan when the client hasn't started that plan.
+// messages being written, or ErrNoPlan when the CLI keeps no such plan.
 func (c *Client) Conversation(ctx context.Context, id string) (Conversation, error) {
-	planned, err := c.find(id)
+	planned, err := c.find(ctx, id)
 	if err != nil {
 		return Conversation{}, err
 	}

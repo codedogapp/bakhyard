@@ -62,7 +62,7 @@ func (s *standIn) Follow(
 	return talk, s.updates, err
 }
 
-func (s *standIn) Answer(id string, answer copilot.Answer) error {
+func (s *standIn) Answer(_ context.Context, id string, answer copilot.Answer) error {
 	if id != "plan-1" {
 		return copilot.ErrNoPlan
 	}
