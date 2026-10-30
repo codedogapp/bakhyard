@@ -1771,7 +1771,7 @@ Decisions 200 to 299 are the `github-widgets` session's.
      - **What changes**: on phones, the Nudge page's line now leaves 48 px below it, as a section does, rather than 64 px, since its copy lacked the phone rule. Only the Time page's copy broke long words; the others' texts are short, so nothing else changes on screen.
      - **The Time page's failure line**, when the line sits over the page's sections, keeps its own smaller space below it, 30 px (24 on phones), as the Todos page's form leaves over its first section.
      - **`github-widgets` has nine steps** (decision 200): this one comes seventh, before `github-page`.
-     - **Rejected**: a fifth copy for the GitHub page; a component, which would wrap a paragraph and its text for no gain; the polled sections' muted lines (decision 205), which sit in a section, under its head, so the section gives them their space.
+     - **Rejected**: a fifth copy for the GitHub page; a component, which would wrap a paragraph and its text for no gain; the polled sections' muted lines (decision 205) and the Notes pages' failure lines, which sit in a block that gives them their space: a section, under its head, or a Notes page's content, under its tools.
 
 Decisions 300 to 399 are the `games-exophase` session's.
 
