@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
 import {
+  coverImage,
   foundGames,
   loadGames,
   platformsLabel,
@@ -39,6 +40,18 @@ test.each<{ name: string; snapshot: Snapshot; want?: Snapshot['games'] }>([
   { name: 'nothing before a fetch has succeeded', snapshot: { games: [], failure: 'list games: 403 Forbidden' } },
 ])('finds $name', ({ snapshot, want }) => {
   expect(foundGames(snapshot)).toEqual(want);
+});
+
+test.each([
+  { cover: undefined, want: undefined },
+  {
+    cover: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1abc.jpg',
+    want: 'url("https://images.igdb.com/igdb/image/upload/t_cover_big/co1abc.jpg")',
+  },
+  // A quote or a backslash would end or bend the CSS string, so they're escaped.
+  { cover: 'https://example.com/a"b\\c.jpg', want: 'url("https://example.com/a\\"b\\\\c.jpg")' },
+])('draws the cover $cover as the background image $want', ({ cover, want }) => {
+  expect(coverImage(cover)).toBe(want);
 });
 
 // The tests run in Tokyo, 9 hours ahead of UTC, where 31 October begins at 2026-10-30T15:00:00Z.
