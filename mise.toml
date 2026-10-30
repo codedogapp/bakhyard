@@ -14,6 +14,10 @@ jactionlint = "latest"
 shellcheck = "latest"
 buf = "latest"
 process-compose = "latest"
+# The planner's Copilot CLI, pinned at the version that the Copilot SDK in go.mod names, which
+# copilot:check checks (decision 74). Lazy, it installs when first run, so CI, which never runs
+# it, doesn't download it.
+copilot = { version = "1.0.105", lazy = true }
 
 [env]
 # process-compose's API server listens on localhost:8080 by default, the gateway's address.
@@ -72,6 +76,21 @@ if ! diff -r "${fresh}/internal/gen" internal/gen; then
 fi
 '''
 
+[tasks."copilot:check"]
+description = "Fail if mise's copilot isn't the CLI version that the Copilot SDK in go.mod names"
+shell = "bash -c"
+run = '''
+set -euo pipefail
+sdk=$(go list -m -json github.com/github/copilot-sdk/go | jq -er .Version)
+named=$(curl -sSf "https://raw.githubusercontent.com/github/copilot-sdk/go/${sdk}/nodejs/package.json" |
+  jq -er .copilotCliVersion)
+pinned=$(mise config get --file mise.toml tools.copilot.version)
+if [[ "${pinned}" != "${named}" ]]; then
+  echo "error: mise.toml pins copilot ${pinned}, but the Copilot SDK ${sdk} names ${named}" >&2
+  exit 1
+fi
+'''
+
 [tasks."lint:compose"]
 description = "Check process-compose.yaml (process-compose up --dry-run)"
 run = "process-compose up --dry-run"
@@ -102,6 +121,7 @@ depends = [
     "lint:actions",
     "lint:compose",
     "gen:check",
+    "copilot:check",
     "cover",
     "vuln",
     "//apps/web:check",
