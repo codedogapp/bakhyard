@@ -211,7 +211,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `alerts-page-plan` | `homelab-alerts` grows an Alerts page, as the user chose, in seven more steps: notify keeps each alert that Alertmanager posts and lists those that fire and those of the last 30 days; the web's Alerts page shows them; a tap on the push opens the page; and the Home lists the alerts that fire. The sixth of `homelab-alerts`' steps (decisions 605 and 606) | Done (#226) |
 | `alerts-history` | notify keeps each alert that Alertmanager posts in a table of its database, with its name, summary and description, when it fired and when it resolved, until 30 days after it resolved. The seventh of `homelab-alerts`' steps (decisions 606 and 607) | Done (#227) |
 | `alerts-list` | notify's `GET /notify/alerts` lists the alerts that fire and those resolved in the last 30 days. The eighth of `homelab-alerts`' steps (decisions 606 and 608) | Done (#229) |
-| `alerts-page` | The web's Alerts page, at `/alerts`, shows the alerts that fire and those of the last 30 days. The ninth of `homelab-alerts`' steps (decisions 606 and 609) | Done (#PRNUM) |
+| `alerts-page` | The web's Alerts page, at `/alerts`, shows the alerts that fire and those of the last 30 days. The ninth of `homelab-alerts`' steps (decisions 606 and 609) | Done (#232) |
 | `alerts-push-link` | A tap on an alert's push opens the Alerts page rather than the Home. The tenth of `homelab-alerts`' steps (decision 606) | Pending |
 | `alerts-attention` | notify answers the attention contract with the alerts that fire, and home asks it under the peer name `alerts`, so the Home lists them in "Needs you today". The eleventh of `homelab-alerts`' steps (decision 606) | Pending |
 | `homelab-alerts-home` | In the homelab repo, home asks notify for its items, as the peer `alerts`, and a NetworkPolicy lets it. The twelfth of `homelab-alerts`' steps (decision 606) | Pending |
@@ -1410,7 +1410,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `alerts-page-plan`: the plan designs the Alerts page that the user chose, and splits it in steps (decisions 605 and 606). Done (#226).
   - `alerts-history`: notify keeps each alert that Alertmanager posts, until 30 days after it resolved (decisions 606 and 607). Done (#227).
   - `alerts-list`: notify's `GET /notify/alerts` lists the alerts that fire and those of the last 30 days (decisions 606 and 608). Done (#229).
-  - `alerts-page`: the web's Alerts page, at `/alerts` (decisions 606 and 609). Done (#PRNUM).
+  - `alerts-page`: the web's Alerts page, at `/alerts` (decisions 606 and 609). Done (#232).
   - `alerts-push-link`: a tap on an alert's push opens the Alerts page (decision 606).
   - `alerts-attention`: notify answers the attention contract with the alerts that fire, so the Home lists them (decision 606).
   - `homelab-alerts-home`: in the homelab repo, home asks notify for its items (decision 606).
@@ -2223,7 +2223,7 @@ Decisions 600 to 699 are the alerts session's: `homelab-alerts`.
 608. **notify's alerts list** (`alerts-list`, #229): the lead's choices (2026-10-30), for the user to review, within decision 606.
      - **The JSON**: `{"alerts": […]}`, each alert with its `name`, `summary`, `description`, `startedAt` and, once it resolved, `resolvedAt`, which an alert that fires leaves out. With none, the list is empty rather than null. The names are camelCase, as home's, time's and games' answers are, rather than nudge's and planner's snake_case.
      - **The times**: RFC 3339, to the microsecond that Postgres keeps, in notify's time zone, as nudge's are, rather than in UTC, as github, pulls and games give those they take from other APIs. Either way they name the same instant, which the page shows in the device's time zone.
-609. **The Alerts page's look** (`alerts-page`, #PRNUM): the lead's choices (2026-10-30), for the user to review, within decision 606. §7 describes the page.
+609. **The Alerts page's look** (`alerts-page`, #232): the lead's choices (2026-10-30), for the user to review, within decision 606. §7 describes the page.
      - **The sections**: "Firing *now*" and "The last *30 days*", in that order, each with its count as the note, as the other pages' sections have. A section without alerts stays, with a line that says so, so the page always shows both, and an empty "Firing now" says that nothing fires.
      - **A row**: the shared list row (decision 123), as the Planner's and the Games' lists are. The label is the day the alert fired, as theirs is the day of their time. The title is the alert's summary, or its name when it has none, as the push's title is (decision 601), with its description under it. The end says when the alert fired and resolved, a span the label's day can't show: "Since 13:05", "13:05–13:20", or "23:45 – 18 Oct, 00:20" when it resolved on a later day. The day and the time are formatted apart and joined with a comma, since WebKit joins `Intl`'s day and time with "at" where Chromium uses a comma, as `searchedLabel` found.
      - **No link**: a row opens nothing, since an alert has no page of its own and silencing waits (decision 605).
