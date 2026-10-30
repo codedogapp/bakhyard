@@ -7,23 +7,30 @@ import PageHead from '../shell/PageHead.svelte';
 import Section from '../shell/Section.svelte';
 import { loadPlans, type Plans } from './api';
 import { titleLabel } from './labels';
+import PromptForm from './PromptForm.svelte';
 
-// The plans, loaded each time the page shows; now tells which day is today.
+// The plans, loaded each time the page shows and after each start; now tells which day is today.
 let { now }: { now: Date } = $props();
 
 let list = $state.raw<Plans>({ kind: 'loading' });
 
-onMount(() => {
+// The list stays as it is until the new one comes.
+function load(): void {
   void loadPlans().then((loaded) => {
     list = loaded;
   });
-});
+}
+
+onMount(load);
 </script>
 
 <PageHead summary="Plans that Copilot works out with you.">Planner</PageHead>
 {#if list.kind === 'off'}
   <p class="page-status">Copilot isn't set up.</p>
-{:else if list.kind === 'failed'}
+{:else if list.kind !== 'loading'}
+  <PromptForm started={load} />
+{/if}
+{#if list.kind === 'failed'}
   <Section title="Your" accent="plans">
     <p class="muted">Couldn't load the plans.</p>
   </Section>
