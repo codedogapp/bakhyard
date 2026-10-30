@@ -1,5 +1,5 @@
 // Package api serves notify's HTTP routes: the app's key and subscriptions, and the internal
-// route that services send notifications through.
+// routes that services and Alertmanager send notifications through.
 package api
 
 import (
@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/codedogapp/bakhyard/internal/jsonbody"
+	"github.com/codedogapp/bakhyard/services/notify/internal/alert"
 	"github.com/codedogapp/bakhyard/services/notify/internal/push"
 	"github.com/codedogapp/bakhyard/services/notify/internal/subscription"
 )
@@ -35,8 +36,10 @@ type Backends struct {
 // Register serves notify on router. GET /notify/key answers the public key that a browser
 // subscribes with, and POST /notify/subscriptions stores a browser's subscription. POST
 // /internal/send, outside /notify so that the gateway never forwards to it, pushes a message to
-// every device; only other services in the cluster reach it. Other methods get 405, and logger
-// gets the errors that the database and the push run into.
+// every device; only other services in the cluster reach it. POST /internal/alerts, outside
+// /notify too, takes the webhook of the cluster's Alertmanager, which alone reaches it, and pushes
+// the group of alerts to every device. Other methods get 405, and logger gets the errors that the
+// database and the push run into.
 func Register(router chi.Router, publicKey string, backends Backends, logger *slog.Logger) {
 	router.Get("/notify/key", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -56,22 +59,43 @@ func Register(router chi.Router, publicKey string, backends Backends, logger *sl
 		invalid: push.ErrBadURL,
 		do:      backends.Sender.Send,
 	}.handler(logger))
+	router.Post("/internal/alerts", route[alert.Group]{
+		refusal: "the body isn't Alertmanager's webhook",
+		what:    "send the alerts",
+		invalid: alert.ErrInvalid,
+		lenient: true,
+		do: func(ctx context.Context, group alert.Group) error {
+			message, err := group.Message()
+			if err != nil {
+				return err
+			}
+
+			return backends.Sender.Send(ctx, message)
+		},
+	}.handler(logger))
 }
 
 // route is a POST endpoint that reads a T from the body and hands it to do: 204 when do
 // succeeds, 400 when the body isn't a T or do answers invalid, and 500, with the cause in the
-// log as what, when do fails otherwise.
+// log as what, when do fails otherwise. A lenient route skips the body's members that T lacks,
+// which the others refuse.
 type route[T any] struct {
 	refusal string
 	what    string
 	invalid error
+	lenient bool
 	do      func(context.Context, T) error
 }
 
 func (rt route[T]) handler(logger *slog.Logger) http.HandlerFunc {
+	read := jsonbody.Read
+	if rt.lenient {
+		read = jsonbody.ReadLenient
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body T
-		if !jsonbody.Read(w, r, &body, rt.refusal) {
+		if !read(w, r, &body, rt.refusal) {
 			return
 		}
 
