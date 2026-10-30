@@ -2,7 +2,6 @@ package api_test
 
 import (
 	"bytes"
-	"log/slog"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -11,10 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/go-chi/chi/v5"
-
-	"github.com/codedogapp/bakhyard/services/notes/internal/api"
 )
 
 func TestAListedFileComesWithItsHeaders(t *testing.T) {
@@ -217,18 +212,11 @@ func vaultWith(t *testing.T, names ...string) *os.Root {
 // text is what the file name holds in a vault from vaultWith.
 func text(name string) string { return "# " + name }
 
-// newRouter returns a router that serves the vault in folder, and the log it writes.
+// newRouter returns a router that serves the vault in folder, with no store, and the log it writes.
 func newRouter(t *testing.T, folder string) (http.Handler, *bytes.Buffer) {
 	t.Helper()
 
-	var log bytes.Buffer
-
-	router := chi.NewRouter()
-	if err := api.Register(router, folder, slog.New(slog.NewTextHandler(&log, nil))); err != nil {
-		t.Fatal(err)
-	}
-
-	return router, &log
+	return routerWith(t, folder, nil)
 }
 
 // get sends GET target with header to router, and returns the answer.

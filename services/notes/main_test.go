@@ -1,11 +1,16 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/codedogapp/bakhyard/internal/secrets"
 )
 
 func TestNotesServesTheVault(t *testing.T) {
@@ -21,7 +26,7 @@ func TestNotesServesTheVault(t *testing.T) {
 		}
 	}
 
-	router, err := routes(t.Context(), vaultAt(folder))
+	router, err := routes(t.Context(), envOf(map[string]string{vaultVar: folder}), noSecrets(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,14 +63,37 @@ func TestNotesNeedsItsVault(t *testing.T) {
 		missing: "open the vault: open " + missing + ": no such file or directory",
 		file:    "open the vault: open " + file + ": not a directory",
 	} {
-		_, err := routes(t.Context(), vaultAt(vault))
+		_, err := routes(t.Context(), envOf(map[string]string{vaultVar: vault}), noSecrets(t))
 		if err == nil || err.Error() != want {
 			t.Errorf("with the vault %q: got %v, want the error %s", vault, err, want)
 		}
 	}
 }
 
-// vaultAt returns an environment whose BAKHYARD_VAULT is folder.
-func vaultAt(folder string) func(string) string {
-	return func(name string) string { return map[string]string{vaultVar: folder}[name] }
+// envOf returns an environment that has only settings, by name.
+func envOf(settings map[string]string) func(string) string {
+	return func(name string) string { return settings[name] }
+}
+
+// secretsWith returns a fake secrets reader that has only items, by name.
+func secretsWith(items map[string]string) secrets.Reader {
+	return func(_ context.Context, name string) (string, error) {
+		secret, ok := items[name]
+		if !ok {
+			return "", fmt.Errorf("no secret %s", name)
+		}
+
+		return secret, nil
+	}
+}
+
+// noSecrets returns a secrets reader that fails t when notes reads a secret.
+func noSecrets(t *testing.T) secrets.Reader {
+	t.Helper()
+
+	return func(_ context.Context, name string) (string, error) {
+		t.Errorf("read the secret %s", name)
+
+		return "", errors.New("no secrets")
+	}
 }

@@ -11,6 +11,8 @@ import (
 
 	"github.com/codedogapp/bakhyard/internal/env"
 	"github.com/codedogapp/bakhyard/internal/health"
+	"github.com/codedogapp/bakhyard/internal/keychain"
+	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/notes/internal/api"
 )
@@ -19,15 +21,29 @@ import (
 const vaultVar = "BAKHYARD_VAULT"
 
 func main() {
-	err := service.Run(os.Getenv, routes)
+	readSecret := secrets.New(os.Getenv, keychain.NewReader(keychain.Security).Password)
+	served := func(ctx context.Context, getenv func(string) string) (http.Handler, error) {
+		return routes(ctx, getenv, readSecret)
+	}
+
+	err := service.Run(os.Getenv, served)
 	if err != nil {
 		slog.Error("failed", "err", err)
 		os.Exit(1)
 	}
 }
 
-func routes(_ context.Context, getenv func(string) string) (http.Handler, error) {
+// routes returns the handler of notes, which serves the vault in its folder and, once the vault's
+// repository is set, whose token readSecret reads, saves its notes there.
+func routes(
+	ctx context.Context, getenv func(string) string, readSecret secrets.Reader,
+) (http.Handler, error) {
 	folder, err := env.Required(getenv, vaultVar)
+	if err != nil {
+		return nil, err
+	}
+
+	store, err := vaultStore(ctx, getenv, readSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +53,7 @@ func routes(_ context.Context, getenv func(string) string) (http.Handler, error)
 	router.Use(middleware.GetHead)
 	health.Register(router)
 
-	err = api.Register(router, folder, slog.Default())
+	err = api.Register(router, folder, store, slog.Default())
 	if err != nil {
 		return nil, err
 	}
