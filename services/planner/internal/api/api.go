@@ -39,8 +39,8 @@ type Planner interface {
 	Send(ctx context.Context, id, text string) error
 }
 
-// Vault keeps plans as notes of the Obsidian vault, as a vault.Client does.
-type Vault interface {
+// Saver saves plans as notes of the Obsidian vault, as a vault.Client does.
+type Saver interface {
 	// Save makes plan a new note of the vault and returns the note's path.
 	Save(ctx context.Context, plan string) (string, error)
 }
@@ -49,7 +49,7 @@ type Vault interface {
 // without notes, Vault is nil, and saving a plan answers 404.
 type Door struct {
 	Planner Planner
-	Vault   Vault
+	Vault   Saver
 	Logger  *slog.Logger
 	// Heartbeat is how often a plan's event stream sends a comment, so that proxies keep it open.
 	Heartbeat time.Duration

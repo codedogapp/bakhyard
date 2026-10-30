@@ -260,6 +260,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-note` | The planner's `vault` package makes a plan a note of the vault through notes' `POST /notes/files/<path>`: `Plans/YYYY-MM-DD-<slug>.md`, with the save's day and the title of the plan's H1, and the vault's frontmatter above the plan; nothing calls it until `planner-save`. "Save to Obsidian" splits in three, so `copilot-planner` has twenty-eight steps (decision 708) | Done (#228) |
 | `planner-save` | "Save to Obsidian" in the planner: a route saves a plan's plan in the vault with decision 708's package, through notes, now that `vault-edit-sync`'s `note-store` and `note-new` are in: `POST /planner/plans/{id}/note` answers the note's path, and the planner finds notes in its `BAKHYARD_PEERS` (§3, decisions 403, 708 and 709) | Done (#231) |
 | `planner-save-page` | A plan's page saves its plan in the vault with a "Save to Obsidian" button above the plan, and says as which note, with no link to it, which notes finds only once it has synced (decisions 403, 708 and 710) | Done (#233) |
+| `sonar-saver` | Clears the one issue that SonarQube Cloud's run on `e6829d7` found, though its gate passed: the planner's one-method interface `Vault`, which saves plans in the vault, becomes `Saver`, after its method, as notify's `Subscriptions` became `Adder`. Nothing changes on screen or on the wire (decision 712) | In progress |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -2319,6 +2320,9 @@ Decisions 700 to 799 are the planner session's: the rest of `copilot-planner`.
      - **No link** to the new note, which decisions 708 and 709 planned: notes lists a note, and `GET` finds it, only once git-sync has pulled it and a Sync has scanned the checkout, so a link would get a 404 at first, as decision 424 found for a kept note.
      - **Known gaps**: the status keeps "Saved as" after the plan changes, so it says what the last save did, not whether the plan shown is saved; a 201 that isn't JSON says the planner isn't reachable, as a start's does.
      - **Rejected**: the button under the plan, which a long plan pushes off the screen; a link to the new note, or opening it; disabling the button after a save, which decision 708 rules out; the note's title alone, as decision 424 shows, which wouldn't say that the note is in `Plans`.
+712. **Sonar's issue on the planner's saver** (`sonar-saver`): the lead's choices (2026-10-30), for the user to review. SonarQube Cloud's run on `e6829d7` passed its gate but listed one open issue, from `planner-save` (decision 709): go:S8196, a one-method interface is named after its method. `sonar-saver` clears it in a PR of its own before the next step, as AGENTS.md asks; nothing changes on screen or on the wire.
+     - The planner's `api.Vault`, whose one method is `Save`, becomes `api.Saver`, as notify's `Subscriptions` became `Adder` (decision 168). The door's field stays `Vault`, as does the note route's argument `vault`, as notify's `Devices` holds its `Adder`: they say what the saver is.
+     - **Rejected**: renaming the field and the argument too, which would say less about what they hold.
 
 ## 10. Risks
 
