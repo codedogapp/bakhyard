@@ -1,6 +1,7 @@
 <script lang="ts">
 import { tick } from 'svelte';
 
+import GamesPage from './games/GamesPage.svelte';
 import HomePage from './home/HomePage.svelte';
 import { type Feed, pollHome } from './home/poll';
 import { unavailableSources } from './home/sources';
@@ -76,6 +77,8 @@ $effect(() =>
       <PullsPage />
     {:else if page.kind === 'time'}
       <TimePage />
+    {:else if page.kind === 'games'}
+      <GamesPage {now} />
     {:else if page.kind === 'nudge'}
       <NudgePage />
     {:else if page.kind === 'app'}

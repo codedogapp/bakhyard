@@ -17,7 +17,7 @@ const catalogue: readonly Omit<App, 'number'>[] = [
   { id: 'pulls', label: 'PRs', name: 'Pull requests', description: 'Bitbucket PRs and reviewer nudges' },
   { id: 'time', label: 'Time', name: 'Time', description: 'Hours logged on the Jira tickets' },
   { id: 'github', label: 'GitHub', name: 'GitHub', description: 'PRs, reviews and issues across owners' },
-  { id: 'games', label: 'Games', name: 'Games', description: 'Backloggd and Exophase' },
+  { id: 'games', label: 'Games', name: 'Games', description: 'Recent games and stats from Exophase' },
   { id: 'planner', label: 'Planner', name: 'Planner', description: 'Copilot plans saved to the vault' },
   { id: 'nudge', label: 'Nudge', name: 'Nudge', description: 'Questions from your agents, answered on your phone' },
 ];

@@ -8,20 +8,25 @@ interface Link {
   label: string;
 }
 
+// A badge is a chip after the note, such as Stale.
 let {
   title,
   accent,
   note,
+  badge,
   link,
   children,
-}: { title: string; accent: string; note?: string; link?: Link; children: Snippet } = $props();
+}: { title: string; accent: string; note?: string; badge?: string; link?: Link; children: Snippet } = $props();
 </script>
 
 <section class="section">
   <div class="head">
     <!-- The space sits inside the braces, so Svelte adds no `?? ''` fallback that no test can reach. -->
     <h2>{`${title} `}<em>{accent}</em></h2>
-    {#if note}
+    {#if badge}
+      <!-- The space keeps the count and the badge apart for a screen reader; the flex gap spaces them on screen. -->
+      <p class="note badged">{note} <span class="chip">{badge}</span></p>
+    {:else if note}
       <p class="note">{note}</p>
     {/if}
     {#if link}
@@ -67,6 +72,12 @@ em {
   font: 400 11px / 1.6 var(--font-mono);
   letter-spacing: 0.045em;
   text-transform: uppercase;
+}
+
+.badged {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 /* The underline is a border, so it runs under the arrow too. */

@@ -30,3 +30,16 @@ test('shows a text link, with an arrow hidden from screen readers', () => {
   expect(link).toHaveAttribute('href', '/time');
   expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
 });
+
+test('shows a badge as a chip after the note', () => {
+  render(Section, { props: { title: 'Recently', accent: 'played', note: '3 games', badge: 'Stale', children } });
+
+  expect(screen.getByRole('paragraph')).toHaveTextContent(/^3 games Stale$/);
+  expect(screen.getByText('Stale')).toHaveClass('chip');
+});
+
+test('shows a badge without a note', () => {
+  render(Section, { props: { title: 'Recently', accent: 'played', badge: 'New', children } });
+
+  expect(screen.getByRole('paragraph')).toHaveTextContent(/^New$/);
+});
