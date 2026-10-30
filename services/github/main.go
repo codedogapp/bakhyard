@@ -55,7 +55,7 @@ func routes(
 
 	attentionServer := connect.NewServer()
 	attentionv1connect.RegisterAttentionServiceHandler(attentionServer,
-		attention.NewLister(reviews, issues))
+		attention.NewLister(mine, reviews, issues))
 	connecthttp.Mount(router, attentionServer)
 
 	return router, nil

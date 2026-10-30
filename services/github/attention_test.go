@@ -14,12 +14,12 @@ import (
 	"github.com/codedogapp/bakhyard/internal/secrets"
 )
 
-func TestGitHubListsMyReviewRequestsAndIssuesAsAttentionItems(t *testing.T) {
+func TestGitHubListsMyPRsReviewRequestsAndIssuesAsAttentionItems(t *testing.T) {
 	got := listItems(t, envOf(map[string]string{githubAPIVar: githubServer(t)}),
 		secretsWith(map[string]string{"github-token": "secret"}))
 
-	// The stand-in's search for my open PRs finds one in acme/web, which isn't listed.
 	want := []string{
+		"acme/web#1 acme/web #1",
 		"acme/api#1 acme/api #1 · Review requested",
 		"acme/docs#1 acme/docs #1 · Assigned",
 	}

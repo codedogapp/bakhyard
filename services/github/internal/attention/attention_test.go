@@ -13,8 +13,12 @@ import (
 	"github.com/codedogapp/bakhyard/services/github/internal/github"
 )
 
-func TestListItemsListsTheReviewRequestsThenTheIssues(t *testing.T) {
+func TestListItemsListsMyPRsThenTheReviewRequestsThenTheIssues(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
+		mine := started(t, found(
+			github.Item{ID: 5, Title: "Ship the beta", Repo: "acme/web"},
+			github.Item{ID: 9, Title: "Try the cache", Repo: "acme/api", Draft: true},
+		))
 		reviews := started(t, found(
 			github.Item{
 				ID:    7,
@@ -26,9 +30,11 @@ func TestListItemsListsTheReviewRequestsThenTheIssues(t *testing.T) {
 		))
 		issues := started(t, found(github.Item{ID: 3, Title: "Fix the typo", Repo: "acme/docs"}))
 
-		got, err := list(t.Context(), reviews, issues)
+		got, err := list(t.Context(), mine, reviews, issues)
 
 		want := []string{
+			"acme/web#5 | Ship the beta | acme/web #5 | SOURCE_GITHUB | no due",
+			"acme/api#9 | Try the cache | acme/api #9 · Draft | SOURCE_GITHUB | no due",
 			"acme/web#7 | Fix the login | acme/web #7 · Review requested | SOURCE_GITHUB | no due",
 			"acme/api#12 | Add the export | acme/api #12 · Review requested · Draft | " +
 				"SOURCE_GITHUB | no due",
@@ -42,7 +48,8 @@ func TestListItemsListsTheReviewRequestsThenTheIssues(t *testing.T) {
 
 func TestListItemsListsNoneWhenTheSearchesFindNone(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		got, err := list(t.Context(), started(t, found()), started(t, found()))
+		got, err := list(t.Context(), started(t, found()), started(t, found()),
+			started(t, found()))
 		if err != nil || len(got) != 0 {
 			t.Errorf("got %q and %v, want no items", got, err)
 		}
@@ -50,7 +57,7 @@ func TestListItemsListsNoneWhenTheSearchesFindNone(t *testing.T) {
 }
 
 func TestListItemsListsNoneWithoutGitHub(t *testing.T) {
-	got, err := list(t.Context(), nil, nil)
+	got, err := list(t.Context(), nil, nil, nil)
 	if err != nil || len(got) != 0 {
 		t.Errorf("got %q and %v, want no items", got, err)
 	}
@@ -76,10 +83,10 @@ func found(items ...github.Item) search {
 	}
 }
 
-// list returns the items that a lister of what reviews and issues have found lists, one line
-// each, or its error.
-func list(ctx context.Context, reviews, issues *github.Poller) ([]string, error) {
-	res, err := attention.NewLister(reviews, issues).ListItems(ctx,
+// list returns the items that a lister of what mine, reviews and issues have found lists, one
+// line each, or its error.
+func list(ctx context.Context, mine, reviews, issues *github.Poller) ([]string, error) {
+	res, err := attention.NewLister(mine, reviews, issues).ListItems(ctx,
 		&attentionv1.ListItemsRequest{})
 	if err != nil {
 		return nil, err

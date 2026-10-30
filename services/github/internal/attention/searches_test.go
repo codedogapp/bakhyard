@@ -12,31 +12,35 @@ import (
 	"github.com/codedogapp/bakhyard/services/github/internal/github"
 )
 
-// unavailable is the error of a call before both searches have succeeded once.
+// unavailable is the error of a call before all three searches have succeeded once.
 const unavailable = "unavailable: GitHub's searches haven't all succeeded yet"
 
-// login and typo are a review request and an assigned issue, and both are the lines of their
-// items.
+// beta, login and typo are a PR of mine, a review request and an assigned issue, and all are the
+// lines of their items.
 var (
+	beta  = github.Item{ID: 5, Title: "Ship the beta", Repo: "acme/web"}
 	login = github.Item{ID: 7, Title: "Fix the login", Repo: "acme/web"}
 	typo  = github.Item{ID: 3, Title: "Fix the typo", Repo: "acme/docs"}
-	both  = []string{
+	all   = []string{
+		"acme/web#5 | Ship the beta | acme/web #5 | SOURCE_GITHUB | no due",
 		"acme/web#7 | Fix the login | acme/web #7 · Review requested | SOURCE_GITHUB | no due",
 		"acme/docs#3 | Fix the typo | acme/docs #3 · Assigned | SOURCE_GITHUB | no due",
 	}
 )
 
-func TestListItemsIsUnavailableUntilBothSearchesSucceed(t *testing.T) {
-	tests := map[string]struct{ reviews, issues search }{
-		"reviews": {reviews: failsFirst(login), issues: found(typo)},
-		"issues":  {reviews: found(login), issues: failsFirst(typo)},
+func TestListItemsIsUnavailableUntilAllThreeSearchesSucceed(t *testing.T) {
+	tests := map[string]struct{ mine, reviews, issues search }{
+		"mine":    {mine: failsFirst(beta), reviews: found(login), issues: found(typo)},
+		"reviews": {mine: found(beta), reviews: failsFirst(login), issues: found(typo)},
+		"issues":  {mine: found(beta), reviews: found(login), issues: failsFirst(typo)},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				reviews, issues := started(t, test.reviews), started(t, test.issues)
+				mine, reviews := started(t, test.mine), started(t, test.reviews)
+				issues := started(t, test.issues)
 
-				got, err := list(t.Context(), reviews, issues)
+				got, err := list(t.Context(), mine, reviews, issues)
 				if err == nil || err.Error() != unavailable {
 					t.Errorf("got %q and %v, want the error %s", got, err, unavailable)
 				}
@@ -44,9 +48,9 @@ func TestListItemsIsUnavailableUntilBothSearchesSucceed(t *testing.T) {
 				time.Sleep(5 * time.Minute)
 				synctest.Wait()
 
-				got, err = list(t.Context(), reviews, issues)
-				if err != nil || !slices.Equal(got, both) {
-					t.Errorf("after the second searches, got %q and %v, want %q", got, err, both)
+				got, err = list(t.Context(), mine, reviews, issues)
+				if err != nil || !slices.Equal(got, all) {
+					t.Errorf("after the second searches, got %q and %v, want %q", got, err, all)
 				}
 			})
 		})
@@ -57,16 +61,17 @@ func TestListItemsKeepsTheItemsOfTheLastSearchesToSucceed(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var searches atomic.Int32
 
+		mine := started(t, failsLater(&searches, beta))
 		reviews := started(t, failsLater(&searches, login))
 		issues := started(t, failsLater(&searches, typo))
 
 		time.Sleep(5 * time.Minute)
 		synctest.Wait()
 
-		got, err := list(t.Context(), reviews, issues)
-		if searches.Load() != 4 || err != nil || !slices.Equal(got, both) {
+		got, err := list(t.Context(), mine, reviews, issues)
+		if searches.Load() != 6 || err != nil || !slices.Equal(got, all) {
 			t.Errorf("after %d searches, got %q and %v, want %q", searches.Load(), got, err,
-				both)
+				all)
 		}
 	})
 }
@@ -88,7 +93,8 @@ func TestListItemsWaitsForTheFirstSearches(t *testing.T) {
 		listed := make(chan answer)
 
 		go func() {
-			lines, err := list(t.Context(), started(t, found(login)), issues)
+			lines, err := list(t.Context(), started(t, found(beta)), started(t, found(login)),
+				issues)
 			listed <- answer{lines, err}
 		}()
 
@@ -102,8 +108,8 @@ func TestListItemsWaitsForTheFirstSearches(t *testing.T) {
 
 		close(release)
 
-		if got := <-listed; got.err != nil || !slices.Equal(got.lines, both) {
-			t.Errorf("got %v, want %q", got, both)
+		if got := <-listed; got.err != nil || !slices.Equal(got.lines, all) {
+			t.Errorf("got %v, want %q", got, all)
 		}
 	})
 }
@@ -119,7 +125,7 @@ func TestListItemsStopsWaitingWhenItsContextEnds(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
-		got, err := list(ctx, reviews, started(t, found(typo)))
+		got, err := list(ctx, started(t, found(beta)), reviews, started(t, found(typo)))
 		if !errors.Is(err, context.DeadlineExceeded) || got != nil {
 			t.Errorf("got %q and %v, want no items and the context's error", got, err)
 		}
