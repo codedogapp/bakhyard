@@ -35,12 +35,12 @@ func TestEventsTellThePageWhatChanged(t *testing.T) {
 
 	for lines.Scan() {
 		seen[lines.Text()] = true
-		if seen[": open"] && seen[": still here"] && seen["event: changed"] {
+		if seen[": open"] && seen[": still here"] && seen["data: {}"] {
 			break
 		}
 	}
 
-	if !seen["event: changed"] {
+	if !seen["event: changed"] || !seen["data: {}"] {
 		t.Errorf("lines seen: %v", seen)
 	}
 

@@ -24,9 +24,9 @@
       "enabled": false
     },
     {
-      "description": ["Each Copilot SDK release names its Copilot CLI version, which mise.toml pins (docs/plan.md decision 74)"],
+      "description": ["Each Copilot SDK release names its Copilot CLI version, which mise.toml and the planner's Dockerfile pin (docs/plan.md decisions 74 and 416)"],
       "matchDepNames": ["github.com/github/copilot-sdk/go"],
-      "prBodyNotes": ["Set `copilot` in `mise.toml` to the `copilotCliVersion` in the SDK's `nodejs/package.json` at this release; `mise run copilot:check` fails until it matches."]
+      "prBodyNotes": ["Set `copilot` in `mise.toml` and `COPILOT_VERSION` in `services/planner/Dockerfile` to the `copilotCliVersion` in the SDK's `nodejs/package.json` at this release, and `COPILOT_SHA256` to the checksum of `copilot-linux-x64.tar.gz` in that CLI release's `SHA256SUMS.txt`; `mise run copilot:check` fails until they match."]
     }
   ]
 }

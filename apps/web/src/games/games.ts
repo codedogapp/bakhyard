@@ -48,24 +48,6 @@ export function coverImage(cover: string | undefined): string | undefined {
   return cover === undefined ? undefined : `url(${JSON.stringify(cover)})`;
 }
 
-const dayMs = 86_400_000;
-const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
-
-// The date's day in the device's time zone, as a count of days, so a difference of two is whole even across summer time.
-function dayNumber(date: Date): number {
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / dayMs;
-}
-
-/** The day I last played a game, in the device's time zone: "Today", "Yesterday" or "19 Oct". */
-export function playedLabel(lastPlayed: string, now: Date): string {
-  const played = new Date(lastPlayed);
-  const daysAgo = dayNumber(now) - dayNumber(played);
-  if (daysAgo === 0) {
-    return 'Today';
-  }
-  return daysAgo === 1 ? 'Yesterday' : dateFormat.format(played);
-}
-
 /** The platforms that Exophase lists for a game: "PS4 · PS5". */
 export function platformsLabel(platforms: readonly string[]): string {
   return platforms.join(' · ');

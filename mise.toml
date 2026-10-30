@@ -77,7 +77,7 @@ fi
 '''
 
 [tasks."copilot:check"]
-description = "Fail if mise's copilot isn't the CLI version that the Copilot SDK in go.mod names"
+description = "Fail if mise's or the planner image's copilot isn't the CLI that the Copilot SDK names"
 shell = "bash -c"
 run = '''
 set -euo pipefail
@@ -87,6 +87,19 @@ named=$(curl -sSf "https://raw.githubusercontent.com/github/copilot-sdk/go/${sdk
 pinned=$(mise config get --file mise.toml tools.copilot.version)
 if [[ "${pinned}" != "${named}" ]]; then
   echo "error: mise.toml pins copilot ${pinned}, but the Copilot SDK ${sdk} names ${named}" >&2
+  exit 1
+fi
+dockerfile=services/planner/Dockerfile
+image=$(sed -n 's/^ARG COPILOT_VERSION=//p' "${dockerfile}")
+if [[ "${image}" != "${named}" ]]; then
+  echo "error: ${dockerfile} has copilot ${image}, but the Copilot SDK ${sdk} names ${named}" >&2
+  exit 1
+fi
+sum=$(sed -n 's/^ARG COPILOT_SHA256=//p' "${dockerfile}")
+released=$(curl -sSfL "https://github.com/github/copilot-cli/releases/download/v${named}/SHA256SUMS.txt" |
+  awk '$2 == "copilot-linux-x64.tar.gz" { print $1 }')
+if [[ "${sum}" != "${released}" ]]; then
+  echo "error: ${dockerfile} has the checksum ${sum}, but copilot ${named}'s release has ${released}" >&2
   exit 1
 fi
 '''
