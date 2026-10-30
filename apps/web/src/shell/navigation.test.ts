@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { followNavigation } from './navigation';
+import { followNavigation, openPage } from './navigation';
 
 type Intercept = (options?: NavigationInterceptOptions) => void;
 
@@ -33,6 +33,7 @@ function followed() {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  history.replaceState(null, '', '/');
 });
 
 test('leaves every navigation to the browser without the Navigation API', () => {
@@ -90,4 +91,11 @@ test('leaves navigations to the browser once stopped', () => {
   stop();
 
   expect(navigate(navigation)).not.toHaveBeenCalled();
+});
+
+test('opens the page at a path through the location, as a link would', () => {
+  // jsdom navigates only within the document, so the test opens an anchor on the page it's at.
+  openPage('/#plans');
+
+  expect(location.href).toBe('http://localhost:3000/#plans');
 });

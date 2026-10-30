@@ -12,9 +12,10 @@ function answer(response: Promise<Response>) {
   return fetchMock;
 }
 
-const started = () => Promise.resolve(Response.json({ id: '0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21' }, { status: 201 }));
+const id = '0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21';
+const started = () => Promise.resolve(Response.json({ id }, { status: 201 }));
 
-test('starts a plan from the prompt, then empties it and says so', async () => {
+test("starts a plan from the prompt, then empties it, says so and passes on the new plan's ID", async () => {
   const fetchMock = answer(started());
   const prompt = new PromptState();
   const onStarted = vi.fn();
@@ -25,7 +26,7 @@ test('starts a plan from the prompt, then empties it and says so', async () => {
   expect(fetchMock).toHaveBeenCalledOnce();
   expect(prompt.text).toBe('');
   expect(prompt.status).toEqual({ kind: 'started' });
-  expect(onStarted).toHaveBeenCalledOnce();
+  expect(onStarted).toHaveBeenCalledExactlyOnceWith(id);
 });
 
 test('starts nothing for a blank prompt', async () => {

@@ -1,6 +1,10 @@
+import type { Plan } from '../src/planner/api';
 import { home, plans } from './demo';
 import { expect, test } from './fixtures';
 import { group } from './groups';
+import { conversation, serveConversation } from './plan';
+
+const [newest] = plans as [Plan, ...Plan[]];
 
 test.beforeEach(async ({ page }) => {
   await page.route('/api/home', (route) => route.fulfill({ json: home }));
@@ -24,7 +28,28 @@ test('the Planner page lists the plans, the last updated first', async ({ page }
     "12 Oct Plan how to move the team's wiki to the docs site. Keep the old links working,…",
   ]);
   await expect(yours.getByText('Today')).toHaveAttribute('datetime', '2026-10-21T00:32:00Z');
-  await expect(page.getByRole('main').getByRole('link')).toHaveCount(0);
+  const links = yours.getByRole('link');
+  await expect(links).toHaveCount(plans.length);
+  for (const [index, plan] of plans.entries()) {
+    await expect(links.nth(index)).toHaveAttribute('href', `/planner/${plan.id}`);
+  }
+});
+
+test("a plan's row opens the plan's page, and Back shows the list again", async ({ page }) => {
+  await page.route('/api/planner/plans', (route) => route.fulfill({ json: { plans } }));
+  await serveConversation(page, newest.id);
+  await page.goto('/planner');
+
+  await group(page, 'Your plans').getByRole('link', { name: 'Today Add a dark theme to the docs site' }).click();
+
+  await expect(page).toHaveURL(`/planner/${newest.id}`);
+  await expect(page).toHaveTitle('Plan · Bakhyard');
+  await expect(group(page, 'The conversation').getByRole('listitem')).toHaveCount(conversation.messages.length);
+
+  await page.goBack();
+
+  await expect(page).toHaveURL('/planner');
+  await expect(group(page, 'Your plans').getByText('4 plans')).toBeVisible();
 });
 
 test('the Planner page says when there is no plan yet', async ({ page }) => {

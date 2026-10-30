@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { type Page, pageAt, pageTitle } from './page';
+import { type Page, pageAt, pageTitle, planHref } from './page';
 
 // The page at a path: its kind, with the app's id for an app's page, the note's path for a note's and the plan's ID for
 // a plan's.
@@ -66,6 +66,14 @@ test.each([
   { path: '/home', want: 'missing' },
 ])('shows $want at $path', ({ path, want }) => {
   expect(pageId(path)).toBe(want);
+});
+
+test.each([
+  { id: '0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21', want: '/planner/0b6c1f9e-2d4a-4c3b-9a8e-5f7d6c4b3a21' },
+  { id: 'a/b c?d#e', want: '/planner/a%2Fb%20c%3Fd%23e' },
+])('gives the plan $id the page at $want, which shows it', ({ id, want }) => {
+  expect(planHref(id)).toBe(want);
+  expect(pageAt(want)).toEqual({ kind: 'plan', id: want.slice('/planner/'.length) });
 });
 
 test.each([
