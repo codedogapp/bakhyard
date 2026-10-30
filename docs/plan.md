@@ -257,7 +257,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-ask` | The agent's questions that wait show at the end of a plan's conversation, with their choices, and with a field for another answer when the agent takes one, and the answers go back; while one waits, the reply hides (decisions 403 and 706) | Done (#223) |
 | `planner-preview` | A plan's page shows the plan above the conversation once Copilot has written it, rendered from its Markdown as a note's body is, in a chunk that loads with the first plan; notes and plans share the Markdown styles and the heading rule (decisions 403 and 707) | Done (#225) |
 | `planner-note` | The planner's `vault` package makes a plan a note of the vault through notes' `POST /notes/files/<path>`: `Plans/YYYY-MM-DD-<slug>.md`, with the save's day and the title of the plan's H1, and the vault's frontmatter above the plan; nothing calls it until `planner-save`. "Save to Obsidian" splits in three, so `copilot-planner` has twenty-eight steps (decision 708) | Done (#228) |
-| `planner-save` | "Save to Obsidian" in the planner: a route saves a plan's plan in the vault with decision 708's package, through notes, now that `vault-edit-sync`'s `note-store` and `note-new` are in: `POST /planner/plans/{id}/note` answers the note's path, and the planner finds notes in its `BAKHYARD_PEERS` (§3, decisions 403, 708 and 709) | Pending |
+| `planner-save` | "Save to Obsidian" in the planner: a route saves a plan's plan in the vault with decision 708's package, through notes, now that `vault-edit-sync`'s `note-store` and `note-new` are in: `POST /planner/plans/{id}/note` answers the note's path, and the planner finds notes in its `BAKHYARD_PEERS` (§3, decisions 403, 708 and 709) | Done (#231) |
 | `planner-save-page` | A plan's page saves its plan in the vault with a "Save to Obsidian" button, and links to the new note (decisions 403 and 708) | Pending |
 
 After these: the product phases (§8.2), each split into steps.
@@ -1393,7 +1393,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `planner-ask`: the agent's questions show in the chat with their choices, and the answers go back (decisions 403 and 706). Done (#223).
   - `planner-preview`: the plan shows above the conversation, rendered as a note's body is (decisions 403 and 707). Done (#225).
   - `planner-note`: the planner's `vault` package makes a plan a note of the vault, `Plans/YYYY-MM-DD-<slug>.md` with frontmatter, through notes (decision 708). Done (#228).
-  - `planner-save`: "Save to Obsidian" in the planner, a route that saves a plan's plan with that package, through notes, which the planner's peers name, now that `vault-edit-sync`'s store and new notes' unique names are in (decisions 708 and 709).
+  - `planner-save`: "Save to Obsidian" in the planner, a route that saves a plan's plan with that package, through notes, which the planner's peers name, now that `vault-edit-sync`'s store and new notes' unique names are in (decisions 708 and 709). Done (#231).
   - `planner-save-page`: a plan's page saves its plan with a "Save to Obsidian" button (decision 708).
   - No credit cap (decision 75). Each plan's credits could show from `Usage.GetMetrics`, which is experimental (§10).
 
