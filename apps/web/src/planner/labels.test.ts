@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 
 import type { Conversation } from './conversation';
-import { authorLabel, sendLabel, startLabel, titleLabel, workLabel } from './labels';
+import { authorLabel, saveLabel, sendLabel, startLabel, titleLabel, workLabel } from './labels';
 
 const words = (count: number) => Array.from({ length: count }, (_, index) => `word${index}`).join(' ');
 
@@ -43,6 +43,18 @@ test.each([
   { status: { kind: 'failed', reason: 'The message is too long.' }, want: 'The message is too long.' },
 ] as const)('says $want for a send $status.kind', ({ status, want }) => {
   expect(sendLabel(status)).toBe(want);
+});
+
+test.each([
+  { status: { kind: 'idle' }, want: '' },
+  { status: { kind: 'saving' }, want: 'Saving…' },
+  { status: { kind: 'saved', path: 'Plans/2026-10-30-trip.md' }, want: 'Saved as “Plans/2026-10-30-trip”' },
+  {
+    status: { kind: 'failed', reason: "Couldn't save the plan in the vault." },
+    want: "Couldn't save the plan in the vault.",
+  },
+] as const)('says $want for a save $status.kind', ({ status, want }) => {
+  expect(saveLabel(status)).toBe(want);
 });
 
 test.each([

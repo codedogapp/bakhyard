@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { loadPlans, type Plan, sendAnswer, sendMessage, startPlan } from './api';
+import { loadPlans, type Plan, savePlan, sendAnswer, sendMessage, startPlan } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -95,6 +95,42 @@ test.each([
   answer(response);
 
   expect(await startPlan('Plan a trip')).toEqual({ kind: 'failed', reason: want });
+});
+
+test("saves the plan's plan in the vault, and returns the new note's path", async () => {
+  const fetchMock = answer(Response.json({ path: 'Plans/2026-10-30-trip.md' }, { status: 201 }));
+
+  expect(await savePlan('p1')).toEqual({ kind: 'saved', path: 'Plans/2026-10-30-trip.md' });
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/planner/plans/p1/note', { method: 'POST' });
+});
+
+test.each([
+  {
+    name: 'no plan yet',
+    response: new Response("Copilot hasn't written the plan yet\n", { status: 409 }),
+    want: "Copilot hasn't written the plan yet.",
+  },
+  {
+    name: 'an error from notes',
+    response: new Response('Bad Gateway\n', { status: 502 }),
+    want: "Couldn't save the plan in the vault.",
+  },
+  {
+    name: 'no saving',
+    response: new Response('Saving to the vault is not set up\n', { status: 404 }),
+    want: 'Saving to the vault is not set up',
+  },
+  { name: 'no such plan', response: new Response('no such plan\n', { status: 404 }), want: 'no such plan' },
+  { name: 'another answer', response: new Response('', { status: 500 }), want: "The plan wasn't saved (500)." },
+  {
+    name: 'a broken connection',
+    response: new Error('offline'),
+    want: "The plan wasn't saved: the planner isn't reachable.",
+  },
+])('says why a save failed, for $name', async ({ response, want }) => {
+  answer(response);
+
+  expect(await savePlan('p1')).toEqual({ kind: 'failed', reason: want });
 });
 
 test('sends the text as typed to the plan as its next message', async () => {

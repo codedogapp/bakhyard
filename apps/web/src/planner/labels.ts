@@ -1,6 +1,7 @@
 import type { Author, Conversation } from './conversation';
 import type { StartStatus } from './prompt.svelte';
 import type { SendStatus } from './reply.svelte';
+import type { SaveStatus } from './save.svelte';
 
 /** The most characters of a plan's title that its row shows. */
 const titleLength = 80;
@@ -46,6 +47,23 @@ export function sendLabel(status: SendStatus): string {
       return 'Sending…';
     case 'sent':
       return 'Sent';
+    case 'failed':
+      return status.reason;
+    default:
+      return '';
+  }
+}
+
+/**
+ * A plan's save's status line: "Saving…", "Saved as “Plans/2026-10-30-trip”", with the new note's path without ".md",
+ * why the save failed, or nothing before the first.
+ */
+export function saveLabel(status: SaveStatus): string {
+  switch (status.kind) {
+    case 'saving':
+      return 'Saving…';
+    case 'saved':
+      return `Saved as “${status.path.replace(/\.md$/, '')}”`;
     case 'failed':
       return status.reason;
     default:
