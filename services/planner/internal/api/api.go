@@ -34,6 +34,9 @@ type Planner interface {
 	// the question doesn't wait, and copilot.ErrNotAChoice when the answer isn't one of the
 	// choices of a question that takes no other.
 	Answer(id string, answer copilot.Answer) error
+	// Send sends text to the plan id as the user's next message, or returns copilot.ErrNoPlan
+	// when the planner hasn't started that plan.
+	Send(ctx context.Context, id, text string) error
 }
 
 // Door serves the planner's routes. Without Copilot, Planner is nil, and every route answers 404.
@@ -47,7 +50,8 @@ type Door struct {
 // Register serves the plans on router: GET /planner/plans lists them (list),
 // POST /planner/plans starts a plan (start),
 // GET /planner/plans/{id} answers its conversation so far (conversation),
-// GET /planner/plans/{id}/events streams it (events), and
+// GET /planner/plans/{id}/events streams it (events),
+// POST /planner/plans/{id}/messages sends it a follow-up message (message), and
 // POST /planner/plans/{id}/questions/{question}/answer answers one of its questions that wait
 // (answer). stopping ends when the service is told to stop, and ends the event streams with it.
 // Other methods get 405.
@@ -58,5 +62,6 @@ func (d Door) Register(stopping context.Context, router chi.Router) {
 	router.Get("/planner/plans/{id}/events", func(w http.ResponseWriter, r *http.Request) {
 		d.events(stopping, w, r)
 	})
+	router.Post("/planner/plans/{id}/messages", message(d.Planner, d.Logger))
 	router.Post("/planner/plans/{id}/questions/{question}/answer", answer(d.Planner, d.Logger))
 }
