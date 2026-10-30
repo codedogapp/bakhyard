@@ -196,7 +196,8 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `vault-plan` | The vault session's first steps: where a save goes waits on the user's answer to §12's question on how edits get back to the Mac, so the version that a save checks and the editor come first; a note's version is the SHA-256 of its bytes, sent as its `ETag`, and a save is a `PUT` that sends it back in `If-Match` (decision 400) | Done (#167) |
 | `note-etag` | notes answers each note with its version as a strong `ETag`, the SHA-256 of its bytes, and a matching `If-None-Match` with a 304 (decision 400) | Done (#169) |
 | `note-editor` | A note's page shows an Edit button once `GET /api/notes` says saving is set up; Edit shows the note's Markdown in a CodeMirror 6 editor, and Cancel shows the note again and drops the edits, which nothing saves yet (decisions 400, 401) | Done (#174) |
-| `note-save` | The editor's Save sends the note with `PUT /api/notes/files/<path>` and `If-Match`, the version from the note's `ETag`; a saved note shows at once, and a note changed since gets a 412, which keeps the user's text and says so (decisions 400, 401) | Planned |
+| `note-page-state` | A note's page keeps the note it shows, its loading and whether the editor shows in a class of its own, `ShownNote`, in a `.ts` file where the gates can read it, ready for the save's logic; no change in behaviour (decision 402) | Planned |
+| `note-save` | The editor's Save sends the note with `PUT /api/notes/files/<path>` and `If-Match`, the version from the note's `ETag`; a saved note shows at once, and a note changed since gets a 412, which keeps the user's text and says so (decisions 400 to 402) | Planned |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1277,11 +1278,12 @@ Every item is pending unless it says done. The service an item lands in is in br
 
 **Phase 6: vault edits and Copilot**
 
-- `vault-edit-sync` [notes, web]. Needs `vault-render`. Moved from Phase 2 (decision 69). The steps so far (decisions 400, 401); the rest follow the user's answer to §12's question on how edits get back to the Mac:
+- `vault-edit-sync` [notes, web]. Needs `vault-render`. Moved from Phase 2 (decision 69). The steps so far (decisions 400 to 402); the rest follow the user's answer to §12's question on how edits get back to the Mac:
   - `vault-plan`: this split, a note's version, the SHA-256 of its bytes, and the save, a `PUT` that sends the version back in `If-Match` (decision 400). Done (#167).
   - `note-etag`: notes answers each note with its version as a strong `ETag`, and a matching `If-None-Match` with a 304 (decision 400). Done (#169).
   - `note-editor`: a note's page edits it in a CodeMirror 6 editor, once `GET /api/notes` says saving is set up, with no save yet (decisions 400, 401). Done (#174).
-  - `note-save`: the editor's Save, a `PUT` with `If-Match`, which keeps the user's text on a 412 (decisions 400, 401).
+  - `note-page-state`: a note's page keeps its state in a class, `ShownNote`, with no change in behaviour (decision 402).
+  - `note-save`: the editor's Save, a `PUT` with `If-Match`, which keeps the user's text on a 412 (decisions 400 to 402).
   - After the answer: the store behind the save, with the §3 conflict rules; new notes get unique names; history and rollback; and the way edits get back to the Mac, now that the laptop syncs from Gitea's read-only mirror (decision 151, §12).
 - `copilot-planner` [planner, web]. Needs `spike-copilot-sdk`, `vault-edit-sync`.
   - Chat UI with streaming, plan-mode sessions, resume, and plan preview.
@@ -1765,6 +1767,12 @@ Decisions 400 to 499 are the vault session's: `vault-edit-sync`, then `copilot-p
      - **The focus**: Edit puts the focus in the editor, at the note's start, so a keyboard can type at once. The editor loads after the tap, so on the iPhone, which shows its keyboard only for a focus during a tap (decision 113), the keyboard comes with the first tap in the text, where the user means to type anyway.
      - **Its chunk**: the editor loads the first time Edit is pressed, in a chunk of its own, 359 kB (118 kB gzipped), so CodeMirror stays out of the app's main chunk. It takes lang-markdown's bare language, keys and paste handler rather than its `markdown()`, which would add HTML's, CSS's and JavaScript's languages, for the HTML in a note, and 150 kB; HTML in a note shows as plain text.
      - **Rejected**: CodeMirror's `basicSetup` and the `codemirror` package, which add line numbers, folding, autocompletion, search and more that a note doesn't need; CodeMirror's drawn selection (`drawSelection`); a highlight in colours, against §7; `markdown()`, for its 150 kB.
+402. **A note's save** (`note-page-state`, `note-save`): the lead's choices (2026-10-30), for the user to review.
+     - **The page's state first**: a note's page keeps the note it shows, its loading and whether the editor shows in a class of its own, `ShownNote`, rather than in its component, since the save's logic, which renders the note again, belongs in a `.ts` file, where the gates can read it. The page takes a new one for each note it goes to, which drops the edits and any late answer for the note it has left. `note-page-state` moves the state there with no change in behaviour, before `note-save` adds the save.
+     - **The save**: Save sends the editor's text with `PUT /api/notes/files/<path>`, `text/markdown; charset=utf-8`, with `If-Match` naming the version the page loaded, the note's `ETag` (decision 400). On a 204 the page shows the saved note at once, rendered from the text it sent, takes the answer's `ETag` as the note's version, says "Saved", and gives the focus to Edit; the next Edit starts from the saved text. Save with the text unchanged only closes the editor. ⌘S, or Ctrl+S, in the editor saves too, rather than open the browser's Save Page.
+     - **While it runs**: Save and Cancel wait, `aria-disabled` rather than disabled so the focus stays on them, as in the todos' editor, and the editor takes no typing, so the text saved is the text shown.
+     - **When it fails**: a 412, from a note that has changed since it loaded, keeps the editor open with the user's text and says so; any other failure keeps it too and says the save failed. What the user can then do about the change comes with the store's step and its §3 conflict rules. The buttons stay while the editor is open, even if a sync says that notes no longer saves.
+     - **Rejected**: asking before Cancel or going to another note drops the edits, for now (decision 401); a Save in the editor's chunk, which a chunk that fails to load would take with it; a read of the note after the save, which would show the old text until git-sync has the new one.
 
 Decisions 500 on are the orchestrator's, after 199.
 
