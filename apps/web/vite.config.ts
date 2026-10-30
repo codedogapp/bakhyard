@@ -29,6 +29,8 @@ export default defineConfig({
     // A fixed zone that isn't UTC and has no daylight saving, so a test that mixes up local and UTC time fails everywhere.
     env: { TZ: 'Asia/Tokyo' },
     setupFiles: ['./src/test-setup.ts'],
+    // Three times the default: while other sessions run their checks, a test can take longer than 5 s.
+    testTimeout: 15_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

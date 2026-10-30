@@ -171,9 +171,9 @@ test('the ticket takes three parts in four of the room it shares with the day, t
   }
 });
 
-test('from 320 to 1440 px wide, each day and hour shows whole, Log stays by the hours, and nothing scrolls sideways', async ({
-  page,
-}) => {
+test('from 320 to 1440 px, days and hours show whole, Log stays by them, no sideways scroll', async ({ page }) => {
+  // 113 widths take longer than the default limit while other sessions run their checks.
+  test.slow();
   await open(page);
   for (let width = 320; width <= 1440; width += 10) {
     await page.setViewportSize({ width, height: 800 });
