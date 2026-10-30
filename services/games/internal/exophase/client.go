@@ -96,7 +96,7 @@ func (c *Client) page(ctx context.Context, number int) ([]Game, error) {
 	}
 
 	// Exophase says success false for a page past the last, and for the first page of a profile
-	// that doesn't exist or isn't public.
+	// that isn't public; for an id it doesn't know, it answers 500.
 	if !found.Success && number == 1 {
 		return nil, fmt.Errorf("%s: Exophase has no public profile with this id", listing)
 	}
