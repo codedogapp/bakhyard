@@ -27,28 +27,31 @@ $effect(() => {
         <!--
           Save follows Cancel, so Cancel takes Edit's place, and Shift-Tab from the editor, which comes after them,
           reaches Save first, or, once a save has found the note changed, the offer to keep the text as a new note
-          (decision 424). aria-disabled, not disabled, so the focus stays on a button while its save runs.
+          (decision 424), which wraps under them on a phone. aria-disabled, not disabled, so the focus stays on a
+          button while its save runs.
         -->
         <div class="tools form-row">
-          <button
-            class="form-button"
-            type="button"
-            aria-disabled={shown.busy}
-            onclick={() => shown.toggle()}
-            {@attach shown.button}
-          >
-            {shown.editing ? 'Cancel' : 'Edit'}
-          </button>
-          {#if shown.editing}
-            <button class="form-button" type="button" aria-disabled={shown.busy} onclick={() => void shown.save()}>
-              Save
+          <span class="buttons">
+            <button
+              class="form-button"
+              type="button"
+              aria-disabled={shown.busy}
+              onclick={() => shown.toggle()}
+              {@attach shown.button}
+            >
+              {shown.editing ? 'Cancel' : 'Edit'}
             </button>
-          {/if}
-          {#if shown.stale}
-            <button class="form-button" type="button" aria-disabled={shown.busy} onclick={() => void shown.keep()}>
-              Save as new note
-            </button>
-          {/if}
+            {#if shown.editing}
+              <button class="form-button" type="button" aria-disabled={shown.busy} onclick={() => void shown.save()}>
+                Save
+              </button>
+            {/if}
+            {#if shown.stale}
+              <button class="form-button" type="button" aria-disabled={shown.busy} onclick={() => void shown.keep()}>
+                Save as new note
+              </button>
+            {/if}
+          </span>
           <p class="form-status" role="status">{saveLabel(shown.status)}</p>
         </div>
       {/if}
@@ -83,6 +86,12 @@ $effect(() => {
 
 .tools {
   margin-bottom: 30px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .failed {
