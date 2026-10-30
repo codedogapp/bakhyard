@@ -33,7 +33,7 @@ async function shownNote() {
   document.body.append(button);
   shown.button(button);
   await shown.load();
-  return { shown, button };
+  return { shown, button, notes };
 }
 
 // Presses Edit, and puts the focus in a field, as the editor takes it.
@@ -66,6 +66,29 @@ test('keeps the note’s version, from its ETag, with its text', async () => {
   const { shown } = await shownNote();
 
   expect(shown.body).toEqual({ kind: 'loaded', markdown, version: loaded, note: renderNote(markdown, toDo, files) });
+});
+
+test('has the editor’s buttons while notes saves notes, and while the editor is open, even if notes stops', async () => {
+  const { shown, notes } = await shownNote();
+  expect(shown.editable).toBe(false);
+
+  notes.editable = true;
+  expect(shown.editable).toBe(true);
+
+  open(shown);
+  notes.editable = false;
+  expect(shown.editable).toBe(true);
+});
+
+test('links to the note’s history under the vault’s, but not while the editor is open', async () => {
+  const { shown, notes } = await shownNote();
+  expect(shown.history).toBeUndefined();
+
+  notes.history = 'https://git.example.com/me/vault/commits/branch/main';
+  expect(shown.history).toBe('https://git.example.com/me/vault/commits/branch/main/Daily/To%20do.md');
+
+  open(shown);
+  expect(shown.history).toBeUndefined();
 });
 
 test('saves the text if the note is still at its version, then shows it, says so and gives Edit the focus', async () => {

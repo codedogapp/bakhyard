@@ -121,7 +121,8 @@ func routerWith(t *testing.T, folder string, store api.Store) (http.Handler, *by
 
 	router := chi.NewRouter()
 
-	err := api.Register(router, folder, store, slog.New(slog.NewTextHandler(&log, nil)))
+	err := api.Register(router, api.Vault{Folder: folder, Store: store},
+		slog.New(slog.NewTextHandler(&log, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

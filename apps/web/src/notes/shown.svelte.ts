@@ -1,7 +1,7 @@
 import { untrack } from 'svelte';
 import type { Attachment } from 'svelte/attachments';
 
-import { createNote, fetchNote, saveNote } from './api';
+import { createNote, fetchNote, historyUrl, saveNote } from './api';
 import type { RenderedNote } from './render';
 import type { NotesState } from './state.svelte';
 import type { Note } from './tree';
@@ -48,6 +48,23 @@ export class ShownNote {
   /** Whether a save, or a new note, runs; until it ends, the editor takes no change, and its buttons wait. */
   get busy(): boolean {
     return this.status.kind === 'saving';
+  }
+
+  /**
+   * Whether the page has the editor's buttons: while notes saves notes, and while the editor is open, even if a sync
+   * says that notes no longer saves.
+   */
+  get editable(): boolean {
+    return this.#notes.editable || this.editing;
+  }
+
+  /**
+   * The web address of the note's history in Gitea (decision 425); undefined when notes has none, and while the editor
+   * is open, since leaving the page would drop its text.
+   */
+  get history(): string | undefined {
+    const history = this.#notes.history;
+    return history === undefined || this.editing ? undefined : historyUrl(history, this.#note.path);
   }
 
   /** An attachment for the Edit button, which turns into Cancel. */
