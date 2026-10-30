@@ -3,7 +3,8 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdownKeymap, markdownLanguage, pasteURLAsLink } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { EditorView, keymap } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
+import { EditorView, type KeyBinding, keymap } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 
 // A note's parts in ink only, as §7 asks: weight, slant and the muted ink set them apart, never a colour.
@@ -19,31 +20,58 @@ const inkOnly = HighlightStyle.define([
   },
 ]);
 
+/** The editor's note page, which takes its text and saves it (decision 402). */
+export interface EditorPage {
+  /** Takes the editor's text after each change. */
+  edit(text: string): void;
+  /** Saves the editor's text. */
+  save(): void;
+  /** Whether a save runs; the editor takes no change until it ends, so the text saved is the text shown. */
+  readonly busy: boolean;
+}
+
 /**
  * Shows text, a note's Markdown, in a CodeMirror editor in the element, and gives the editor the focus (decision 401):
  * Markdown as GitHub writes it, after the note's YAML frontmatter, with its lines wrapped and undo. Enter carries a list
  * or a quote on to the next line, and a URL pasted over text links it. Tab leaves the editor, as it leaves any field.
- * The editor goes with the element.
+ * ⌘S, or Ctrl+S, saves, rather than the browser saving the page. The editor goes with the element.
  *
  * The bare Markdown language, without lang-markdown's markdown(), which would add HTML's, CSS's and JavaScript's for
  * the HTML in a note: 150 kB more in the editor's chunk.
  */
-export function noteEditor(text: string): Attachment<HTMLElement> {
+export function noteEditor(text: string, page: EditorPage): Attachment<HTMLElement> {
   return (parent) => {
     const view = new EditorView({
       parent,
       doc: text,
       extensions: [
         history(),
-        keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap]),
+        keymap.of([saveKey(page), ...markdownKeymap, ...defaultKeymap, ...historyKeymap]),
         yamlFrontmatter({ content: markdownLanguage }),
         pasteURLAsLink,
         syntaxHighlighting(inkOnly),
         EditorView.lineWrapping,
         EditorView.contentAttributes.of({ 'aria-label': 'Markdown' }),
+        EditorState.changeFilter.of(() => !page.busy),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            page.edit(update.state.doc.toString());
+          }
+        }),
       ],
     });
     view.focus();
     return () => view.destroy();
+  };
+}
+
+// ⌘S, or Ctrl+S, which saves; CodeMirror then takes the key, so the browser doesn't save the page as well.
+function saveKey(page: EditorPage): KeyBinding {
+  return {
+    key: 'Mod-s',
+    run: () => {
+      page.save();
+      return true;
+    },
   };
 }

@@ -31,11 +31,18 @@ export function fileUrl(path: string): string {
   return `/api/notes/files/${path.split('/').map(encodeURIComponent).join('/')}`;
 }
 
+/** A note's Markdown, and its version, which a save sends back (decision 400). */
+export interface NoteFile {
+  markdown: string;
+  /** The note's ETag, the SHA-256 of its bytes in quotes; blank when the answer had none. */
+  version: string;
+}
+
 /**
- * Loads the note at path in the vault, such as "Work/Plans/Q3.md": its Markdown, or undefined when the vault has no
- * such note. Fails when the gateway can't be reached or answers with another error.
+ * Loads the note at path in the vault, such as "Work/Plans/Q3.md": its Markdown and version, or undefined when the
+ * vault has no such note. Fails when the gateway can't be reached or answers with another error.
  */
-export async function fetchNote(path: string): Promise<string | undefined> {
+export async function fetchNote(path: string): Promise<NoteFile | undefined> {
   const url = fileUrl(path);
   const response = await fetch(url);
   if (response.status === 404) {
@@ -44,5 +51,25 @@ export async function fetchNote(path: string): Promise<string | undefined> {
   if (!response.ok) {
     throw new Error(`GET ${url}: ${response.status}`);
   }
-  return response.text();
+  return { markdown: await response.text(), version: response.headers.get('ETag') ?? '' };
+}
+
+/**
+ * Saves markdown as the note at path, unless the note has changed since version: the saved note's version, or
+ * undefined when the note has changed. Fails when the gateway can't be reached or answers with another error.
+ */
+export async function saveNote(path: string, markdown: string, version: string): Promise<string | undefined> {
+  const url = fileUrl(path);
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'text/markdown; charset=utf-8', 'If-Match': version },
+    body: markdown,
+  });
+  if (response.status === 412) {
+    return undefined;
+  }
+  if (!response.ok) {
+    throw new Error(`PUT ${url}: ${response.status}`);
+  }
+  return response.headers.get('ETag') ?? '';
 }
