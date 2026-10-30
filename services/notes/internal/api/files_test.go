@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -17,23 +18,28 @@ import (
 )
 
 func TestAListedFileComesWithItsHeaders(t *testing.T) {
-	for name, wantType := range map[string]string{
-		"Daily/Today.md": "text/markdown; charset=utf-8",
-		"img/photo.png":  "image/png",
+	for _, test := range []struct{ name, kind, version string }{
+		// The SHA-256 of "# Daily/Today.md".
+		{
+			"Daily/Today.md", "text/markdown; charset=utf-8",
+			`"59ac3ac518174d2bab0f7b870f20cce6a6e24a1f81c150fb8e43b3fd5b71ae34"`,
+		},
+		{"img/photo.png", "image/png", ""},
 	} {
-		t.Run(name, func(t *testing.T) {
-			router, _ := newRouter(t, vaultWith(t, name).Name())
-			rec := get(t, router, "/notes/files/"+name, nil)
+		t.Run(test.name, func(t *testing.T) {
+			router, _ := newRouter(t, vaultWith(t, test.name).Name())
+			rec := get(t, router, "/notes/files/"+test.name, nil)
 
-			if rec.Code != http.StatusOK || rec.Body.String() != text(name) {
-				t.Fatalf("got %d %q, want 200 %q", rec.Code, rec.Body.String(), text(name))
+			if rec.Code != http.StatusOK || rec.Body.String() != text(test.name) {
+				t.Fatalf("got %d %q, want 200 %q", rec.Code, rec.Body.String(), text(test.name))
 			}
 
 			for header, want := range map[string]string{
-				"Content-Type":            wantType,
+				"Content-Type":            test.kind,
 				"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
 				"X-Content-Type-Options":  "nosniff",
 				"Cache-Control":           "private, no-cache",
+				"ETag":                    test.version,
 			} {
 				if got := rec.Header().Get(header); got != want {
 					t.Errorf("%s = %q, want %q", header, got, want)
@@ -44,6 +50,36 @@ func TestAListedFileComesWithItsHeaders(t *testing.T) {
 				t.Error("no Last-Modified")
 			}
 		})
+	}
+}
+
+func TestANoteIsVersionedByItsBytesNotItsTime(t *testing.T) {
+	root := vaultWith(t, "Note.md")
+	router, _ := newRouter(t, root.Name())
+	// The SHA-256 of "# Note.md", and of nothing.
+	first := `"5bc025c2db9d50831145b1d7448238c7876e53367c9e83f15d87afaa2006d884"`
+	empty := `"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"`
+
+	// As a sync's new checkout does, the same bytes come with a later mtime.
+	later := time.Now().Add(time.Hour)
+	if err := root.Chtimes("Note.md", later, later); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := get(t, router, "/notes/files/Note.md", http.Header{"If-None-Match": {first}})
+	if rec.Code != http.StatusNotModified || rec.Header().Get("ETag") != first {
+		t.Errorf("the same bytes: got %d with the ETag %q, want 304 with %q", rec.Code,
+			rec.Header().Get("ETag"), first)
+	}
+
+	if err := root.WriteFile("Note.md", nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	rec = get(t, router, "/notes/files/Note.md", http.Header{"If-None-Match": {first}})
+	if rec.Code != http.StatusOK || rec.Body.Len() != 0 || rec.Header().Get("ETag") != empty {
+		t.Errorf("other bytes: got %d %q with the ETag %q, want 200 and no text with %q",
+			rec.Code, rec.Body.String(), rec.Header().Get("ETag"), empty)
 	}
 }
 
@@ -123,7 +159,8 @@ func TestAFileThatCantBeReadIsAServerError(t *testing.T) {
 
 func TestAFileAnswersConditionalAndRangeRequests(t *testing.T) {
 	router, _ := newRouter(t, vaultWith(t, "Note.md").Name())
-	modified := get(t, router, "/notes/files/Note.md", nil).Header().Get("Last-Modified")
+	first := get(t, router, "/notes/files/Note.md", nil).Header()
+	modified, version := first.Get("Last-Modified"), first.Get("ETag")
 
 	for _, test := range []struct {
 		name   string
@@ -132,6 +169,12 @@ func TestAFileAnswersConditionalAndRangeRequests(t *testing.T) {
 		body   string
 	}{
 		{"unchanged", http.Header{"If-Modified-Since": {modified}}, http.StatusNotModified, ""},
+		{"the same version", http.Header{"If-None-Match": {version}}, http.StatusNotModified, ""},
+		{
+			"another version, though unchanged since",
+			http.Header{"If-None-Match": {`"other"`}, "If-Modified-Since": {modified}},
+			http.StatusOK, "# Note.md",
+		},
 		{"range", http.Header{"Range": {"bytes=0-2"}}, http.StatusPartialContent, "# N"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
