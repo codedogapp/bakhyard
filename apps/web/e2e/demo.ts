@@ -1,4 +1,3 @@
-import type { Snapshot as RecentGames } from '../src/games/games';
 import type { Home } from '../src/home/api';
 import type { Snapshot } from '../src/jira/tickets';
 import type { State } from '../src/nudge/nudge';
@@ -172,36 +171,4 @@ export const report: Report = {
   ],
   week: { loggedHours: 15.75, targetHours: 40 },
   searched: '2026-10-21T00:38:00Z',
-};
-
-/**
- * The games a made-up user played in the last 14 days, the last played first, as the games service found them ten
- * minutes before the tests' time: one game today, one yesterday on a Nintendo console, which has no trophies, one with
- * every trophy, and one with no playtime.
- */
-export const games: RecentGames = {
-  games: [
-    {
-      title: 'Moon Garden',
-      platforms: ['PS5'],
-      lastPlayed: '2026-10-21T00:05:00Z',
-      playtimeMinutes: 754,
-      trophies: { earned: 31, total: 52, percent: 59.6 },
-    },
-    { title: 'Tower Climb', platforms: ['Switch'], lastPlayed: '2026-10-20T12:30:00Z', playtimeMinutes: 1290 },
-    {
-      title: 'Harbour Lights',
-      platforms: ['PS4', 'PS5'],
-      lastPlayed: '2026-10-17T10:00:00Z',
-      playtimeMinutes: 2475,
-      trophies: { earned: 40, total: 40, percent: 100 },
-    },
-    {
-      title: 'Sky Rally',
-      platforms: ['PC'],
-      lastPlayed: '2026-10-12T09:00:00Z',
-      trophies: { earned: 3, total: 35, percent: 8.57 },
-    },
-  ],
-  searched: '2026-10-21T00:31:00Z',
 };

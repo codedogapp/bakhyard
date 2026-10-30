@@ -20,6 +20,8 @@ export interface Game {
   playtimeMinutes?: number;
   /** None for a game without trophies, such as Nintendo's. */
   trophies?: Trophies;
+  /** The address of its cover on IGDB, at most 264 by 374 px; none when IGDB has none or isn't set up (decision 306). */
+  cover?: string;
 }
 
 /** The body of GET /api/games/recent: what the games service last found on Exophase (decision 303). */
@@ -39,6 +41,11 @@ export function loadGames(): Promise<Games> {
 /** The snapshot's games, which only a fetch that succeeded can have found; none before one has. */
 export function foundGames(snapshot: Snapshot): Game[] | undefined {
   return snapshot.searched === undefined ? undefined : snapshot.games;
+}
+
+/** A game's cover as a CSS background image, `url("…")`, or none when the game has none. */
+export function coverImage(cover: string | undefined): string | undefined {
+  return cover === undefined ? undefined : `url(${JSON.stringify(cover)})`;
 }
 
 const dayMs = 86_400_000;
