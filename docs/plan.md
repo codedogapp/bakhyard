@@ -266,7 +266,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `atlassian-token-expiry` | todos lists "Renew the Jira token" in the Home's "Needs you today" from 14 days before the date in `BAKHYARD_JIRA_TOKEN_EXPIRES`, and pulls "Renew the Bitbucket token" before the date in `BAKHYARD_BITBUCKET_TOKEN_EXPIRES`, through a root package that both use. The second of `hardening-docs`' steps (decisions 500 and 502) | Done (#243) |
 | `github-token-expiry` | github lists "Renew the GitHub token" from 14 days before the token expires, at the date that GitHub's `GitHub-Authentication-Token-Expiration` header tells. The third of `hardening-docs`' steps (decisions 500 and 503) | Done (#244) |
 | `copilot-token-expiry` | planner answers the attention contract with "Renew the Copilot token" from 14 days before the token expires, at the time that its host's `GitHub-Authentication-Token-Expiration` header tells, through github's client and poller, which move to the root `internal/`; the item's source is a new one, Copilot, and home asks planner under `mise run up`. The fourth of `hardening-docs`' steps (decisions 500 and 504) | Done (#245) |
-| `homelab-token-expiry` | The homelab repo gives todos and pulls their tokens' dates, and home asks planner, which a NetworkPolicy lets it reach. The fifth of `hardening-docs`' steps (decision 500) | Pending |
+| `homelab-token-expiry` | The homelab repo gives todos and pulls their tokens' dates, which homesecret syncs from the Mac's Keychain, and home asks planner, which a NetworkPolicy lets it reach. The fifth of `hardening-docs`' steps (decisions 500 and 505) | Pending |
 | `log-json` | The services log JSON lines, which VictoriaLogs reads into fields, except under process-compose, where `BAKHYARD_LOG_FORMAT=text` keeps slog's text. The sixth of `hardening-docs`' steps (decision 500) | Pending |
 | `homelab-logs` | The homelab repo's Logs dashboard finds the JSON lines' errors by their level. The seventh of `hardening-docs`' steps (decision 500) | Pending |
 | `request-ids` | Each request gets an ID, its `X-Request-Id` when that's a UUID or else a new UUIDv7, which its answer carries and the logs of its handling name as `request_id`. The eighth of `hardening-docs`' steps (decision 500) | Pending |
@@ -1433,7 +1433,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `atlassian-token-expiry`: todos and pulls list a Home item from 14 days before the Jira and Bitbucket tokens expire, at the dates that two settings give (decisions 500 and 502). Done (#243).
   - `github-token-expiry`: github lists one before the GitHub token expires, at the date that GitHub's answers tell (decisions 500 and 503). Done (#244).
   - `copilot-token-expiry`: planner answers the attention contract with one before the Copilot token expires, at the time that GitHub tells, under a new source, Copilot, and home asks planner (decisions 500 and 504). Done (#245).
-  - `homelab-token-expiry`: in the homelab repo, the dates of the Jira and Bitbucket tokens, and home asks planner (decision 500).
+  - `homelab-token-expiry`: in the homelab repo, the dates of the Jira and Bitbucket tokens, and home asks planner (decisions 500 and 505).
   - `log-json`: the services log JSON lines, or slog's text under process-compose (decision 500).
   - `homelab-logs`: in the homelab repo, the Logs dashboard finds the JSON lines' errors by their level (decision 500).
   - `request-ids`: each request has an ID, which its answer carries and its logs name (decision 500).
@@ -2219,6 +2219,14 @@ Decisions 500 to 599 are the hardening session's: `hardening-docs`.
      - **home asks planner** under `mise run up`; on the laptop once `homelab-token-expiry` names it among home's peers.
      - **Not covered**: a planner that starts once the token has expired gets 401 at each ask, so it lists no reminder, and nothing on the Home says why, unlike github, whose searches fail too. Its plans' routes answer 502 then, and its log says `poll Copilot token`.
      - **Rejected**: a date as a setting, which GitHub tells (decision 500); `https://<host>/api/v3` as the default, which is GitHub Enterprise Server's layout, not GHE.com's; a poller and a client of planner's own, which would copy github's; failing planner's list until an ask has succeeded, which would count planner among the Home's unavailable sources whenever its host doesn't answer, say while the network is down, as decision 503 rejects for github.
+
+505. **The tokens' reminders on the laptop** (`homelab-token-expiry`): the lead's choices (2026-10-31), for the user to review. They give the laptop what decisions 502 and 504 need, in codedogapp/homelab#54.
+     - **The days**: the Jira and Bitbucket tokens' days are two Keychain items on the Mac, `bakhyard-jira-token-expires` and `bakhyard-bitbucket-token-expires`, which homesecret puts into the Secrets `todos-jira` and `pulls-bitbucket` as the key `token-expires`, beside the settings that name the user's work. A day isn't secret, but this way a new token and its day are stored at once, with one sync. The homelab's doc 23 has the commands.
+     - **Required**: todos and pulls read the key as a required one, like the settings beside it, so a pod can't start without its day, and a missing day shows as a pod that waits, not as a reminder that never comes. `homesecret sync` stops on a missing item, so the user stores both days before the first sync with the keys; until then, the old pods keep serving.
+     - **home asks planner** last among its peers, as each peer was added, and the NetworkPolicy `home-peers` lets it reach planner's port.
+     - **Checked** on 2026-10-31: the user's Copilot host is a GHE.com host, and its `GET /user` answers the Copilot token with the expiry header in its UTC layout, so planner's default API and decision 504's read fit it.
+     - **Not covered**: Gitea's push-mirror token to GitHub (decision 427), which Gitea alone holds, so no service can tell when it expires. If it does, GitHub's copy of the vault falls behind from then on, while Gitea and the Mac keep the vault.
+     - **Rejected**: optional keys, which would start the pods without a day, with no reminder and nothing to say why, and need a restart after the sync; the days in the homelab's manifests, which would need a commit there at each renewal, apart from the token's store and sync.
 
 Decisions 600 to 699 are the alerts session's: `homelab-alerts`.
 
