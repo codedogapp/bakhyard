@@ -1,6 +1,6 @@
 # Setup
 
-What a machine needs before `mise run up` can run Bakhyard: the local settings, `tailscale serve`, a Google OAuth client and its secret in the Keychain, and Postgres; Jira, Bitbucket, GitHub and Copilot are optional. [The plan](plan.md) says why (§3 Auth, §3 Data, §4.7).
+What a Mac needs before `mise run up` can run Bakhyard: the local settings, `tailscale serve`, a Google OAuth client and its secret in the Keychain, Postgres, and the VAPID key that signs the pushes; Jira, Bitbucket, GitHub, Exophase, IGDB, Copilot and saving notes are optional. [The plan](plan.md) says why (§3 Auth, §3 Data, §4.7). The private homelab repo's docs describe the laptop that runs Bakhyard at home, and the Mac's part in it: obsidian-git, which pushes the vault to the laptop's Gitea, and the nightly dump of the laptop's Postgres (decisions 136, 427 and 501).
 
 ## Local settings
 
@@ -36,9 +36,9 @@ cp mise.local.example.toml mise.local.toml
 | `BAKHYARD_COPILOT_API` | planner | The REST API of the Copilot account's GitHub host, which planner asks when the Copilot token expires, when it isn't `https://api.<host>`, such as `https://github.example.com/api/v3` on GitHub Enterprise Server; leave it unset for GHE.com and GitHub.com ([below](#copilot)) |
 | `BAKHYARD_TEST_DATABASE` | Go tests | The test database's URL, password included ([below](#the-test-database)) |
 
-The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for games, github, notes, notify, nudge, planner, pulls, time and todos to start. Todos and time run without Jira when none of the three Jira settings is set, pulls without Bitbucket when none of the three Bitbucket settings is set, github without GitHub when `BAKHYARD_GITHUB_API` isn't set, games without Exophase when `BAKHYARD_EXOPHASE_PLAYER` isn't set and without covers when `BAKHYARD_TWITCH_CLIENT_ID` isn't set, planner without Copilot when `BAKHYARD_COPILOT_HOST` isn't set, and notes read-only when `BAKHYARD_VAULT_REPO` isn't set and without history links when `BAKHYARD_VAULT_HISTORY` isn't set.
+The gateway doesn't start without its four settings, nor notes without its vault: each exits 1 and says what's missing. The gateway also waits for every other service to start, and nudge for notify. Todos and time run without Jira when none of the three Jira settings is set, pulls without Bitbucket when none of the three Bitbucket settings is set, github without GitHub when `BAKHYARD_GITHUB_API` isn't set, games without Exophase when `BAKHYARD_EXOPHASE_PLAYER` isn't set and without covers when `BAKHYARD_TWITCH_CLIENT_ID` isn't set, planner without Copilot when `BAKHYARD_COPILOT_HOST` isn't set, and notes read-only when `BAKHYARD_VAULT_REPO` isn't set and without history links when `BAKHYARD_VAULT_HISTORY` isn't set.
 
-On the Mac, the gateway, todos, pulls, time, github, games, planner and notes read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`, `github-token`, `twitch-client-secret`, `copilot-token`, `vault-write-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
+On the Mac, the services read their secrets from the login Keychain, as the sections below show. On the laptop, which has no Keychain, `BAKHYARD_SECRETS` names a folder of files instead, each named as its secret's Keychain account (`google-client-secret`, `postgres-gateway`, `postgres-todos`, `postgres-notify`, `postgres-nudge`, `vapid-key`, `jira-token`, `bitbucket-token`, `github-token`, `twitch-client-secret`, `copilot-token`, `vault-write-token`) and holding the secret exactly, with no newline at the end: the files of the Kubernetes Secrets mounted there (decision 154). Leave it unset on the Mac.
 
 ## Tailscale
 
@@ -79,7 +79,7 @@ Without the item, the gateway exits 1 with `read the Google client secret: no Ke
 
 ## Postgres
 
-Each service keeps its data in a database of its own, owned by a role of its own, on a local PostgreSQL 18 (decisions 80 and 81). `process-compose.yaml` expects it at `127.0.0.1:5433`. So far the gateway and todos have one. For the gateway, choose a long random password for its role, then, as a Postgres superuser in `psql`:
+Each service keeps its data in a database of its own, owned by a role of its own, on a local PostgreSQL 18 (decisions 80 and 81). `process-compose.yaml` expects it at `127.0.0.1:5433`. Four services have one: the gateway, todos, notify and nudge. For the gateway, choose a long random password for its role, then, as a Postgres superuser in `psql`:
 
 ```sql
 CREATE ROLE bakhyard_gateway LOGIN;
