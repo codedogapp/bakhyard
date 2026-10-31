@@ -24,6 +24,24 @@ func TestRunNeedsAnAddress(t *testing.T) {
 	}
 }
 
+func TestRunNeedsAKnownLogFormat(t *testing.T) {
+	routes := func(context.Context, func(string) string) (http.Handler, error) {
+		t.Error("built the routes with an unknown log format")
+
+		return nil, errors.New("built the routes")
+	}
+
+	err := service.Run(getenvOf(map[string]string{
+		"BAKHYARD_LISTEN":     "tcp://127.0.0.1:8081",
+		"BAKHYARD_LOG_FORMAT": "xml",
+	}), routes)
+
+	want := `BAKHYARD_LOG_FORMAT: "xml" is neither json nor text`
+	if err == nil || err.Error() != want {
+		t.Errorf("got %v, want %s", err, want)
+	}
+}
+
 func TestRunReportsRoutesThatFail(t *testing.T) {
 	failed := errors.New("no peer")
 

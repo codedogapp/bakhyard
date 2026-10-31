@@ -9,6 +9,8 @@ import (
 	"net/url"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/codedogapp/bakhyard/internal/requestid"
 )
 
 // apiPrefix starts every public API path; the services serve their paths without it.
@@ -54,11 +56,24 @@ func RegisterUnclaimed(router chi.Router) {
 	router.Handle(apiPrefix+"/*", http.NotFoundHandler())
 }
 
+// forwarder passes each request on to target with the gateway's ID for it (decision 507).
 func forwarder(name string, target *url.URL, logger *slog.Logger) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
-		Rewrite:      func(pr *httputil.ProxyRequest) { pr.SetURL(target) },
-		ErrorHandler: unavailable(name, logger),
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(target)
+			requestid.Pass(pr.In.Context(), pr.Out.Header)
+		},
+		ModifyResponse: dropRequestID,
+		ErrorHandler:   unavailable(name, logger),
 	}
+}
+
+// dropRequestID deletes the request's ID from target's answer, which repeats the one that the
+// gateway's answer carries already; ReverseProxy would add it a second time.
+func dropRequestID(res *http.Response) error {
+	res.Header.Del(requestid.Header)
+
+	return nil
 }
 
 func unavailable(name string, logger *slog.Logger) func(http.ResponseWriter, *http.Request, error) {
