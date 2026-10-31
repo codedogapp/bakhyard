@@ -269,7 +269,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `homelab-token-expiry` | The homelab repo gives todos and pulls their tokens' dates, and home asks planner, which a NetworkPolicy lets it reach. The fifth of `hardening-docs`' steps (decision 500) | Pending |
 | `log-json` | The services log JSON lines, which VictoriaLogs reads into fields, except under process-compose, where `BAKHYARD_LOG_FORMAT=text` keeps slog's text. The sixth of `hardening-docs`' steps (decisions 500 and 506) | Done (#246) |
 | `homelab-logs` | The homelab repo's Logs dashboard finds the JSON lines' errors by their level. The seventh of `hardening-docs`' steps (decision 500) | Pending |
-| `request-ids` | Each request gets an ID, its `X-Request-Id` when that's a UUID or else a new UUIDv7, which its answer carries and the logs of its handling name as `request_id`. The eighth of `hardening-docs`' steps (decision 500) | Pending |
+| `request-ids` | Each request gets an ID, its `X-Request-Id` when that's a UUID or else a new UUIDv7, which its answer carries and the logs of its handling name as `request_id`. The eighth of `hardening-docs`' steps (decisions 500 and 507) | Done (#247) |
 | `request-id-peers` | home passes a request's ID on to the peers it asks for the Home. The ninth of `hardening-docs`' steps (decision 500) | Pending |
 | `error-states` | An audit of each page's and each Home section's loading, failed and empty states, which records what it finds and fixes the gaps. The tenth of `hardening-docs`' steps (decision 500) | Pending |
 | `host-setup-docs` | The README and `docs/setup.md` describe the Mac's setup as it is; the laptop's is the homelab repo's docs (decision 136). The eleventh of `hardening-docs`' steps (decision 500) | Pending |
@@ -1439,7 +1439,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `homelab-token-expiry`: in the homelab repo, the dates of the Jira and Bitbucket tokens, and home asks planner (decision 500).
   - `log-json`: the services log JSON lines, or slog's text under process-compose (decisions 500 and 506). Done (#246).
   - `homelab-logs`: in the homelab repo, the Logs dashboard finds the JSON lines' errors by their level (decision 500).
-  - `request-ids`: each request has an ID, which its answer carries and its logs name (decision 500).
+  - `request-ids`: each request has an ID, which its answer carries and its logs name (decisions 500 and 507). Done (#247).
   - `request-id-peers`: home passes a request's ID on to its peers (decision 500).
   - `error-states`: an audit of each page's and each Home section's loading, failed and empty states, and fixes for the gaps it finds (decision 500).
   - `host-setup-docs`: the host's setup, in the README and `docs/setup.md`. The laptop's own is the homelab repo's docs (decision 136).
