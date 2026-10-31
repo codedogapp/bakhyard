@@ -17,6 +17,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/env"
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
 	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1/attentionv1connect"
+	"github.com/codedogapp/bakhyard/internal/requestid"
 	"github.com/codedogapp/bakhyard/services/home/internal/screen"
 )
 
@@ -36,12 +37,12 @@ type peer struct {
 }
 
 // New returns a Feed that asks peers over gRPC on h2c, HTTP/2 without TLS, as the services serve
-// it, and logs their failures to logger.
+// it, sends each call the ID of the request that it's made for, and logs their failures to logger.
 func New(peers []env.Peer, logger *slog.Logger) *Feed {
 	h2c := new(http.Protocols)
 	h2c.SetUnencryptedHTTP2(true)
 
-	httpClient := &http.Client{Transport: &http.Transport{Protocols: h2c}}
+	httpClient := &http.Client{Transport: requestid.Transport(&http.Transport{Protocols: h2c})}
 	feed := &Feed{logger: logger}
 
 	for _, setting := range peers {
