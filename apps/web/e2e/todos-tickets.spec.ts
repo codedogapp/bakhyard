@@ -1,10 +1,11 @@
 import type { Page } from '@playwright/test';
 
+import { bounds } from './bounds';
 import { chipLooks } from './chips';
 import { home, tickets, todos } from './demo';
 import { expect, test } from './fixtures';
 import { group, heads } from './groups';
-import { answerDismissals, answerTickets } from './jira';
+import { answerDismissals, answerTickets, jiraOff } from './jira';
 
 /** The Todos page's Jira section. */
 function jira(page: Page) {
@@ -120,6 +121,37 @@ test('the tickets follow the line that says the todos could not load', async ({ 
   await expect(head).toBeVisible();
   const [above, below] = [await page.getByText("Couldn't load the todos.").boundingBox(), await head.boundingBox()];
   expect(above && below && above.y + above.height <= below.y).toBe(true);
+});
+
+for (const { when, answer } of [
+  { when: 'no ticket is open', answer: { tickets: [], searched: '2026-10-21T00:38:00Z' } },
+  { when: 'the tickets could not load', answer: 500 },
+]) {
+  test(`with no todos, the Jira section sits under the form as a group would, when ${when}`, async ({
+    page,
+  }, testInfo) => {
+    await page.route('/api/todos', (route) => route.fulfill({ json: { todos: [] } }));
+    await answerTickets(page, answer);
+    await page.goto('/todos');
+
+    const [form, section] = await Promise.all([page.locator('main form').first(), jira(page)].map(bounds));
+    expect(section.y - (form.y + form.height)).toBeCloseTo(testInfo.project.name === 'phone' ? 24 : 30, 0);
+  });
+}
+
+test("with no todos and Jira off, the form ends the page with a section's space under its own", async ({
+  page,
+}, testInfo) => {
+  await page.route('/api/todos', (route) => route.fulfill({ json: { todos: [] } }));
+  await jiraOff(page);
+  await page.goto('/todos');
+
+  const form = await bounds(page.locator('main form').first());
+  const main = await bounds(page.getByRole('main'));
+  expect(main.y + main.height - (form.y + form.height)).toBeCloseTo(
+    testInfo.project.name === 'phone' ? 24 + 48 : 30 + 64,
+    0
+  );
 });
 
 test('a long key, summary, status or failure wraps on a narrow screen', async ({ page }) => {

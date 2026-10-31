@@ -28,6 +28,8 @@ const done = $derived(doneTickets(tickets));
 const inbox = new Inbox(list, () => tickets, focus);
 // The todos once the tickets and the dismissed tickets have loaded too, so the inbox above them never pushes them down.
 const todos = $derived(tickets.kind === 'loading' || inbox.loading ? undefined : list.todos);
+// Whether no section follows the form: no group, no inbox, and no Jira section, which shows unless Jira is off.
+const formLast = $derived(list.groups.length === 0 && inbox.tickets.length === 0 && tickets.kind === 'off');
 
 onMount(() => {
   void list.load();
@@ -40,7 +42,7 @@ onMount(() => {
 
 <PageHead summary={todos && todosSummary(todos.length)}>Todos</PageHead>
 {#if todos}
-  <div class={['tools', { last: list.groups.length === 0 && inbox.tickets.length === 0 }]}>
+  <div class={['tools', { last: formLast }]}>
     <AddForm {list} bind:field={addField} />
   </div>
   <JiraInbox {inbox} />
