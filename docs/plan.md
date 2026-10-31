@@ -261,7 +261,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `planner-save` | "Save to Obsidian" in the planner: a route saves a plan's plan in the vault with decision 708's package, through notes, now that `vault-edit-sync`'s `note-store` and `note-new` are in: `POST /planner/plans/{id}/note` answers the note's path, and the planner finds notes in its `BAKHYARD_PEERS` (§3, decisions 403, 708 and 709) | Done (#231) |
 | `planner-save-page` | A plan's page saves its plan in the vault with a "Save to Obsidian" button above the plan, and says as which note, with no link to it, which notes finds only once it has synced (decisions 403, 708 and 710) | Done (#233) |
 | `sonar-saver` | Clears the one issue that SonarQube Cloud's run on `e6829d7` found, though its gate passed: the planner's one-method interface `Vault`, which saves plans in the vault, becomes `Saver`, after its method, as notify's `Subscriptions` became `Adder`. Nothing changes on screen or on the wire (decision 712) | Done (#237) |
-| `hardening-docs` | The plan's last feature (§8.2 Phase 7): the Home reminds the user before the Jira, Bitbucket, GitHub and Copilot tokens expire, the services log JSON lines with request IDs, an audit checks the pages' error states, and the docs describe the host's setup, by the hardening session in `../bakhyard-hardening/`, which adds its steps' rows under this one (decisions 500 and 501) | In progress |
+| `hardening-docs` | The plan's last feature (§8.2 Phase 7): the Home reminds the user before the Jira, Bitbucket, GitHub and Copilot tokens expire, the services log JSON lines with request IDs, an audit checks the pages' error states, and the docs describe the host's setup, by the hardening session in `../bakhyard-hardening/`, which adds its steps' rows under this one (decisions 500 and 501) | Done (#253) |
 | `hardening-plan` | `hardening-docs` splits in eleven steps, around the user's answer on the tokens' reminders: a Home item from 14 days before each token expires, at the date that a setting gives for Atlassian's tokens and that GitHub's answers tell for GitHub's. The NATS auth token is dropped, and the plan records that the Mac dumps the laptop's Postgres every night, rather than CloudNativePG backing it up to Garage. The first of `hardening-docs`' steps (decisions 500 and 501) | Done (#242) |
 | `atlassian-token-expiry` | todos lists "Renew the Jira token" in the Home's "Needs you today" from 14 days before the date in `BAKHYARD_JIRA_TOKEN_EXPIRES`, and pulls "Renew the Bitbucket token" before the date in `BAKHYARD_BITBUCKET_TOKEN_EXPIRES`, through a root package that both use. The second of `hardening-docs`' steps (decisions 500 and 502) | Done (#243) |
 | `github-token-expiry` | github lists "Renew the GitHub token" from 14 days before the token expires, at the date that GitHub's `GitHub-Authentication-Token-Expiration` header tells. The third of `hardening-docs`' steps (decisions 500 and 503) | Done (#244) |
@@ -273,7 +273,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `request-id-peers` | home passes a request's ID on to the peers it asks for the Home. The ninth of `hardening-docs`' steps (decisions 500 and 508) | Done (#250) |
 | `error-states` | An audit of each page's and each Home section's loading, failed and empty states, which records what it finds and fixes the gaps. The tenth of `hardening-docs`' steps (decisions 500 and 509) | Done (#251) |
 | `host-setup-docs` | The README and `docs/setup.md` describe the Mac's setup as it is; the laptop's is the homelab repo's docs (decision 136). The eleventh of `hardening-docs`' steps (decision 500) | Done (#252) |
-| `request-id-planner-nudge` | planner passes a request's ID on to notes as it saves a plan, and nudge to notify as it pushes an agent's question, as home does to its peers. The twelfth of `hardening-docs`' steps (decisions 500 and 510) | In review |
+| `request-id-planner-nudge` | planner passes a request's ID on to notes as it saves a plan, and nudge to notify as it pushes an agent's question, as home does to its peers. The twelfth of `hardening-docs`' steps (decisions 500 and 510) | Done (#253) |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -1433,7 +1433,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `alerts-attention`: notify answers the attention contract with the alerts that fire, so the Home lists them (decisions 606 and 610). Done (#235).
   - `homelab-alerts-home`: in the homelab repo, home asks notify for its items (decision 606). Done (codedogapp/homelab#52).
   - `alerts-page-done`: the plan records the Alerts page's rollout, and the user's choice to skip its live check (decisions 606 and 611). Done (#239).
-- `hardening-docs` [every service, web]. Needs `auth-signin`, `copilot-planner`, `deploy-k3s`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`. Twelve steps (decisions 500, 501 and 510):
+- `hardening-docs` [every service, web]: done (#253). Needs `auth-signin`, `copilot-planner`, `deploy-k3s`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`. Twelve steps (decisions 500, 501 and 510):
   - `hardening-plan`: this split, which drops the NATS auth token, since NATS was never built, and the record of Postgres' backups: the Mac dumps the laptop's Postgres every night. The vault needs no snapshots, since Gitea and GitHub keep its history (decisions 420, 500 and 501). Done (#242).
   - `atlassian-token-expiry`: todos and pulls list a Home item from 14 days before the Jira and Bitbucket tokens expire, at the dates that two settings give (decisions 500 and 502). Done (#243).
   - `github-token-expiry`: github lists one before the GitHub token expires, at the date that GitHub's answers tell (decisions 500 and 503). Done (#244).
@@ -1445,7 +1445,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `request-id-peers`: home passes a request's ID on to its peers (decisions 500 and 508). Done (#250).
   - `error-states`: an audit of each page's and each Home section's loading, failed and empty states, and fixes for the gaps it finds (decisions 500 and 509). Done (#251).
   - `host-setup-docs`: the host's setup, in the README and `docs/setup.md`. The laptop's own is the homelab repo's docs (decision 136). Done (#252).
-  - `request-id-planner-nudge`: planner passes a request's ID on to notes, and nudge to notify (decisions 500 and 510).
+  - `request-id-planner-nudge`: planner passes a request's ID on to notes, and nudge to notify (decisions 500 and 510). Done (#253).
 
 ## 9. Decisions
 
