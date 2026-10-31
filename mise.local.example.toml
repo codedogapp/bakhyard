@@ -54,5 +54,8 @@ BAKHYARD_VAULT = "/Users/you/Documents/Vault"
 # Keychain. Leave the host out to run without Copilot.
 # BAKHYARD_COPILOT_HOST = "example.ghe.com"
 # BAKHYARD_COPILOT_HOME = "/Users/you/Library/Application Support/Bakhyard/Copilot"
+# The REST API of the Copilot account's GitHub host, which the planner service asks when the token
+# expires. Leave it out for GHE.com and GitHub.com, where the planner asks https://api.<host>.
+# BAKHYARD_COPILOT_API = "https://github.example.com/api/v3"
 # The Go tests' own database. Put its role's password in place of <password>.
 BAKHYARD_TEST_DATABASE = "postgres://bakhyard_test:<password>@127.0.0.1:5433/bakhyard_test"

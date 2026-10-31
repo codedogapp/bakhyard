@@ -1,12 +1,25 @@
 # Bakhyard
 
-A personal dashboard for one user, hosted at home: Obsidian notes, work todos and pull requests, GitHub, games, and a Copilot planner, in one place. It's reached over Tailscale and needs a Google sign-in. It works on a Mac and on an iPhone, where it installs as a Home Screen app.
+A personal dashboard for one user, hosted at home: Obsidian notes, work todos, pull requests and hours, GitHub, games, a Copilot planner, the coding agents' questions and the laptop's alerts, in one place. It's reached over Tailscale and needs a Google sign-in. It works on a Mac and on an iPhone, where it installs as a Home Screen app, and sends push notifications to both.
 
-It's early. Today Bakhyard has its app shell, the sign-in, read-only notes, todos linked to Jira, open pull requests from Bitbucket with where each stands with its reviewers, the pull requests that wait for the user's review, the hours logged on Jira over the last 7 days, and a Home that gathers what needs the user from the todos and the pull requests. The modules come one small step at a time, and [the plan](docs/plan.md) has the steps, their order and the decisions behind them. It runs at home on an always-on Linux laptop with k3s, deployed from a private homelab repo, and on a Mac for development.
+Its pages:
+
+- **Home**: what needs the user, gathered from the other apps: the Jira tickets and todos to see to, the open pull requests, the review requests and issues on GitHub, the weekdays with no hours logged, the alerts that fire and the tokens about to expire. Under it, this week's hours.
+- **Notes**: the Obsidian vault, rendered. On the laptop, a note can be edited, and each save is committed to the vault's repository in Gitea.
+- **Todos**: todos linked to Jira tickets, with an inbox of the user's open tickets.
+- **Pull requests**: the user's open pull requests on Bitbucket, with where each stands with its reviewers, and those that wait for the user's review. On weekdays at 10:00 and 15:00, a push lists those that still wait for approvals.
+- **Time**: the hours logged on Jira over the last 7 days, and a form that logs a day's.
+- **GitHub**: the user's open pull requests, review requests and assigned issues, across every owner.
+- **Games**: the games played in the last 14 days, from Exophase, with their covers from IGDB.
+- **Planner**: plans worked out with Copilot, which the vault can keep as notes.
+- **Nudge**: the questions that the user's coding agents ask, answered from the phone, and the agents at work.
+- **Alerts**: the laptop's alerts, those that fire and those of the last 30 days.
+
+[The plan](docs/plan.md) has the small steps it was built in and the decisions behind them. It runs at home on an always-on Linux laptop with k3s, deployed from a private homelab repo, and on a Mac for development.
 
 ## How it's built
 
-Each feature is a Go service of its own, in `services/`, behind a gateway that checks who's asking and passes each request on. The app is a Svelte single-page app, in `apps/web`, which the `web` service embeds and serves. The gateway keeps its sessions, and todos its todos, in PostgreSQL. The services run on k3s on the laptop, and in process-compose on a Mac. [§4 of the plan](docs/plan.md#4-system-architecture-the-microservices-experiment) has the details.
+Each feature is a Go service of its own, in `services/`, behind a gateway that checks who's asking and passes each request on. The app is a Svelte single-page app, in `apps/web`, which the `web` service embeds and serves. Four services keep their data in PostgreSQL, each in a database of its own: the gateway its sessions, todos its todos, notify the phones' push subscriptions and the alerts, and nudge the agents' questions. The services run on k3s on the laptop, and in process-compose on a Mac. [§4 of the plan](docs/plan.md#4-system-architecture-the-microservices-experiment) has the details.
 
 ## Requirements
 
@@ -50,4 +63,4 @@ A change is done when the gate passes and its pull request's CI is green. SonarQ
 
 - [AGENTS.md](AGENTS.md): how we work, with the rules for every change and the quality gates.
 - [docs/plan.md](docs/plan.md): what we build, in what order and why, with every decision.
-- [docs/setup.md](docs/setup.md): what a machine needs before `mise run up`.
+- [docs/setup.md](docs/setup.md): what a Mac needs before `mise run up`. The laptop's setup is in the homelab repo's docs.

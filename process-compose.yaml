@@ -1,8 +1,9 @@
 # The services that mise run up runs with process-compose (docs/plan.md §4.9). Each one
 # listens on its BAKHYARD_LISTEN. The gateway finds the others in its BAKHYARD_PEERS, home finds
-# there the ones it asks what needs the user, and nudge and pulls find notify (§4.7).
-# The gateway and todos find their databases at BAKHYARD_DATABASE, a URL without the password
-# (docs/setup.md). Every address is on the loopback: tailscale serve publishes the gateway.
+# there the ones it asks what needs the user, nudge and pulls find notify, and planner finds notes
+# (§4.7). The gateway, todos, notify and nudge find their databases at BAKHYARD_DATABASE, a URL
+# without the password (docs/setup.md). Every address is on the loopback: tailscale serve
+# publishes the gateway.
 is_strict: true
 ordered_shutdown: true
 
