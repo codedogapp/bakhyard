@@ -273,6 +273,7 @@ The v1.2 design in §4 to §6 stays as reference. A piece of it is built only wh
 | `request-id-peers` | home passes a request's ID on to the peers it asks for the Home. The ninth of `hardening-docs`' steps (decisions 500 and 508) | Done (#250) |
 | `error-states` | An audit of each page's and each Home section's loading, failed and empty states, which records what it finds and fixes the gaps. The tenth of `hardening-docs`' steps (decisions 500 and 509) | Done (#251) |
 | `host-setup-docs` | The README and `docs/setup.md` describe the Mac's setup as it is; the laptop's is the homelab repo's docs (decision 136). The eleventh of `hardening-docs`' steps (decision 500) | Done (#252) |
+| `request-id-planner-nudge` | planner passes a request's ID on to notes as it saves a plan, and nudge to notify as it pushes an agent's question, as home does to its peers. The twelfth of `hardening-docs`' steps (decisions 500 and 510) | In review |
 
 After these: the product phases (§8.2), each split into steps.
 
@@ -563,7 +564,7 @@ Other rules:
 > - The gateway's database comes from a third variable in `process-compose.yaml`, `BAKHYARD_DATABASE`: its URL without the password, which the gateway reads from the login Keychain (decision 81). The gateway exits 1 with `BAKHYARD_DATABASE is not set` or `read the database password: …` without them, and with `reach the database: …` or `migrate the database: …` when Postgres doesn't answer within 10 s or a migration fails.
 > - Every service starts through the root `internal/service`: it reads the address, builds the service's routes, and serves them with the root `internal/server`, with a 5 s `ReadHeaderTimeout`. On SIGTERM or Ctrl-C the server stops accepting connections and gives the requests in flight 8 s to finish; the service then exits 0 if they all did, and 1 if not. The routes get a context that ends then, or when the service stops otherwise, so the work they start in the background, such as todos' Jira poll, stops with the service (decision 122). A service's `main.go` holds only its routes, and logs the error that ends it.
 > - Before anything else, `internal/service` sets slog's default logger, through which every service logs, from `BAKHYARD_LOG_FORMAT`: JSON lines on stderr, through slog's JSON handler, when it's `json` or unset, as on the laptop, or slog's default text lines when it's `text`, as `process-compose.yaml` sets it for every service. Any other value stops the service (decision 506).
-> - `internal/service` also gives each request an ID, through the root `internal/requestid`: its `X-Request-Id` when that's a UUID, in any form that Go's `uuid.Parse` reads, written in the canonical form, or else a new UUIDv7. The answer carries it as `X-Request-Id`, and every JSON line logged with the request's context names it as `request_id`; text lines don't (decision 507). home sends it on to the peers that it asks for the Home, whose middleware takes it, so their lines name it too (decision 508).
+> - `internal/service` also gives each request an ID, through the root `internal/requestid`: its `X-Request-Id` when that's a UUID, in any form that Go's `uuid.Parse` reads, written in the canonical form, or else a new UUIDv7. The answer carries it as `X-Request-Id`, and every JSON line logged with the request's context names it as `request_id`; text lines don't (decision 507). home sends it on to the peers that it asks for the Home, planner to notes as it saves a plan, and nudge to notify as it pushes an agent's question. Their middleware takes it, so their lines name it too (decisions 508 and 510).
 > - Every service answers its health check, `GET /healthz`, on its `listen`, through the root `internal/health`: 200 with `{"status":"ok"}` as `application/json`. HEAD gets the same headers, and any other method a 405 with `Allow: GET`. The gateway answers its own rather than pass it to web, so no service's `/healthz` is reachable from outside (decision 60).
 > - The other variables, unix sockets, the other ops endpoints (`/readyz`, `/metrics`), and every shutdown step below other than `http.Server.Shutdown`, wait for the steps that need them.
 
@@ -1432,7 +1433,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `alerts-attention`: notify answers the attention contract with the alerts that fire, so the Home lists them (decisions 606 and 610). Done (#235).
   - `homelab-alerts-home`: in the homelab repo, home asks notify for its items (decision 606). Done (codedogapp/homelab#52).
   - `alerts-page-done`: the plan records the Alerts page's rollout, and the user's choice to skip its live check (decisions 606 and 611). Done (#239).
-- `hardening-docs` [every service, web]. Needs `auth-signin`, `copilot-planner`, `deploy-k3s`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`. Eleven steps (decisions 500 and 501):
+- `hardening-docs` [every service, web]. Needs `auth-signin`, `copilot-planner`, `deploy-k3s`, `games-exophase`, `github-widgets`, `home-feed`, `pr-reminders`, `time-tracking`. Twelve steps (decisions 500, 501 and 510):
   - `hardening-plan`: this split, which drops the NATS auth token, since NATS was never built, and the record of Postgres' backups: the Mac dumps the laptop's Postgres every night. The vault needs no snapshots, since Gitea and GitHub keep its history (decisions 420, 500 and 501). Done (#242).
   - `atlassian-token-expiry`: todos and pulls list a Home item from 14 days before the Jira and Bitbucket tokens expire, at the dates that two settings give (decisions 500 and 502). Done (#243).
   - `github-token-expiry`: github lists one before the GitHub token expires, at the date that GitHub's answers tell (decisions 500 and 503). Done (#244).
@@ -1444,6 +1445,7 @@ Every item is pending unless it says done. The service an item lands in is in br
   - `request-id-peers`: home passes a request's ID on to its peers (decisions 500 and 508). Done (#250).
   - `error-states`: an audit of each page's and each Home section's loading, failed and empty states, and fixes for the gaps it finds (decisions 500 and 509). Done (#251).
   - `host-setup-docs`: the host's setup, in the README and `docs/setup.md`. The laptop's own is the homelab repo's docs (decision 136). Done (#252).
+  - `request-id-planner-nudge`: planner passes a request's ID on to notes, and nudge to notify (decisions 500 and 510).
 
 ## 9. Decisions
 
@@ -2250,6 +2252,10 @@ Decisions 500 to 599 are the hardening session's: `hardening-docs`.
      - **The Todos page without todos**: with Jira on, the Jira tickets section, loaded or failed, is the first section under the form, yet the form kept the space with which it ends the page, so the section's rule sat 94 px under the form (72 on phones) rather than §7's 30 (24). The form now ends the page only when no section follows it: no priority group, no inbox, and Jira off (decision 116).
      - **The Nudge page**: §7 had no bullet for it, so it gains one, as `nudge-merge` built it. Its empty sections said so in a bare muted line under their heads, while every other page's empty section, such as the Planner's and the Alerts page's, says so in its card, 20 px in. Nudge's now do too, so "Waiting *for you*" shows a card with its line when no question waits, as "Needs you today" does.
      - **Rejected**: loading lines, such as "Loading…", which would flash on a fast connection, as decision 707 found for a plan's renderer; new states, which the pages don't need; a shared component for an empty section, which would wrap a card and each page's own line, as decision 206 found for the status line.
+510. **Request IDs to notes and notify** (`request-id-planner-nudge`): the user's answer (2026-10-31, through nudge) to have these calls carry the ID too; the rest is the lead's, for the user to review. It amends decisions 500 and 508.
+     - **The calls**: planner's to notes as it saves a plan to Obsidian, and nudge's to notify as it pushes an agent's question, which decision 508 left out, now go through `requestid.Transport`, as home's calls to its peers do. Notes' and notify's middleware takes the ID as its own, so the lines that they log for the call name the same `request_id` as planner's or nudge's. Every call that a service makes to another while it handles a request now carries the request's ID; pulls' reminders to notify still belong to no request.
+     - **nudge's push**: it runs in the background, in a context that keeps the agent's request's values but not its end (`context.WithoutCancel`, as before), so it carries that request's ID even when the request ends first, answered or withdrawn. A test now checks that the push carries the ID that nudge's answer to the agent does.
+     - **The step**: `request-id-planner-nudge`, a twelfth step, which ends the feature in place of `host-setup-docs`.
 
 Decisions 600 to 699 are the alerts session's: `homelab-alerts`.
 
