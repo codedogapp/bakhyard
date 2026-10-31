@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+
+	"github.com/codedogapp/bakhyard/internal/requestid"
 )
 
 // logFormat is the format of a service's logs, which BAKHYARD_LOG_FORMAT names (docs/setup.md).
@@ -17,12 +19,14 @@ const (
 )
 
 // setLogs sets slog's default logger, through which every service logs, to the format that
-// BAKHYARD_LOG_FORMAT names: JSON lines on w when it's json or unset, or slog's default text
-// lines on stderr, as they were, when it's text.
+// BAKHYARD_LOG_FORMAT names: JSON lines on w when it's json or unset, which name the request
+// that a line's context belongs to, or slog's default text lines on stderr, as they were, when
+// it's text. Wrapping slog's default handler to name the request would deadlock it, through the
+// log package, so text lines never do.
 func setLogs(getenv func(string) string, w io.Writer) error {
 	switch format := logFormat(getenv("BAKHYARD_LOG_FORMAT")); format {
 	case "", logJSON:
-		slog.SetDefault(slog.New(slog.NewJSONHandler(w, nil)))
+		slog.SetDefault(slog.New(requestid.NewHandler(slog.NewJSONHandler(w, nil))))
 	case logText:
 		// slog's default logger writes text already.
 	default:
