@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/codedogapp/bakhyard/services/planner/internal/copilot"
 )
@@ -47,7 +48,7 @@ func TestPlannerStopsOnABadSetup(t *testing.T) {
 
 			var stopping sync.WaitGroup
 
-			_, err := routes(t.Context(), copilotEnv(test.home), secretsWith(test.secrets),
+			_, err := routes(t.Context(), copilotEnv(test.home, ""), secretsWith(test.secrets),
 				&stopping)
 			if err == nil || !strings.HasPrefix(err.Error(), test.want) {
 				t.Errorf("got %v, want the error %s", err, test.want)
@@ -62,7 +63,7 @@ func TestCopilotSettingsComeFromTheEnvironment(t *testing.T) {
 
 	home := filepath.Join(t.TempDir(), "Copilot")
 
-	settings, err := copilotSettings(t.Context(), copilotEnv(home), secretsWith(token))
+	settings, err := copilotSettings(t.Context(), copilotEnv(home, ""), secretsWith(token))
 
 	want := copilot.Settings{
 		CLI: filepath.Join(folder, "copilot"), Home: home, Work: filepath.Join(home, "work"),
@@ -93,7 +94,8 @@ func TestPlannerRunsCopilotUntilItStops(t *testing.T) {
 
 	var stopping sync.WaitGroup
 
-	router, err := routes(ctx, copilotEnv(home), secretsWith(token), &stopping)
+	router, err := routes(ctx, copilotEnv(home, githubServer(t, time.Time{})), secretsWith(token),
+		&stopping)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,9 +114,10 @@ func TestPlannerRunsCopilotUntilItStops(t *testing.T) {
 	}
 }
 
-// copilotEnv returns an environment where Copilot is set up, with home as the CLI's folder.
-func copilotEnv(home string) func(string) string {
-	return envOf(map[string]string{hostVar: "example.ghe.com", homeVar: home})
+// copilotEnv returns an environment where Copilot is set up, with home as the CLI's folder and
+// api as GitHub's API, or the host's API when api is empty.
+func copilotEnv(home, api string) func(string) string {
+	return envOf(map[string]string{hostVar: "example.ghe.com", homeVar: home, apiVar: api})
 }
 
 // cliOn returns a folder that holds only target, under the name copilot.

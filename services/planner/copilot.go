@@ -28,22 +28,15 @@ const tokenAccount = "copilot-token"
 // folderMode lets only the user into the CLI's folders.
 const folderMode = 0o700
 
-// startPlanner starts the Copilot CLI in the settings, with the token that readSecret reads, and
-// returns its client, or nil when Copilot is off. The CLI stops once ctx ends, and stopping waits
-// for it.
+// startPlanner starts the Copilot CLI with settings and returns its client, or nil when Copilot is
+// off and settings are zero. The CLI stops once ctx ends, and stopping waits for it.
 func startPlanner(
 	ctx context.Context,
-	getenv func(string) string,
-	readSecret secrets.Reader,
+	settings copilot.Settings,
 	stopping *sync.WaitGroup,
 ) (api.Planner, error) {
-	if getenv(hostVar) == "" {
+	if settings.Host == "" {
 		return nil, nil
-	}
-
-	settings, err := copilotSettings(ctx, getenv, readSecret)
-	if err != nil {
-		return nil, err
 	}
 
 	client := copilot.New(settings, os.Environ())
@@ -64,12 +57,17 @@ func startPlanner(
 }
 
 // copilotSettings returns the Copilot CLI's settings, with the token that readSecret reads, once
-// it has made the empty folder that the CLI works in.
+// it has made the empty folder that the CLI works in, or zero ones when Copilot is off.
 func copilotSettings(
 	ctx context.Context,
 	getenv func(string) string,
 	readSecret secrets.Reader,
 ) (copilot.Settings, error) {
+	host := getenv(hostVar)
+	if host == "" {
+		return copilot.Settings{}, nil
+	}
+
 	home, err := env.Required(getenv, homeVar)
 	if err != nil {
 		return copilot.Settings{}, err
@@ -95,6 +93,5 @@ func copilotSettings(
 		return copilot.Settings{}, fmt.Errorf("create the Copilot CLI's folder: %w", err)
 	}
 
-	return copilot.Settings{CLI: cli, Home: home, Work: work, Host: getenv(hostVar), Token: token},
-		nil
+	return copilot.Settings{CLI: cli, Home: home, Work: work, Host: host, Token: token}, nil
 }

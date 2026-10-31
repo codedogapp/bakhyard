@@ -56,7 +56,7 @@ func routes(
 	mine, reviews, issues := poll(ctx, client, logger)
 	api.Register(router, mine, reviews, issues)
 
-	token := githubToken(watchToken(ctx, client, logger))
+	token := githubToken(ctx, client, logger)
 	attentionServer := connect.NewServer()
 	attentionv1connect.RegisterAttentionServiceHandler(attentionServer,
 		tokenexpiry.NewLister(attention.NewLister(mine, reviews, issues), token))

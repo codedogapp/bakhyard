@@ -10,6 +10,7 @@ import (
 	"time"
 
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
+	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1/attentionv1connect"
 	"github.com/codedogapp/bakhyard/internal/tokenexpiry"
 )
 
@@ -87,16 +88,32 @@ func TestListItemsRemindsFrom14DaysBeforeTheTokenExpires(t *testing.T) {
 }
 
 func TestListItemsRemindsWhenTheServiceListsNothing(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		expires := time.Now().Add(time.Hour)
-		lister := tokenexpiry.NewLister(listing(), jiraToken(expires))
+	for _, test := range []struct {
+		name  string
+		items attentionv1connect.AttentionServiceHandler
+	}{
+		{"a service that lists nothing", listing()},
+		{"a service without a lister", nil},
+	} {
+		synctest.Test(t, func(t *testing.T) {
+			expires := time.Now().Add(time.Hour)
+			lister := tokenexpiry.NewLister(test.items, jiraToken(expires))
 
-		want := []string{"jira-token | Renew the Jira token |  | SOURCE_JIRA | " +
-			expires.UTC().String()}
-		if got := list(t, lister); !slices.Equal(got, want) {
-			t.Errorf("got %q, want %q", got, want)
-		}
-	})
+			want := []string{"jira-token | Renew the Jira token |  | SOURCE_JIRA | " +
+				expires.UTC().String()}
+			if got := list(t, lister); !slices.Equal(got, want) {
+				t.Errorf("%s: got %q, want %q", test.name, got, want)
+			}
+		})
+	}
+}
+
+func TestListItemsListsNothingWithoutAServiceListerOrAReminder(t *testing.T) {
+	res, err := tokenexpiry.NewLister(nil, jiraToken(time.Time{})).ListItems(t.Context(),
+		&attentionv1.ListItemsRequest{})
+	if err != nil || res == nil || len(res.GetItems()) != 0 {
+		t.Errorf("got %v and %v, want an empty list", res, err)
+	}
 }
 
 func TestListItemsNeverRemindsOfATokenThatNeverExpires(t *testing.T) {

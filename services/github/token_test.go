@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/codedogapp/bakhyard/internal/githubapi"
 	"github.com/codedogapp/bakhyard/services/github/internal/github"
 )
 
@@ -40,11 +41,11 @@ func TestGitHubTokenExpiresWhenGitHubSays(t *testing.T) {
 		client *github.Client
 		want   time.Time
 	}{
-		{"GitHub's answer", github.New(github.Settings{API: api, Token: "secret"}), expires},
-		{"a failed ask", github.New(github.Settings{API: api, Token: "wrong"}), time.Time{}},
+		{"GitHub's answer", github.New(githubapi.Settings{API: api, Token: "secret"}), expires},
+		{"a failed ask", github.New(githubapi.Settings{API: api, Token: "wrong"}), time.Time{}},
 		{"GitHub off", nil, time.Time{}},
 	} {
-		token := githubToken(watchToken(t.Context(), test.client, slog.New(slog.DiscardHandler)))
+		token := githubToken(t.Context(), test.client, slog.New(slog.DiscardHandler))
 
 		got, err := token.Expires(t.Context())
 		if err != nil || !got.Equal(test.want) {

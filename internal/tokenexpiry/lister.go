@@ -16,7 +16,8 @@ type Lister struct {
 }
 
 // NewLister returns a lister of the items that items lists, and of the reminder to renew token
-// from 14 days before it expires.
+// from 14 days before it expires. A service with no items of its own, such as planner, gives nil
+// items, and lists the reminder alone.
 func NewLister(items attentionv1connect.AttentionServiceHandler, token Token) *Lister {
 	return &Lister{items: items, token: token}
 }
@@ -28,7 +29,7 @@ func (l *Lister) ListItems(
 	ctx context.Context,
 	req *attentionv1.ListItemsRequest,
 ) (*attentionv1.ListItemsResponse, error) {
-	res, err := l.items.ListItems(ctx, req)
+	res, err := l.listed(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -43,4 +44,16 @@ func (l *Lister) ListItems(
 	}
 
 	return res, nil
+}
+
+// listed returns the items that the service's lister lists, or none without one.
+func (l *Lister) listed(
+	ctx context.Context,
+	req *attentionv1.ListItemsRequest,
+) (*attentionv1.ListItemsResponse, error) {
+	if l.items == nil {
+		return &attentionv1.ListItemsResponse{}, nil
+	}
+
+	return l.items.ListItems(ctx, req)
 }

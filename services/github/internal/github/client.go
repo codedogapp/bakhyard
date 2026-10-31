@@ -8,10 +8,10 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"strconv"
-	"time"
+
+	"github.com/codedogapp/bakhyard/internal/githubapi"
 )
 
 const (
@@ -21,32 +21,17 @@ const (
 	maxPages = 10
 	// maxAnswer bounds the size of each answer from GitHub.
 	maxAnswer = 4 << 20
-	// requestTimeout bounds each call to GitHub.
-	requestTimeout = 10 * time.Second
-	// apiVersion is the version of GitHub's REST API that the client asks for.
-	apiVersion = "2026-03-10"
-	// userAgent names the app to GitHub, as GitHub asks.
-	userAgent = "bakhyard"
 )
 
-// Settings say where GitHub's API is, and as whom to search it.
-type Settings struct {
-	// API is the address of GitHub's REST API, https://api.github.com.
-	API *url.URL
-	// Token is the user's personal access token.
-	Token string
-}
-
-// Client searches GitHub as the user.
+// Client searches GitHub as the user, and asks it when the user's token expires.
 type Client struct {
-	settings Settings
-	client   *http.Client
+	*githubapi.Client
 }
 
 // New returns the client of the user whose token settings hold. It reaches GitHub only when it
-// searches.
-func New(settings Settings) *Client {
-	return &Client{settings: settings, client: &http.Client{Timeout: requestTimeout}}
+// asks.
+func New(settings githubapi.Settings) *Client {
+	return &Client{Client: githubapi.New(settings)}
 }
 
 // Mine returns the user's open pull requests, the latest updated first.
@@ -101,13 +86,12 @@ type results struct {
 func (c *Client) page(
 	ctx context.Context, query string, number int, action string,
 ) ([]issue, error) {
-	target := c.settings.API.JoinPath("search", "issues")
-	target.RawQuery = url.Values{
+	values := url.Values{
 		"q": {query}, "sort": {"updated"}, "order": {"desc"},
 		"per_page": {strconv.Itoa(pageSize)}, "page": {strconv.Itoa(number)},
-	}.Encode()
+	}
 
-	res, err := c.get(ctx, target, action)
+	res, err := c.Get(ctx, "search/issues", values, action)
 	if err != nil {
 		return nil, err
 	}
@@ -127,31 +111,4 @@ func (c *Client) page(
 	}
 
 	return answer.Items, nil
-}
-
-// get asks GitHub's API for target as the user, and returns GitHub's answer once GitHub has said
-// OK; the caller closes its body. Its errors start with action.
-func (c *Client) get(ctx context.Context, target *url.URL, action string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", action, err)
-	}
-
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Authorization", "Bearer "+c.settings.Token)
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("X-GitHub-Api-Version", apiVersion)
-
-	res, err := c.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", action, err)
-	}
-
-	if res.StatusCode != http.StatusOK {
-		_ = res.Body.Close()
-
-		return nil, fmt.Errorf("%s: %s", action, res.Status)
-	}
-
-	return res, nil
 }
