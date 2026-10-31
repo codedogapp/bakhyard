@@ -10,8 +10,8 @@ const reported = (session: Session) => new Date(session.noted_at).getFullYear() 
 </script>
 
 <Section title="Agents" accent="at work">
-  {#if sessions.length > 0}
-    <div class="card">
+  <div class="card">
+    {#if sessions.length > 0}
       <ul class="list">
         {#each sessions as session (session.id)}
           <li>
@@ -29,10 +29,10 @@ const reported = (session: Session) => new Date(session.noted_at).getFullYear() 
           </li>
         {/each}
       </ul>
-    </div>
-  {:else}
-    <p class="empty">No agent has reported.</p>
-  {/if}
+    {:else}
+      <p class="empty">No agent has reported.</p>
+    {/if}
+  </div>
 </Section>
 
 <style>
@@ -44,6 +44,7 @@ const reported = (session: Session) => new Date(session.noted_at).getFullYear() 
 
 .empty {
   margin: 0;
+  padding: 20px;
   color: var(--ink-muted);
 }
 </style>

@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import type { State } from '../src/nudge/nudge';
 import { home, nudge } from './demo';
@@ -23,6 +23,24 @@ async function serve(page: Page, initial: State) {
     return route.fulfill({ status: 204 });
   });
   return served;
+}
+
+/** What an empty section's text shares with every page's: its padding and ink, and its card's border, fill and shadow. */
+function emptyLook(text: Locator) {
+  return text.evaluate((node) => {
+    const own = getComputedStyle(node);
+    const card = getComputedStyle(node.parentElement ?? node);
+    return [
+      own.paddingTop,
+      own.paddingLeft,
+      own.color,
+      card.borderTopWidth,
+      card.borderTopStyle,
+      card.borderTopColor,
+      card.backgroundColor,
+      card.boxShadow,
+    ];
+  });
 }
 
 test('the Nudge page lists the questions that wait, and the agents at work', async ({ page }) => {
@@ -87,4 +105,15 @@ test("the Nudge page says when it couldn't load", async ({ page }) => {
   await page.goto('/nudge');
 
   await expect(page.getByText("Couldn't load the questions.")).toBeVisible();
+});
+
+test("an empty section of the Nudge page says so in its card, as the Alerts page's do", async ({ page }) => {
+  await serve(page, { questions: [], sessions: [] });
+  await page.route('/api/notify/alerts', (route) => route.fulfill({ json: { alerts: [] } }));
+  await page.goto('/alerts');
+  const look = await emptyLook(page.getByText('No alerts are firing.'));
+
+  await page.goto('/nudge');
+  expect(await emptyLook(page.getByText('No agent is waiting for you.'))).toEqual(look);
+  expect(await emptyLook(page.getByText('No agent has reported.'))).toEqual(look);
 });

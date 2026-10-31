@@ -15,7 +15,9 @@ const note = $derived(questions.length === 0 ? undefined : `${questions.length} 
       {/each}
     </div>
   {:else}
-    <p class="empty">No agent is waiting for you.</p>
+    <div class="card">
+      <p class="empty">No agent is waiting for you.</p>
+    </div>
   {/if}
 </Section>
 
@@ -25,8 +27,15 @@ const note = $derived(questions.length === 0 ? undefined : `${questions.length} 
   gap: 24px;
 }
 
+.card {
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  box-shadow: var(--offset) var(--offset) 0 var(--shadow);
+}
+
 .empty {
   margin: 0;
+  padding: 20px;
   color: var(--ink-muted);
 }
 </style>
