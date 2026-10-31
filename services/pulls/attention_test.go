@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
@@ -29,6 +30,33 @@ func TestPullsListsMyPullsAsAttentionItems(t *testing.T) {
 func TestPullsListsNoAttentionItemsWithoutBitbucket(t *testing.T) {
 	if got := listItems(t, envOf(nil), secretsWith(nil)); len(got) != 0 {
 		t.Errorf("got %q, want no items", got)
+	}
+}
+
+func TestPullsRemindsToRenewTheBitbucketToken(t *testing.T) {
+	address, _ := bitbucketServer(t)
+	settings := bitbucketSettings(address)
+	settings[bitbucketExpiresVar] = time.Now().UTC().AddDate(0, 0, 3).Format(time.DateOnly)
+
+	got := listItems(t, envOf(settings),
+		secretsWith(map[string]string{"bitbucket-token": "secret"}))
+
+	want := []string{
+		"acme/web#1 Ship", "labs/web#1 Ship", "bitbucket-token Renew the Bitbucket token",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestPullsRemindsToRenewTheBitbucketTokenWithoutBitbucket(t *testing.T) {
+	expires := time.Now().UTC().AddDate(0, 0, 3).Format(time.DateOnly)
+
+	got := listItems(t, envOf(map[string]string{bitbucketExpiresVar: expires}), secretsWith(nil))
+
+	want := []string{"bitbucket-token Renew the Bitbucket token"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

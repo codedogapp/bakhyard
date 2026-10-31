@@ -20,6 +20,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
+	"github.com/codedogapp/bakhyard/internal/tokenexpiry"
 	"github.com/codedogapp/bakhyard/services/todos/internal/api"
 	"github.com/codedogapp/bakhyard/services/todos/internal/attention"
 	"github.com/codedogapp/bakhyard/services/todos/internal/migrations"
@@ -46,14 +47,20 @@ func main() {
 	}
 }
 
-// routes returns todos' handler, which serves its API and its side of the attention contract.
-// With Jira set up, it polls Jira in the background until ctx ends.
+// routes returns todos' handler, which serves its API and its side of the attention contract,
+// with the reminder to renew the Jira token. With Jira set up, it polls Jira in the background
+// until ctx ends.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
 	readSecret secrets.Reader,
 ) (http.Handler, error) {
 	client, err := jira.FromEnv(getenv, readSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := jiraToken(getenv)
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +80,8 @@ func routes(
 	api.Register(router, store, tickets, logger)
 
 	attentionServer := connect.NewServer()
-	attentionv1connect.RegisterAttentionServiceHandler(attentionServer,
-		attention.NewLister(store.List, store.Dismissed, tickets))
+	attentionv1connect.RegisterAttentionServiceHandler(attentionServer, tokenexpiry.NewLister(
+		attention.NewLister(store.List, store.Dismissed, tickets), token))
 	connecthttp.Mount(router, attentionServer)
 
 	return router, nil

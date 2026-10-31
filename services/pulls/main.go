@@ -16,6 +16,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
+	"github.com/codedogapp/bakhyard/internal/tokenexpiry"
 	"github.com/codedogapp/bakhyard/services/pulls/internal/api"
 	"github.com/codedogapp/bakhyard/services/pulls/internal/attention"
 )
@@ -34,8 +35,9 @@ func main() {
 }
 
 // routes returns the handler of pulls, which serves its API and its side of the attention
-// contract. With Bitbucket set up, it polls Bitbucket in the background until ctx ends, and with
-// notify too, it reminds the user of their pull requests that wait for approvals.
+// contract, with the reminder to renew the Bitbucket token. With Bitbucket set up, it polls
+// Bitbucket in the background until ctx ends, and with notify too, it reminds the user of their
+// pull requests that wait for approvals.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
@@ -47,6 +49,11 @@ func routes(
 	}
 
 	client, err := bitbucketClient(getenv, readSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := bitbucketToken(getenv)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +71,8 @@ func routes(
 	}
 
 	attentionServer := connect.NewServer()
-	attentionv1connect.RegisterAttentionServiceHandler(attentionServer, attention.NewLister(mine))
+	attentionv1connect.RegisterAttentionServiceHandler(attentionServer,
+		tokenexpiry.NewLister(attention.NewLister(mine), token))
 	connecthttp.Mount(router, attentionServer)
 
 	return router, nil

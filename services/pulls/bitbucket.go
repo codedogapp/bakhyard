@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/codedogapp/bakhyard/internal/env"
+	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
 	"github.com/codedogapp/bakhyard/internal/secrets"
+	"github.com/codedogapp/bakhyard/internal/tokenexpiry"
 	"github.com/codedogapp/bakhyard/services/pulls/internal/bitbucket"
 )
 
@@ -22,6 +24,23 @@ const (
 
 // bitbucketAccount is the Keychain account of the Bitbucket API token, and the name of its file.
 const bitbucketAccount = "bitbucket-token"
+
+// bitbucketExpiresVar holds the date on which the Bitbucket token expires, YYYY-MM-DD, for the
+// Home's reminder to renew it (docs/setup.md). Without it, there's no reminder.
+const bitbucketExpiresVar = "BAKHYARD_BITBUCKET_TOKEN_EXPIRES"
+
+// bitbucketToken returns the Bitbucket token, which expires on the date in
+// BAKHYARD_BITBUCKET_TOKEN_EXPIRES, or never, as far as pulls knows, when that isn't set.
+func bitbucketToken(getenv func(string) string) (tokenexpiry.Token, error) {
+	expires, err := tokenexpiry.FromEnv(getenv, bitbucketExpiresVar)
+	if err != nil {
+		return tokenexpiry.Token{}, err
+	}
+
+	return tokenexpiry.Token{
+		Name: "Bitbucket", Source: attentionv1.Source_SOURCE_BITBUCKET, Expires: expires,
+	}, nil
+}
 
 // bitbucketClient returns the client of the Bitbucket workspaces in the settings, with the API
 // token that readSecret reads, or nil when none of the Bitbucket settings is set.
