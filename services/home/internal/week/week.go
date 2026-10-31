@@ -18,6 +18,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/env"
 	timev1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/time/v1"
 	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/time/v1/timev1connect"
+	"github.com/codedogapp/bakhyard/internal/requestid"
 	"github.com/codedogapp/bakhyard/services/home/internal/screen"
 )
 
@@ -35,7 +36,8 @@ type Asker struct {
 }
 
 // New returns an Asker that asks the peer named time over gRPC on h2c, HTTP/2 without TLS, as the
-// services serve it, and logs its failures to logger. Without a peer named time, it asks nothing.
+// services serve it, sends each call the ID of the request that it's made for, and logs its
+// failures to logger. Without a peer named time, it asks nothing.
 func New(peers []env.Peer, logger *slog.Logger) Asker {
 	index := slices.IndexFunc(peers, func(peer env.Peer) bool { return peer.Name == peerName })
 	if index < 0 {
@@ -45,7 +47,7 @@ func New(peers []env.Peer, logger *slog.Logger) Asker {
 	h2c := new(http.Protocols)
 	h2c.SetUnencryptedHTTP2(true)
 
-	httpClient := &http.Client{Transport: &http.Transport{Protocols: h2c}}
+	httpClient := &http.Client{Transport: requestid.Transport(&http.Transport{Protocols: h2c})}
 	server := url.URL{Scheme: "http", Host: peers[index].Address}
 	transport := connecthttp.NewTransport(httpClient, server.String(), connecthttp.WithGRPC())
 

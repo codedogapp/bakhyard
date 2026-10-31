@@ -1,6 +1,6 @@
-// Package requestid gives each request an ID, which its answer carries and the logs of its
-// handling name, so that one request's lines can be found across the services (docs/plan.md
-// decisions 500 and 507).
+// Package requestid gives each request an ID, which its answer carries, the logs of its handling
+// name, and the services that its handling asks take as theirs, so that one request's lines can be
+// found across the services (docs/plan.md decisions 500, 507 and 508).
 package requestid
 
 import (
