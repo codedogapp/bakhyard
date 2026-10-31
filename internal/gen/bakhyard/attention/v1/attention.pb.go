@@ -28,6 +28,7 @@ const (
 	Source_SOURCE_BITBUCKET   Source = 1
 	Source_SOURCE_JIRA        Source = 2
 	Source_SOURCE_GITHUB      Source = 3
+	Source_SOURCE_COPILOT     Source = 4
 )
 
 // Enum value maps for Source.
@@ -37,12 +38,14 @@ var (
 		1: "SOURCE_BITBUCKET",
 		2: "SOURCE_JIRA",
 		3: "SOURCE_GITHUB",
+		4: "SOURCE_COPILOT",
 	}
 	Source_value = map[string]int32{
 		"SOURCE_UNSPECIFIED": 0,
 		"SOURCE_BITBUCKET":   1,
 		"SOURCE_JIRA":        2,
 		"SOURCE_GITHUB":      3,
+		"SOURCE_COPILOT":     4,
 	}
 )
 
@@ -389,12 +392,13 @@ const file_bakhyard_attention_v1_attention_proto_rawDesc = "" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
 	"\x06detail\x18\x03 \x01(\tR\x06detail\x125\n" +
 	"\x06source\x18\x04 \x01(\x0e2\x1d.bakhyard.attention.v1.SourceR\x06source\x12,\n" +
-	"\x03due\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x03due*Z\n" +
+	"\x03due\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x03due*n\n" +
 	"\x06Source\x12\x16\n" +
 	"\x12SOURCE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10SOURCE_BITBUCKET\x10\x01\x12\x0f\n" +
 	"\vSOURCE_JIRA\x10\x02\x12\x11\n" +
-	"\rSOURCE_GITHUB\x10\x032w\n" +
+	"\rSOURCE_GITHUB\x10\x03\x12\x12\n" +
+	"\x0eSOURCE_COPILOT\x10\x042w\n" +
 	"\x10AttentionService\x12c\n" +
 	"\tListItems\x12'.bakhyard.attention.v1.ListItemsRequest\x1a(.bakhyard.attention.v1.ListItemsResponse\"\x03\x90\x02\x01B\xee\x01\n" +
 	"\x19com.bakhyard.attention.v1B\x0eAttentionProtoZMgithub.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1;attentionv1\xa2\x02\x03BAX\xaa\x02\x15Bakhyard.Attention.V1\xca\x02\x15Bakhyard\\Attention\\V1\xe2\x02!Bakhyard\\Attention\\V1\\GPBMetadata\xea\x02\x17Bakhyard::Attention::V1b\beditionsp\xe9\a"

@@ -2,7 +2,6 @@ package github_test
 
 import (
 	"encoding/json/v2"
-	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/codedogapp/bakhyard/internal/githubapi"
 	"github.com/codedogapp/bakhyard/services/github/internal/github"
 )
 
@@ -35,13 +35,11 @@ type asked struct {
 }
 
 // fakeGitHub is a stand-in GitHub, whose API is at its root, as on api.github.com. It answers
-// each request with the reply that pages holds for its URI, or 404, and the headers that headers
-// holds for it.
+// each request with the reply that pages holds for its URI, or 404.
 type fakeGitHub struct {
-	pages   map[string]reply
-	headers map[string]http.Header
-	mu      sync.Mutex
-	asked   []asked
+	pages map[string]reply
+	mu    sync.Mutex
+	asked []asked
 }
 
 // serve starts f on a test server and returns the address of its API.
@@ -62,7 +60,6 @@ func (f *fakeGitHub) serve(t *testing.T) *url.URL {
 			answer = reply{http.StatusNotFound, `{"message":"Not Found","status":"404"}`}
 		}
 
-		maps.Copy(w.Header(), f.headers[r.URL.RequestURI()])
 		w.WriteHeader(answer.status)
 		_, _ = w.Write([]byte(answer.body))
 	}))
@@ -96,7 +93,7 @@ func (f *fakeGitHub) requests() []string {
 
 // clientOf returns a client of the GitHub whose API is at api.
 func clientOf(api *url.URL) *github.Client {
-	return github.New(github.Settings{API: api, Token: token})
+	return github.New(githubapi.Settings{API: api, Token: token})
 }
 
 // okay returns a 200 reply with body as JSON.

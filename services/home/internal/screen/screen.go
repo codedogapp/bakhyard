@@ -23,6 +23,7 @@ type Source string
 const (
 	SourceBakhyard  Source = "Bakhyard"
 	SourceBitbucket Source = "Bitbucket"
+	SourceCopilot   Source = "Copilot"
 	SourceGitHub    Source = "GitHub"
 	SourceJira      Source = "Jira"
 )

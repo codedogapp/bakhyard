@@ -37,4 +37,5 @@ enum Source {
   SOURCE_BITBUCKET = 1;
   SOURCE_JIRA = 2;
   SOURCE_GITHUB = 3;
+  SOURCE_COPILOT = 4;
 }

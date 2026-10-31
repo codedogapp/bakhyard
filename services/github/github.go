@@ -8,6 +8,7 @@ import (
 
 	"github.com/codedogapp/bakhyard/internal/env"
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
+	"github.com/codedogapp/bakhyard/internal/githubapi"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/tokenexpiry"
 	"github.com/codedogapp/bakhyard/services/github/internal/github"
@@ -41,7 +42,7 @@ func githubClient(
 		return nil, fmt.Errorf("read the GitHub token: %w", err)
 	}
 
-	return github.New(github.Settings{API: address, Token: token}), nil
+	return github.New(githubapi.Settings{API: address, Token: token}), nil
 }
 
 // poll starts searching GitHub with client for the user's open pull requests, for those that wait
@@ -68,38 +69,23 @@ func poll(
 	return mine, reviews, issues
 }
 
-// watchToken starts asking GitHub with client when the user's token expires, until ctx ends. It
-// returns the poller that keeps the answer, or nil when GitHub is off and client is nil.
-func watchToken(
+// githubToken returns the GitHub token, which expires when the latest ask of client to succeed
+// says, once its first ask has ended (decision 503). It asks at once and then every five minutes,
+// until ctx ends, and logs each ask that fails to logger. It never expires before an ask has
+// succeeded, or when GitHub is off and client is nil.
+func githubToken(
 	ctx context.Context,
 	client *github.Client,
 	logger *slog.Logger,
-) *github.ExpiryPoller {
-	if client == nil {
-		return nil
+) tokenexpiry.Token {
+	token := tokenexpiry.Token{
+		Name:    "GitHub",
+		Source:  attentionv1.Source_SOURCE_GITHUB,
+		Expires: tokenexpiry.On(time.Time{}),
+	}
+	if client != nil {
+		token.Expires = tokenexpiry.Watch(ctx, "GitHub token", client.Expiry, logger)
 	}
 
-	expiry := github.NewExpiryPoller(client.Expiry, logger)
-	go expiry.Run(ctx)
-
-	return expiry
-}
-
-// githubToken returns the GitHub token, which expires when the latest ask of expiry to succeed
-// says, once its first ask has ended (decision 503). It never expires before an ask has
-// succeeded, or when GitHub is off and expiry is nil.
-func githubToken(expiry *github.ExpiryPoller) tokenexpiry.Token {
-	expires := func(ctx context.Context) (time.Time, error) {
-		if expiry == nil {
-			return time.Time{}, nil
-		}
-
-		latest, err := expiry.Latest(ctx)
-
-		return latest.Found.Expires, err
-	}
-
-	return tokenexpiry.Token{
-		Name: "GitHub", Source: attentionv1.Source_SOURCE_GITHUB, Expires: expires,
-	}
+	return token
 }
