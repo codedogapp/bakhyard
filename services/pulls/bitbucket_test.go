@@ -83,6 +83,16 @@ func TestPullsStopsOnABadBitbucketSetting(t *testing.T) {
 	}
 }
 
+func TestPullsStopsOnABadTokenDate(t *testing.T) {
+	_, err := routes(t.Context(), envOf(map[string]string{bitbucketExpiresVar: "31/10/2027"}),
+		secretsWith(nil))
+
+	want := `BAKHYARD_BITBUCKET_TOKEN_EXPIRES: "31/10/2027" is not a date, YYYY-MM-DD`
+	if err == nil || err.Error() != want {
+		t.Errorf("got %v, want the error %s", err, want)
+	}
+}
+
 // bitbucketServer returns the address of a stand-in for Bitbucket's API, for the email
 // me@example.com with the token secret, and a function that returns the paths it was asked so
 // far. It finds me as {me}, and in each of the workspaces acme and labs one open pull request of

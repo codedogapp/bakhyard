@@ -7,10 +7,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
 
+	"github.com/codedogapp/bakhyard/internal/databasetest"
 	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
 	"github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1/attentionv1connect"
 	"github.com/codedogapp/bakhyard/internal/secrets"
@@ -77,6 +79,22 @@ func TestTodosListsItsHighTodosAsAttentionItemsWithoutJira(t *testing.T) {
 
 	want := []string{"1 | Call the bank | High priority | no source"}
 	if got := listItems(t, router); !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestTodosRemindsToRenewTheJiraToken(t *testing.T) {
+	schema := databasetest.NewSchema(t)
+	getenv := envOf(map[string]string{
+		databaseVar:    schema.URL,
+		jiraExpiresVar: time.Now().UTC().AddDate(0, 0, 3).Format(time.DateOnly),
+	})
+
+	got := listItems(t, served(t, getenv,
+		secretsWith(map[string]string{"postgres-todos": schema.Password})))
+
+	want := []string{"jira-token | Renew the Jira token |  | SOURCE_JIRA"}
+	if !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }

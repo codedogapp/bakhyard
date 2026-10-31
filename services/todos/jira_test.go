@@ -50,6 +50,16 @@ func TestTodosStopsOnABadJiraSetting(t *testing.T) {
 	}
 }
 
+func TestTodosStopsOnABadTokenDate(t *testing.T) {
+	_, err := routes(t.Context(), envOf(map[string]string{jiraExpiresVar: "2027-02-29"}),
+		secretsWith(nil))
+
+	want := `BAKHYARD_JIRA_TOKEN_EXPIRES: "2027-02-29" is not a date, YYYY-MM-DD`
+	if err == nil || err.Error() != want {
+		t.Errorf("got %v, want the error %s", err, want)
+	}
+}
+
 // jiraServer returns the URL of a stand-in for Jira's REST API that has one open ticket, PAY-1,
 // and one done, WEB-3, for the email me@example.com with the token secret. A fetch finds WEB-3
 // whatever it asks for.

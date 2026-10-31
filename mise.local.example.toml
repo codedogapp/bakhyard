@@ -27,12 +27,18 @@ BAKHYARD_VAULT = "/Users/you/Documents/Vault"
 # BAKHYARD_JIRA_SITE = "https://your-site.atlassian.net"
 # BAKHYARD_JIRA_API = "https://api.atlassian.com/ex/jira/<cloud ID>"
 # BAKHYARD_JIRA_EMAIL = "you@example.com"
+# The day the Jira token expires, as the API tokens' page shows it. From 14 days before, the Home
+# reminds you to renew it. Leave it out for no reminder.
+# BAKHYARD_JIRA_TOKEN_EXPIRES = "2027-10-31"
 # Bitbucket's REST API, the email of the Atlassian account whose open pull requests the pulls
 # service lists, and the slugs of the workspaces to list them in, separated by commas; the token
 # goes into the Keychain. Leave all three out to run without Bitbucket.
 # BAKHYARD_BITBUCKET_API = "https://api.bitbucket.org/2.0"
 # BAKHYARD_BITBUCKET_EMAIL = "you@example.com"
 # BAKHYARD_BITBUCKET_WORKSPACES = "acme,globex"
+# The day the Bitbucket token expires. From 14 days before, the Home reminds you to renew it.
+# Leave it out for no reminder.
+# BAKHYARD_BITBUCKET_TOKEN_EXPIRES = "2027-10-31"
 # GitHub's REST API, where the github service searches for your open pull requests, those that
 # wait for your review and the open issues assigned to you; the token goes into the Keychain.
 # Leave it out to run without GitHub.
