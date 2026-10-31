@@ -15,6 +15,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/database"
 	"github.com/codedogapp/bakhyard/internal/databasetest"
 	"github.com/codedogapp/bakhyard/internal/notifier"
+	"github.com/codedogapp/bakhyard/internal/requestid"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/agent"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/change"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/migrations"
@@ -28,14 +29,18 @@ const (
 		`"options":["Yes","No"]}`
 )
 
-// pusher records the pushes it is asked for.
+// pusher records the pushes it is asked for, and the IDs of the requests that ask for them.
 type pusher struct {
 	pushes chan notifier.Message
+	ids    chan string
 	err    error
 }
 
-func (p *pusher) Send(_ context.Context, message notifier.Message) error {
+func (p *pusher) Send(ctx context.Context, message notifier.Message) error {
 	p.pushes <- message
+
+	id, _ := requestid.FromContext(ctx)
+	p.ids <- id
 
 	return p.err
 }
@@ -72,7 +77,7 @@ func newDoor(t *testing.T) *door {
 		sessions:  session.NewRegistry(hub),
 		hub:       hub,
 		pushes:    pushes,
-		pusher:    &pusher{pushes: pushes},
+		pusher:    &pusher{pushes: pushes, ids: make(chan string, 10)},
 		logs:      &bytes.Buffer{},
 		stop:      stop,
 	}
@@ -85,15 +90,18 @@ func newDoor(t *testing.T) *door {
 		Logger:    slog.New(slog.NewTextHandler(gate.logs, nil)),
 	}.Register(stopping, router)
 
-	gate.server = httptest.NewServer(router)
+	// As in nudge, where internal/service puts the middleware in front of the routes.
+	gate.server = httptest.NewServer(requestid.Middleware(router))
 	t.Cleanup(gate.server.Close)
 
 	return gate
 }
 
+// reply is an answer's status, body and request ID.
 type reply struct {
 	status int
 	body   string
+	id     string
 }
 
 // send makes a request in the background, and returns where its reply will come.
@@ -123,7 +131,9 @@ func (gate *door) send(ctx context.Context, method, path, body string) <-chan re
 		defer func() { _ = resp.Body.Close() }()
 
 		raw, _ := io.ReadAll(resp.Body)
-		done <- reply{resp.StatusCode, string(raw)}
+		done <- reply{
+			status: resp.StatusCode, body: string(raw), id: resp.Header.Get(requestid.Header),
+		}
 	}()
 
 	return done

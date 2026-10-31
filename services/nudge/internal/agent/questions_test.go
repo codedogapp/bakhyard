@@ -57,6 +57,22 @@ func TestAFailedPushChangesNothingForTheAgent(t *testing.T) {
 	}
 }
 
+func TestThePushCarriesTheAgentsRequestID(t *testing.T) {
+	gate := newDoor(t)
+	done := gate.send(t.Context(), http.MethodPost, "/agent/questions", merge)
+	<-gate.pushes
+	pushed := <-gate.pusher.ids
+
+	if err := gate.questions.Reply(t.Context(), id1, question.Answer{Text: "ok"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The agent sent no ID, so nudge gave its request one, which the answer carries.
+	if got := <-done; pushed == "" || pushed != got.id {
+		t.Errorf("pushed with the ID %q, want the agent's request's, %q", pushed, got.id)
+	}
+}
+
 func TestABadQuestionGetsA400(t *testing.T) {
 	tests := map[string]string{
 		"not JSON":       `nope`,

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/codedogapp/bakhyard/internal/env"
+	"github.com/codedogapp/bakhyard/internal/requestid"
 	"github.com/codedogapp/bakhyard/services/planner/internal/api"
 	"github.com/codedogapp/bakhyard/services/planner/internal/vault"
 )
@@ -15,7 +16,8 @@ import (
 const notesTimeout = 30 * time.Second
 
 // vaultClient returns the vault that keeps plans through notes, the peer that serves the Obsidian
-// vault, or nil when BAKHYARD_PEERS lists no notes.
+// vault, or nil when BAKHYARD_PEERS lists no notes. Each save carries the ID of the request whose
+// handling saves.
 func vaultClient(getenv func(string) string) (api.Saver, error) {
 	address, found, err := env.LookupPeer(getenv, "notes")
 	if err != nil || !found {
@@ -24,7 +26,10 @@ func vaultClient(getenv func(string) string) (api.Saver, error) {
 
 	return vault.Client{
 		Notes: &url.URL{Scheme: "http", Host: address},
-		HTTP:  &http.Client{Timeout: notesTimeout},
-		Now:   time.Now,
+		HTTP: &http.Client{
+			Timeout:   notesTimeout,
+			Transport: requestid.Transport(http.DefaultTransport),
+		},
+		Now: time.Now,
 	}, nil
 }

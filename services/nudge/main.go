@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/codedogapp/bakhyard/internal/env"
 	"github.com/codedogapp/bakhyard/internal/health"
 	"github.com/codedogapp/bakhyard/internal/keychain"
-	"github.com/codedogapp/bakhyard/internal/notifier"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
 	"github.com/codedogapp/bakhyard/services/nudge/internal/agent"
@@ -38,8 +36,6 @@ const (
 	// heartbeat is how often an event stream says it is still open: under the idle timeouts of
 	// the proxies in between.
 	heartbeat = 25 * time.Second
-	// notifyTimeout bounds one request to notify.
-	notifyTimeout = 10 * time.Second
 )
 
 func main() {
@@ -75,10 +71,7 @@ func routes(
 	hub := &change.Hub{}
 	questions := question.NewStore(pool, hub)
 	sessions := session.NewRegistry(hub)
-	pusher := notifier.Client{
-		Notify: &url.URL{Scheme: "http", Host: address},
-		HTTP:   &http.Client{Timeout: notifyTimeout},
-	}
+	pusher := notifyClient(address)
 
 	router := chi.NewRouter()
 	router.Use(middleware.GetHead)
