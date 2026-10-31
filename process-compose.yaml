@@ -6,6 +6,11 @@
 is_strict: true
 ordered_shutdown: true
 
+# The services log slog's text, which the TUI shows as it is, rather than the JSON lines they
+# write by default for the laptop's VictoriaLogs (docs/setup.md).
+environment:
+  - BAKHYARD_LOG_FORMAT=text
+
 # Every service restarts after 1 s whenever it exits or fails its readiness probe 3 times in a
 # row, unless you stopped it. A service still running 10 s after SIGTERM gets SIGKILL.
 x-service: &service

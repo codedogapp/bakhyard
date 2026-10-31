@@ -265,6 +265,8 @@ With `BAKHYARD_VAULT_HISTORY` set to the vault's history in Gitea, `https://<git
 
 `mise run up` builds the services and runs them with process-compose. A service that exits restarts after 1 s, so a missing setting or secret shows up in that service's log every second until it's fixed.
 
+The services log slog's text there, since `process-compose.yaml` sets `BAKHYARD_LOG_FORMAT=text` for each. Without it, as on the laptop, they log JSON lines, which the laptop's VictoriaLogs reads into fields; any other value stops them with `BAKHYARD_LOG_FORMAT: "…" is neither json nor text` (decision 506).
+
 Open `https://<machine>.<tailnet>.ts.net`. Without a session the app shows its sign-in screen, whose Sign in button goes to Google; a sign-in starts a session for 7 days, renewed as the app uses it, and lands on the Home. Sign out, at the header's right end, ends the session on that device only (decision 88). To sign out everywhere, for example after losing a phone, delete every session in `psql`, connected to `bakhyard_gateway`:
 
 ```sql
