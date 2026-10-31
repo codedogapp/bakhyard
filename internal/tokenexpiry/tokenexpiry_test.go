@@ -122,10 +122,22 @@ func TestListItemsFailsWhenTheServiceFails(t *testing.T) {
 	}
 }
 
+func TestListItemsFailsWhenTheExpiryFails(t *testing.T) {
+	unknown := errors.New("the expiry is unknown")
+	token := jiraToken(time.Time{})
+	token.Expires = func(context.Context) (time.Time, error) { return time.Time{}, unknown }
+
+	res, err := tokenexpiry.NewLister(listing(fixTheLogin), token).ListItems(t.Context(),
+		&attentionv1.ListItemsRequest{})
+	if !errors.Is(err, unknown) || res != nil {
+		t.Errorf("got %v and %v, want no answer and the expiry's error", res, err)
+	}
+}
+
 // call is the key of a value that marks a call's context.
 type call struct{}
 
-func TestListItemsListsTheServicesItemsWithinTheCall(t *testing.T) {
+func TestListItemsListsTheServicesItemsAndTheExpiryWithinTheCall(t *testing.T) {
 	asked := &attentionv1.ListItemsRequest{}
 	within := listerFunc(func(ctx context.Context, req *attentionv1.ListItemsRequest) (
 		*attentionv1.ListItemsResponse, error,
@@ -136,8 +148,16 @@ func TestListItemsListsTheServicesItemsWithinTheCall(t *testing.T) {
 
 		return &attentionv1.ListItemsResponse{}, nil
 	})
+	token := jiraToken(time.Time{})
+	token.Expires = func(ctx context.Context) (time.Time, error) {
+		if ctx.Value(call{}) == nil {
+			t.Error("asked when the token expires outside the call")
+		}
 
-	_, err := tokenexpiry.NewLister(within, jiraToken(time.Time{})).ListItems(
+		return time.Time{}, nil
+	}
+
+	_, err := tokenexpiry.NewLister(within, token).ListItems(
 		context.WithValue(t.Context(), call{}, true), asked)
 	if err != nil {
 		t.Fatal(err)
@@ -164,10 +184,10 @@ func listing(items ...*attentionv1.Item) listerFunc {
 	}
 }
 
-// jiraToken returns the Jira token, which expires at expires.
+// jiraToken returns the Jira token, which expires at expires, or never when it's zero.
 func jiraToken(expires time.Time) tokenexpiry.Token {
 	return tokenexpiry.Token{
-		Name: "Jira", Source: attentionv1.Source_SOURCE_JIRA, Expires: expires,
+		Name: "Jira", Source: attentionv1.Source_SOURCE_JIRA, Expires: tokenexpiry.On(expires),
 	}
 }
 

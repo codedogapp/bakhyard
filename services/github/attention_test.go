@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestGitHubListsMyPRsReviewRequestsAndIssuesAsAttentionItems(t *testing.T) {
-	got := listItems(t, envOf(map[string]string{githubAPIVar: githubServer(t)}),
+	got := listItems(t, envOf(map[string]string{githubAPIVar: githubServer(t, time.Time{})}),
 		secretsWith(map[string]string{"github-token": "secret"}))
 
 	want := []string{

@@ -38,7 +38,9 @@ func bitbucketToken(getenv func(string) string) (tokenexpiry.Token, error) {
 	}
 
 	return tokenexpiry.Token{
-		Name: "Bitbucket", Source: attentionv1.Source_SOURCE_BITBUCKET, Expires: expires,
+		Name:    "Bitbucket",
+		Source:  attentionv1.Source_SOURCE_BITBUCKET,
+		Expires: tokenexpiry.On(expires),
 	}, nil
 }
 

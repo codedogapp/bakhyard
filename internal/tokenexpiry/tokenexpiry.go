@@ -3,6 +3,7 @@
 package tokenexpiry
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -21,8 +22,17 @@ type Token struct {
 	Name string
 	// Source is the outside service that the token is for.
 	Source attentionv1.Source
-	// Expires is when the token expires, zero for never.
-	Expires time.Time
+	// Expires tells when the token expires.
+	Expires Expiry
+}
+
+// Expiry returns when a token expires, or the zero time for a token that never expires, or whose
+// expiry the service doesn't know yet.
+type Expiry func(context.Context) (time.Time, error)
+
+// On returns the expiry of a token that expires at expires, such as the date that FromEnv reads.
+func On(expires time.Time) Expiry {
+	return func(context.Context) (time.Time, error) { return expires, nil }
 }
 
 // FromEnv returns the date that the setting name holds as YYYY-MM-DD, at its start in UTC, since
@@ -42,11 +52,11 @@ func FromEnv(getenv func(string) string, name string) (time.Time, error) {
 	return date, nil
 }
 
-// item returns the item that reminds the user at now to renew the token, due when it expires, so
-// that it shows late after. Its ID is the token's name in lower case, then -token, such as
-// jira-token. It returns nil when the token never expires, or expires more than lead after now.
-func (t Token) item(now time.Time) *attentionv1.Item {
-	if t.Expires.IsZero() || now.Before(t.Expires.Add(-lead)) {
+// item returns the item that reminds the user at now to renew the token, which expires at
+// expires, due then, so that it shows late after. Its ID is the token's name in lower case, then
+// -token, such as jira-token. It returns nil when expires is zero, or more than lead after now.
+func (t Token) item(expires, now time.Time) *attentionv1.Item {
+	if expires.IsZero() || now.Before(expires.Add(-lead)) {
 		return nil
 	}
 
@@ -54,6 +64,6 @@ func (t Token) item(now time.Time) *attentionv1.Item {
 		Id:     new(strings.ToLower(t.Name) + "-token"),
 		Title:  new("Renew the " + t.Name + " token"),
 		Source: new(t.Source),
-		Due:    timestamppb.New(t.Expires),
+		Due:    timestamppb.New(expires),
 	}.Build()
 }
