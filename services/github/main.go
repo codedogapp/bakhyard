@@ -16,6 +16,7 @@ import (
 	"github.com/codedogapp/bakhyard/internal/keychain"
 	"github.com/codedogapp/bakhyard/internal/secrets"
 	"github.com/codedogapp/bakhyard/internal/service"
+	"github.com/codedogapp/bakhyard/internal/tokenexpiry"
 	"github.com/codedogapp/bakhyard/services/github/internal/api"
 	"github.com/codedogapp/bakhyard/services/github/internal/attention"
 )
@@ -34,7 +35,8 @@ func main() {
 }
 
 // routes returns the handler of github, which serves its API and its side of the attention
-// contract. With GitHub set up, it searches GitHub in the background until ctx ends.
+// contract, with a reminder to renew the GitHub token before it expires. With GitHub set up, it
+// searches GitHub, and asks when the token expires, in the background until ctx ends.
 func routes(
 	ctx context.Context,
 	getenv func(string) string,
@@ -50,12 +52,14 @@ func routes(
 	router.Use(middleware.GetHead)
 	health.Register(router)
 
-	mine, reviews, issues := poll(ctx, client, slog.Default())
+	logger := slog.Default()
+	mine, reviews, issues := poll(ctx, client, logger)
 	api.Register(router, mine, reviews, issues)
 
+	token := githubToken(watchToken(ctx, client, logger))
 	attentionServer := connect.NewServer()
 	attentionv1connect.RegisterAttentionServiceHandler(attentionServer,
-		attention.NewLister(mine, reviews, issues))
+		tokenexpiry.NewLister(attention.NewLister(mine, reviews, issues), token))
 	connecthttp.Mount(router, attentionServer)
 
 	return router, nil

@@ -107,6 +107,31 @@ func (c *Client) page(
 		"per_page": {strconv.Itoa(pageSize)}, "page": {strconv.Itoa(number)},
 	}.Encode()
 
+	res, err := c.get(ctx, target, action)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { _ = res.Body.Close() }()
+
+	var answer results
+
+	err = json.UnmarshalRead(io.LimitReader(res.Body, maxAnswer), &answer)
+	if err != nil {
+		return nil, fmt.Errorf("read GitHub's answer: %w", err)
+	}
+
+	// A search that ran out of time may have missed some results.
+	if answer.Incomplete {
+		return nil, fmt.Errorf("%s: GitHub's results are incomplete", action)
+	}
+
+	return answer.Items, nil
+}
+
+// get asks GitHub's API for target as the user, and returns GitHub's answer once GitHub has said
+// OK; the caller closes its body. Its errors start with action.
+func (c *Client) get(ctx context.Context, target *url.URL, action string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", action, err)
@@ -122,23 +147,11 @@ func (c *Client) page(
 		return nil, fmt.Errorf("%s: %w", action, err)
 	}
 
-	defer func() { _ = res.Body.Close() }()
-
 	if res.StatusCode != http.StatusOK {
+		_ = res.Body.Close()
+
 		return nil, fmt.Errorf("%s: %s", action, res.Status)
 	}
 
-	var answer results
-
-	err = json.UnmarshalRead(io.LimitReader(res.Body, maxAnswer), &answer)
-	if err != nil {
-		return nil, fmt.Errorf("read GitHub's answer: %w", err)
-	}
-
-	// A search that ran out of time may have missed some results.
-	if answer.Incomplete {
-		return nil, fmt.Errorf("%s: GitHub's results are incomplete", action)
-	}
-
-	return answer.Items, nil
+	return res, nil
 }

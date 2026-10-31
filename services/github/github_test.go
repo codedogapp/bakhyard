@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/codedogapp/bakhyard/services/github/internal/github"
 )
@@ -98,8 +99,9 @@ func TestEachListLogsItsFailedSearches(t *testing.T) {
 
 // githubServer returns the address of a stand-in for GitHub's API, for the token secret. Its
 // search finds one item: my open PR in acme/web, a PR in acme/api that waits for my review, or my
-// issue in acme/docs.
-func githubServer(t *testing.T) string {
+// issue in acme/docs. Its answer about the user tells, as GitHub does, that the token expires at
+// expires, or nothing when expires is zero and the token never expires.
+func githubServer(t *testing.T, expires time.Time) string {
 	t.Helper()
 
 	repos := map[string]string{
@@ -110,15 +112,23 @@ func githubServer(t *testing.T) string {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		repo, found := repos[r.URL.Query().Get("q")]
-		if r.Header.Get("Authorization") != "Bearer secret" || r.URL.Path != "/search/issues" ||
-			!found {
+
+		switch {
+		case r.Header.Get("Authorization") != "Bearer secret":
 			w.WriteHeader(http.StatusNotFound)
+		case r.URL.Path == "/user":
+			if !expires.IsZero() {
+				w.Header().Set("GitHub-Authentication-Token-Expiration",
+					expires.UTC().Format("2006-01-02 15:04:05 MST"))
+			}
 
-			return
+			_, _ = w.Write([]byte(`{"login":"you","id":1}`))
+		case r.URL.Path != "/search/issues" || !found:
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			_, _ = w.Write([]byte(`{"incomplete_results":false,"items":[{"id":1,"number":1,` +
+				`"repository_url":"https://api.github.com/repos/` + repo + `"}]}`))
 		}
-
-		_, _ = w.Write([]byte(`{"incomplete_results":false,"items":[{"id":1,"number":1,` +
-			`"repository_url":"https://api.github.com/repos/` + repo + `"}]}`))
 	}))
 	t.Cleanup(server.Close)
 

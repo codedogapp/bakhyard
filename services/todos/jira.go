@@ -24,7 +24,7 @@ func jiraToken(getenv func(string) string) (tokenexpiry.Token, error) {
 	}
 
 	return tokenexpiry.Token{
-		Name: "Jira", Source: attentionv1.Source_SOURCE_JIRA, Expires: expires,
+		Name: "Jira", Source: attentionv1.Source_SOURCE_JIRA, Expires: tokenexpiry.On(expires),
 	}, nil
 }
 

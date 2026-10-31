@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/codedogapp/bakhyard/internal/secrets"
 )
@@ -44,7 +45,7 @@ func TestGitHubServesWithoutGitHub(t *testing.T) {
 }
 
 func TestGitHubSearchesEachList(t *testing.T) {
-	address := githubServer(t)
+	address := githubServer(t, time.Time{})
 
 	router, err := routes(t.Context(), envOf(map[string]string{githubAPIVar: address}),
 		secretsWith(map[string]string{"github-token": "secret"}))

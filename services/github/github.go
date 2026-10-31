@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/codedogapp/bakhyard/internal/env"
+	attentionv1 "github.com/codedogapp/bakhyard/internal/gen/bakhyard/attention/v1"
 	"github.com/codedogapp/bakhyard/internal/secrets"
+	"github.com/codedogapp/bakhyard/internal/tokenexpiry"
 	"github.com/codedogapp/bakhyard/services/github/internal/github"
 )
 
@@ -63,4 +66,40 @@ func poll(
 	go issues.Run(ctx)
 
 	return mine, reviews, issues
+}
+
+// watchToken starts asking GitHub with client when the user's token expires, until ctx ends. It
+// returns the poller that keeps the answer, or nil when GitHub is off and client is nil.
+func watchToken(
+	ctx context.Context,
+	client *github.Client,
+	logger *slog.Logger,
+) *github.ExpiryPoller {
+	if client == nil {
+		return nil
+	}
+
+	expiry := github.NewExpiryPoller(client.Expiry, logger)
+	go expiry.Run(ctx)
+
+	return expiry
+}
+
+// githubToken returns the GitHub token, which expires when the latest ask of expiry to succeed
+// says, once its first ask has ended (decision 503). It never expires before an ask has
+// succeeded, or when GitHub is off and expiry is nil.
+func githubToken(expiry *github.ExpiryPoller) tokenexpiry.Token {
+	expires := func(ctx context.Context) (time.Time, error) {
+		if expiry == nil {
+			return time.Time{}, nil
+		}
+
+		latest, err := expiry.Latest(ctx)
+
+		return latest.Found.Expires, err
+	}
+
+	return tokenexpiry.Token{
+		Name: "GitHub", Source: attentionv1.Source_SOURCE_GITHUB, Expires: expires,
+	}
 }

@@ -22,7 +22,8 @@ func NewLister(items attentionv1connect.AttentionServiceHandler, token Token) *L
 }
 
 // ListItems lists the items that the service's lister lists, then the token's reminder when it's
-// due within 14 days or already past. When the service's lister fails, it fails with its error.
+// due within 14 days or already past. When the service's lister fails, or the token's expiry, it
+// fails with its error.
 func (l *Lister) ListItems(
 	ctx context.Context,
 	req *attentionv1.ListItemsRequest,
@@ -32,7 +33,12 @@ func (l *Lister) ListItems(
 		return nil, err
 	}
 
-	if reminder := l.token.item(time.Now()); reminder != nil {
+	expires, err := l.token.Expires(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if reminder := l.token.item(expires, time.Now()); reminder != nil {
 		res.SetItems(append(res.GetItems(), reminder))
 	}
 
