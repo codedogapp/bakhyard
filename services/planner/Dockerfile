@@ -24,14 +24,14 @@ RUN if [ "$TARGETARCH" != amd64 ]; then echo "The planner's image is for linux/a
 
 # The CLI unpacks its package on its first start, into the user's cache folder; unpacking it here,
 # into nonroot's, lets it run on a read-only root file system and keeps its code read-only too.
-FROM gcr.io/distroless/cc-debian13:nonroot@sha256:3ee00291cf386ec52a552e6a858d555debd74776eb4bfa53fa3df2cd6677515e AS unpack
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:08476c244888bfb425bae1ae4dd7c17f093e972aab8426883d97f3c6f280f7c1 AS unpack
 COPY --from=cli /out/copilot /usr/local/bin/copilot
 USER 0
 ENV COPILOT_SEA_EXTRACT_ONLY=1 COPILOT_PKG_CACHE_HOME=/home/nonroot/.cache/copilot
 RUN ["/usr/local/bin/copilot"]
 
 # The CLI needs glibc and the C++ runtime, which distroless's cc image has.
-FROM gcr.io/distroless/cc-debian13:nonroot@sha256:3ee00291cf386ec52a552e6a858d555debd74776eb4bfa53fa3df2cd6677515e
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:08476c244888bfb425bae1ae4dd7c17f093e972aab8426883d97f3c6f280f7c1
 COPY --from=cli /out/copilot /usr/local/bin/copilot
 COPY --from=unpack /home/nonroot/.cache/copilot/pkg /home/nonroot/.cache/copilot/pkg
 COPY --from=build /out/planner /usr/local/bin/planner
