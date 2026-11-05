@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // The tests' own ports, apart from mise run up's (8080 and on), so both can run at once. A session that works
-// beside others sets BAKHYARD_E2E_PORT to a base of its own (AGENTS.md, Parallel sessions).
+// beside others sets BAKHYARD_E2E_PORT to a base of its own (plan decision 195).
 const base = basePort(process.env.BAKHYARD_E2E_PORT);
 const gateway = `127.0.0.1:${base}`;
 const web = `127.0.0.1:${base + 2}`;

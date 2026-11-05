@@ -2,7 +2,7 @@ version: "2"
 
 run:
   # A run waits for another one to end rather than failing after 5 s: sessions in other worktrees
-  # lint at the same time (AGENTS.md, Parallel sessions).
+  # lint at the same time (plan decision 195).
   allow-serial-runners: true
 
 issues:
