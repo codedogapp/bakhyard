@@ -1,7 +1,7 @@
 # Build from the repo's root: docker build -f services/web/Dockerfile . (docs/plan.md, decision 138)
 FROM --platform=$BUILDPLATFORM node:26.13.0-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94 AS app
 # renovate: datasource=npm depName=pnpm
-ARG PNPM_VERSION=12.16.1
+ARG PNPM_VERSION=12.18.0
 RUN npm install --global --ignore-scripts "pnpm@$PNPM_VERSION"
 WORKDIR /src/apps/web
 COPY apps/web/package.json apps/web/pnpm-lock.yaml apps/web/pnpm-workspace.yaml ./
